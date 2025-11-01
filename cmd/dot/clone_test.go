@@ -138,6 +138,77 @@ func TestFormatCloneError_GenericError(t *testing.T) {
 	assert.Equal(t, err, formatted)
 }
 
+func TestExtractRepoName(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{
+			name:     "HTTPS URL with .git suffix",
+			url:      "https://github.com/user/my-dotfiles.git",
+			expected: "my-dotfiles",
+		},
+		{
+			name:     "HTTPS URL without .git suffix",
+			url:      "https://github.com/user/my-dotfiles",
+			expected: "my-dotfiles",
+		},
+		{
+			name:     "SSH URL with .git suffix",
+			url:      "git@github.com:user/my-dotfiles.git",
+			expected: "my-dotfiles",
+		},
+		{
+			name:     "SSH URL without .git suffix",
+			url:      "git@github.com:user/my-dotfiles",
+			expected: "my-dotfiles",
+		},
+		{
+			name:     "GitLab HTTPS URL",
+			url:      "https://gitlab.com/user/dotfiles.git",
+			expected: "dotfiles",
+		},
+		{
+			name:     "GitLab SSH URL",
+			url:      "git@gitlab.com:user/dotfiles.git",
+			expected: "dotfiles",
+		},
+		{
+			name:     "URL with nested path",
+			url:      "https://github.com/org/team/repo.git",
+			expected: "repo",
+		},
+		{
+			name:     "Simple repo name",
+			url:      "my-dotfiles",
+			expected: "my-dotfiles",
+		},
+		{
+			name:     "Empty URL",
+			url:      "",
+			expected: "dotfiles",
+		},
+		{
+			name:     "URL with query parameters",
+			url:      "https://github.com/user/repo.git?ref=main",
+			expected: "repo",
+		},
+		{
+			name:     "Bitbucket SSH URL",
+			url:      "git@bitbucket.org:user/my-config.git",
+			expected: "my-config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractRepoName(tt.url)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestCloneCommand_Integration(t *testing.T) {
 	// Integration tests requiring actual repository would go here
 	// Skipped in unit tests
