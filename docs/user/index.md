@@ -101,8 +101,6 @@ Comprehensive guide to using dot for dotfile and configuration management.
 ### Examples
 
 - [Basic Examples](../../examples/basic/)
-- [Configuration Examples](../../examples/configuration/)
-- [Workflow Examples](../../examples/workflows/)
 - [Examples README](../../examples/README.md)
 
 ### Reference

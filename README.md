@@ -498,9 +498,7 @@ Complete documentation index available at [docs/README.md](docs/README.md).
 ### Examples
 
 - [Basic Usage Examples](examples/basic/)
-- [Configuration Examples](examples/configuration/)
-- [Workflow Examples](examples/workflows/)
-- [Library Embedding Examples](examples/library/)
+- [Examples README](examples/README.md)
 
 ## Development
 
@@ -599,8 +597,6 @@ func main() {
 }
 ```
 
-See [Library Examples](examples/library/) for more detailed usage patterns.
-
 ## Contributing
 
 Contributions are welcome. All contributions must follow project standards:
@@ -674,7 +670,7 @@ See [Migration Guide](docs/user/migration-from-stow.md) for transitioning from G
 
 **Stability**: Stable
 
-See [CHANGELOG](CHANGELOG.md) for release history and [docs/planning/](docs/planning/) for development milestones.
+See [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Acknowledgments
 

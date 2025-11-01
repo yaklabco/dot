@@ -7,7 +7,6 @@ This directory contains all technical documentation for the dot CLI project, org
 ```
 docs/
 ├── developer/            # Developer documentation and workflows
-├── planning/            # Active development plans and completed phases
 └── user/               # End-user documentation and guides
 ```
 
@@ -41,26 +40,6 @@ Documentation for developers contributing to the dot project.
 - [`developer/testing.md`](developer/testing.md) - Testing strategy and paradigms
 - [`developer/release-workflow.md`](developer/release-workflow.md) - Release process and workflow
 
-## Planning Documentation
-
-Development phases, implementation plans, and project roadmaps.
-
-### Active Phase Plans
-Current and recent development phases located in repository root:
-
-- [`../phase-16-plan.md`](../phase-16-plan.md) - Phase 16 plan
-- [`../phase-17-plan.md`](../phase-17-plan.md) - Phase 17 plan
-- [`../phase-18-plan.md`](../phase-18-plan.md) - Phase 18 plan
-- [`../phase-20-plan.md`](../phase-20-plan.md) - Phase 20 plan
-
-### Completed Phases
-Phase completion status and milestones achieved:
-
-- [`planning/PHASE-19-COMPLETE.md`](planning/PHASE-19-COMPLETE.md) - Phase 19 completion
-- [`planning/phase-24-complete.md`](planning/phase-24-complete.md) - Phase 24 completion
-- [`planning/phase-24-progress-checkpoint.md`](planning/phase-24-progress-checkpoint.md) - Phase 24 progress checkpoint
-- [`planning/phase-24-code-smell-remediation-plan.md`](planning/phase-24-code-smell-remediation-plan.md) - Phase 24 code smell remediation plan
-
 ## Additional Documentation
 
 Other project documentation is located in the repository root:
@@ -84,11 +63,6 @@ Other project documentation is located in the repository root:
 4. Review [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for contribution guidelines
 5. Check [`user/09-glossary.md`](user/09-glossary.md) for project terminology
 
-### For Feature Development
-1. Review active phase plans in repository root (phase-16 through phase-20)
-2. Check [`planning/`](planning/) for completed phases and status
-3. Consult [`developer/release-workflow.md`](developer/release-workflow.md) for release process
-
 ### For Users Migrating from GNU Stow
 1. Start with [`user/migration-from-stow.md`](user/migration-from-stow.md)
 2. Review [`user/01-introduction.md`](user/01-introduction.md) for terminology differences
@@ -99,18 +73,10 @@ Other project documentation is located in the repository root:
 ### Adding New Documentation
 - User guides go in `user/`
 - Developer documentation goes in `developer/`
-- Planning documents go in `planning/` for completion records, or repository root for active plans
 - Update this index when adding new documents
-
-### Phase Completion
-When completing a development phase:
-1. Create completion document in `planning/`
-2. Update this index to list the completion document
-3. Consider moving active plan from repository root to archive if no longer relevant
 
 ### Organization Guidelines
 - Keep this index synchronized with actual file structure
 - User documentation should be comprehensive and accessible to non-technical users
 - Developer documentation should focus on contribution and development workflows
-- Planning documents track project progress and decisions
 
