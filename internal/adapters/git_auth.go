@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cli/go-gh/pkg/auth"
 )
 
 // ResolveAuth determines the appropriate authentication method for a repository URL.
@@ -13,13 +15,15 @@ import (
 //  1. GITHUB_TOKEN environment variable → TokenAuth
 //  2. GIT_TOKEN environment variable → TokenAuth
 //  3. SSH keys in ~/.ssh/ → SSHAuth (for SSH URLs)
-//  4. NoAuth (public repositories)
+//  4. GitHub CLI (gh) authenticated token → TokenAuth (for HTTPS GitHub URLs)
+//  5. NoAuth (public repositories)
 //
-// The function inspects the URL to determine if SSH auth is needed.
-// For HTTPS URLs, token auth is preferred if available.
-// For SSH URLs (git@... or ssh://...), SSH key auth is used if keys exist.
+// The function inspects the URL to determine authentication needs.
+// For SSH URLs (git@... or ssh://...), SSH key auth is preferred.
+// For GitHub HTTPS URLs, checks gh CLI if environment tokens not set.
+// This ensures SSH URLs use SSH keys as users expect.
 func ResolveAuth(ctx context.Context, repoURL string) (AuthMethod, error) {
-	// Check for token in environment variables
+	// Priority 1: Check for token in environment variables
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		return TokenAuth{Token: token}, nil
 	}
@@ -28,7 +32,8 @@ func ResolveAuth(ctx context.Context, repoURL string) (AuthMethod, error) {
 		return TokenAuth{Token: token}, nil
 	}
 
-	// For SSH URLs, try to find SSH keys
+	// Priority 2: For SSH URLs, try to find SSH keys
+	// SSH URLs explicitly request SSH auth, so honor that before trying tokens
 	if isSSHURL(repoURL) {
 		homeDir, err := os.UserHomeDir()
 		if err == nil {
@@ -38,7 +43,14 @@ func ResolveAuth(ctx context.Context, repoURL string) (AuthMethod, error) {
 		}
 	}
 
-	// Fall back to no authentication (public repos)
+	// Priority 3: GitHub CLI for HTTPS GitHub URLs
+	if isGitHubURL(repoURL) && !isSSHURL(repoURL) {
+		if token := getGitHubCLIToken(); token != "" {
+			return TokenAuth{Token: token}, nil
+		}
+	}
+
+	// Priority 4: Fall back to no authentication (public repos)
 	return NoAuth{}, nil
 }
 
@@ -71,4 +83,19 @@ func findSSHKey(homeDir string) string {
 	}
 
 	return ""
+}
+
+// getGitHubCLIToken attempts to retrieve the GitHub token from gh CLI.
+// Uses the official go-gh library to access gh's stored credentials.
+// Returns empty string if gh CLI is not authenticated or not installed.
+func getGitHubCLIToken() string {
+	token, _ := auth.TokenForHost("github.com")
+	// TokenForHost returns ("", "default") if no token is found
+	return token
+}
+
+// isGitHubURL checks if a URL is a GitHub URL.
+// Supports both HTTPS and SSH GitHub URLs.
+func isGitHubURL(url string) bool {
+	return strings.Contains(url, "github.com")
 }
