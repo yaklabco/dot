@@ -182,15 +182,25 @@ func (p *Pager) getKeyPress() pagerAction {
 		return actionPageDown
 	}
 
-	// Handle key presses
-	switch {
-	case buf[0] == 'q' || buf[0] == 'Q':
-		return actionQuit
-	case buf[0] == ' ' || buf[0] == '\r' || buf[0] == '\n':
+	// Truncate buffer to actual bytes read for safe indexing
+	input := buf[:n]
+
+	// Need at least one byte
+	if len(input) < 1 {
 		return actionPageDown
-	case n == 3 && buf[0] == 27 && buf[1] == 91:
-		// Arrow key escape sequence: ESC [ [A-D]
-		switch buf[2] {
+	}
+
+	// Handle single key presses
+	if input[0] == 'q' || input[0] == 'Q' {
+		return actionQuit
+	}
+	if input[0] == ' ' || input[0] == '\r' || input[0] == '\n' {
+		return actionPageDown
+	}
+
+	// Handle arrow key escape sequences: ESC [ [A-D]
+	if len(input) >= 3 && input[0] == 27 && input[1] == 91 {
+		switch input[2] {
 		case 65: // Up arrow
 			return actionLineUp
 		case 66: // Down arrow
