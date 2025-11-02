@@ -49,7 +49,7 @@ comprehensive conflict detection, and incremental updates.`,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Perform startup version check (async, non-blocking)
-			go performStartupVersionCheckAsync(version)
+			performStartupVersionCheckAsync(version)
 			return nil
 		},
 	}
