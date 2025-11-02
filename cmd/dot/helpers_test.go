@@ -30,6 +30,13 @@ func TestShouldColorize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore globalCfg
+			previous := globalCfg
+			t.Cleanup(func() {
+				globalCfg = previous
+			})
+			globalCfg.noColor = false
+
 			// Unset NO_COLOR for this test to ensure it doesn't interfere
 			original := os.Getenv("NO_COLOR")
 			os.Unsetenv("NO_COLOR")
@@ -43,6 +50,78 @@ func TestShouldColorize(t *testing.T) {
 			assert.Equal(t, tt.want, result)
 		})
 	}
+}
+
+func TestShouldColorizeWithNoColorFlag(t *testing.T) {
+	t.Run("--no-color takes precedence over always", func(t *testing.T) {
+		previous := globalCfg
+		t.Cleanup(func() {
+			globalCfg = previous
+		})
+		globalCfg.noColor = true
+
+		result := shouldColorize("always")
+		assert.False(t, result, "--no-color should disable colors even with --color=always")
+	})
+
+	t.Run("--no-color takes precedence over NO_COLOR unset", func(t *testing.T) {
+		previous := globalCfg
+		t.Cleanup(func() {
+			globalCfg = previous
+		})
+		globalCfg.noColor = true
+
+		original := os.Getenv("NO_COLOR")
+		os.Unsetenv("NO_COLOR")
+		t.Cleanup(func() {
+			if original != "" {
+				os.Setenv("NO_COLOR", original)
+			}
+		})
+
+		result := shouldColorize("always")
+		assert.False(t, result, "--no-color should disable colors")
+	})
+
+	t.Run("NO_COLOR env takes precedence over --color=always when --no-color is false", func(t *testing.T) {
+		previous := globalCfg
+		t.Cleanup(func() {
+			globalCfg = previous
+		})
+		globalCfg.noColor = false
+
+		original := os.Getenv("NO_COLOR")
+		os.Setenv("NO_COLOR", "1")
+		t.Cleanup(func() {
+			if original == "" {
+				os.Unsetenv("NO_COLOR")
+			} else {
+				os.Setenv("NO_COLOR", original)
+			}
+		})
+
+		result := shouldColorize("always")
+		assert.False(t, result, "NO_COLOR should disable colors when --no-color is not set")
+	})
+
+	t.Run("colors enabled when neither flag nor env set", func(t *testing.T) {
+		previous := globalCfg
+		t.Cleanup(func() {
+			globalCfg = previous
+		})
+		globalCfg.noColor = false
+
+		original := os.Getenv("NO_COLOR")
+		os.Unsetenv("NO_COLOR")
+		t.Cleanup(func() {
+			if original != "" {
+				os.Setenv("NO_COLOR", original)
+			}
+		})
+
+		result := shouldColorize("always")
+		assert.True(t, result, "colors should be enabled with --color=always")
+	})
 }
 
 func TestShouldColorize_Auto(t *testing.T) {
