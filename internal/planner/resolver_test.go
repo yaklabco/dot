@@ -519,7 +519,7 @@ func TestResolveOperationWithAllTypes(t *testing.T) {
 		linkPath := domain.NewTargetPath("/home/user/.bashrc").Unwrap()
 		op := domain.NewLinkDelete("link-del-auto", linkPath)
 
-		outcome := resolveOperation(op, current, policies)
+		outcome := resolveOperation(op, current, policies, "")
 
 		assert.Equal(t, ResolveOK, outcome.Status)
 		assert.Len(t, outcome.Operations, 1)
@@ -529,7 +529,7 @@ func TestResolveOperationWithAllTypes(t *testing.T) {
 		dirPath := domain.NewFilePath("/home/user/.config").Unwrap()
 		op := domain.NewDirDelete("dir-del-auto", dirPath)
 
-		outcome := resolveOperation(op, current, policies)
+		outcome := resolveOperation(op, current, policies, "")
 
 		assert.Equal(t, ResolveOK, outcome.Status)
 		assert.Len(t, outcome.Operations, 1)
@@ -540,7 +540,7 @@ func TestResolveOperationWithAllTypes(t *testing.T) {
 		dest := domain.NewFilePath("/packages/bash/dot-bashrc").Unwrap()
 		op := domain.NewFileMove("move-auto", source, dest)
 
-		outcome := resolveOperation(op, current, policies)
+		outcome := resolveOperation(op, current, policies, "")
 
 		assert.Equal(t, ResolveOK, outcome.Status)
 		assert.Len(t, outcome.Operations, 1)
@@ -551,7 +551,7 @@ func TestResolveOperationWithAllTypes(t *testing.T) {
 		backup := domain.NewFilePath("/backup/.bashrc").Unwrap()
 		op := domain.NewFileBackup("backup-auto", source, backup)
 
-		outcome := resolveOperation(op, current, policies)
+		outcome := resolveOperation(op, current, policies, "")
 
 		assert.Equal(t, ResolveOK, outcome.Status)
 		assert.Len(t, outcome.Operations, 1)
@@ -589,20 +589,22 @@ func TestApplyPolicyToLinkCreateEdgeCases(t *testing.T) {
 	op := domain.NewLinkCreate("link-auto", sourcePath, targetPath)
 	conflict := NewConflict(ConflictFileExists, targetFilePath, "File exists")
 
-	t.Run("backup policy falls back to fail", func(t *testing.T) {
-		outcome := applyPolicyToLinkCreate(op, conflict, PolicyBackup)
-		// Falls back to fail since backup needs FileDelete operation
-		assert.Equal(t, ResolveConflict, outcome.Status)
+	t.Run("backup policy creates backup and delete operations", func(t *testing.T) {
+		outcome := applyPolicyToLinkCreate(op, conflict, PolicyBackup, "/backup")
+		// Should create FileBackup, FileDelete, and LinkCreate operations
+		assert.Equal(t, ResolveOK, outcome.Status)
+		assert.Len(t, outcome.Operations, 3)
 	})
 
-	t.Run("overwrite policy falls back to fail", func(t *testing.T) {
-		outcome := applyPolicyToLinkCreate(op, conflict, PolicyOverwrite)
-		// Falls back to fail since overwrite needs FileDelete operation
-		assert.Equal(t, ResolveConflict, outcome.Status)
+	t.Run("overwrite policy creates delete operation", func(t *testing.T) {
+		outcome := applyPolicyToLinkCreate(op, conflict, PolicyOverwrite, "/backup")
+		// Should create FileDelete and LinkCreate operations
+		assert.Equal(t, ResolveOK, outcome.Status)
+		assert.Len(t, outcome.Operations, 2)
 	})
 
 	t.Run("unknown policy defaults to fail", func(t *testing.T) {
-		outcome := applyPolicyToLinkCreate(op, conflict, ResolutionPolicy(999))
+		outcome := applyPolicyToLinkCreate(op, conflict, ResolutionPolicy(999), "/backup")
 		assert.Equal(t, ResolveConflict, outcome.Status)
 	})
 }
@@ -626,7 +628,7 @@ func TestResolveLinkCreateWithDifferentConflicts(t *testing.T) {
 			Dirs: make(map[string]bool),
 		}
 
-		outcome := resolveLinkCreate(op, current, policies)
+		outcome := resolveLinkCreate(op, current, policies, "")
 		assert.Equal(t, ResolveSkip, outcome.Status)
 	})
 }

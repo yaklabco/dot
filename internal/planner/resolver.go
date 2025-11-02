@@ -301,10 +301,11 @@ func resolveOperation(
 	op domain.Operation,
 	current CurrentState,
 	policies ResolutionPolicies,
+	backupDir string,
 ) ResolutionOutcome {
 	switch op := op.(type) {
 	case domain.LinkCreate:
-		return resolveLinkCreate(op, current, policies)
+		return resolveLinkCreate(op, current, policies, backupDir)
 	case domain.DirCreate:
 		return resolveDirCreate(op, current, policies)
 	case domain.LinkDelete:
@@ -333,6 +334,7 @@ func resolveLinkCreate(
 	op domain.LinkCreate,
 	current CurrentState,
 	policies ResolutionPolicies,
+	backupDir string,
 ) ResolutionOutcome {
 	// Detect conflicts
 	outcome := detectLinkCreateConflicts(op, current)
@@ -355,7 +357,7 @@ func resolveLinkCreate(
 		policy = PolicyFail
 	}
 
-	return applyPolicyToLinkCreate(op, conflict, policy)
+	return applyPolicyToLinkCreate(op, conflict, policy, backupDir)
 }
 
 // resolveDirCreate detects and resolves conflicts for DirCreate operations
@@ -382,16 +384,17 @@ func applyPolicyToLinkCreate(
 	op domain.LinkCreate,
 	conflict Conflict,
 	policy ResolutionPolicy,
+	backupDir string,
 ) ResolutionOutcome {
 	switch policy {
 	case PolicyFail:
 		return applyFailPolicy(conflict)
 	case PolicySkip:
 		return applySkipPolicy(op, conflict)
-	case PolicyBackup, PolicyOverwrite:
-		// These require additional operation types (FileDelete)
-		// For now, fall back to fail
-		return applyFailPolicy(conflict)
+	case PolicyBackup:
+		return applyBackupPolicy(op, conflict, backupDir)
+	case PolicyOverwrite:
+		return applyOverwritePolicy(op, conflict)
 	default:
 		return applyFailPolicy(conflict)
 	}
@@ -430,7 +433,7 @@ func Resolve(
 	result := NewResolveResult(nil)
 
 	for _, op := range operations {
-		outcome := resolveOperation(op, current, policies)
+		outcome := resolveOperation(op, current, policies, backupDir)
 
 		switch outcome.Status {
 		case ResolveOK:
