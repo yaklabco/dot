@@ -24,6 +24,12 @@ var (
 	date    = "unknown"
 )
 
+// cleanupGracePeriod is the time allowed for operations to complete
+// gracefully after receiving the first shutdown signal (SIGINT/SIGTERM).
+// This gives atomic operations time to finish their current transaction
+// before a forced exit on the second signal.
+const cleanupGracePeriod = 100 * time.Millisecond
+
 func main() {
 	exitCode := run()
 	os.Exit(exitCode)
@@ -135,8 +141,9 @@ func setupSignalHandler() context.Context {
 		slog.Info("received signal, initiating graceful shutdown", "signal", sig)
 		cancel()
 
-		// Give operations time to cleanup
-		time.Sleep(100 * time.Millisecond)
+		// Give atomic operations time to complete their current transaction
+		// before allowing forced exit on second signal
+		time.Sleep(cleanupGracePeriod)
 
 		// Force exit if second signal received
 		sig = <-sigChan
