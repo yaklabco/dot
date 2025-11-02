@@ -27,7 +27,7 @@ func NewStartupChecker(currentVersion string, cfg *config.ExtendedConfig, config
 		currentVersion: currentVersion,
 		config:         cfg,
 		stateManager:   NewStateManager(configDir),
-		checker:        NewVersionChecker(cfg.Update.Repository),
+		checker:        NewVersionCheckerWithConfig(cfg.Update.Repository, &cfg.Network),
 		output:         output,
 		useColor:       detectColor(output),
 	}

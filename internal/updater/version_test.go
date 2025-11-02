@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -425,5 +427,122 @@ func TestVersionChecker_CheckForUpdate_Errors(t *testing.T) {
 
 		_, _, err := vc.CheckForUpdate("1.0.0", false)
 		assert.Error(t, err)
+	})
+}
+
+func TestNewVersionCheckerWithConfig(t *testing.T) {
+	t.Run("creates checker with custom config", func(t *testing.T) {
+		cfg := &config.NetworkConfig{
+			Timeout:        15,
+			ConnectTimeout: 3,
+			TLSTimeout:     3,
+		}
+
+		vc := NewVersionCheckerWithConfig("owner/repo", cfg)
+		require.NotNil(t, vc)
+		require.NotNil(t, vc.httpClient)
+		assert.Equal(t, "owner/repo", vc.repository)
+		assert.Equal(t, 15*time.Second, vc.httpClient.Timeout)
+	})
+
+	t.Run("uses defaults when config is nil", func(t *testing.T) {
+		vc := NewVersionCheckerWithConfig("owner/repo", nil)
+		require.NotNil(t, vc)
+		require.NotNil(t, vc.httpClient)
+		assert.Equal(t, 10*time.Second, vc.httpClient.Timeout)
+	})
+
+	t.Run("uses defaults when timeout is zero", func(t *testing.T) {
+		cfg := &config.NetworkConfig{
+			Timeout:        0, // Should use default
+			ConnectTimeout: 0, // Should use default
+			TLSTimeout:     0, // Should use default
+		}
+
+		vc := NewVersionCheckerWithConfig("owner/repo", cfg)
+		require.NotNil(t, vc)
+		assert.Equal(t, 10*time.Second, vc.httpClient.Timeout)
+	})
+}
+
+func TestHTTPClientTimeout(t *testing.T) {
+	t.Run("respects timeout configuration", func(t *testing.T) {
+		// Create a server that delays response
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond) // Delay
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		// Create client with short timeout
+		cfg := &config.NetworkConfig{
+			Timeout:        1, // 1 second - should pass
+			ConnectTimeout: 5,
+			TLSTimeout:     5,
+		}
+
+		client := createHTTPClient(cfg)
+		req, _ := http.NewRequest("GET", server.URL, nil)
+		resp, err := client.Do(req)
+
+		// Should succeed since delay (200ms) < timeout (1s)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		resp.Body.Close()
+	})
+
+	t.Run("times out when server is slow", func(t *testing.T) {
+		// Create a server that delays response longer than timeout
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(2 * time.Second) // Long delay
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		// Create client with very short timeout
+		cfg := &config.NetworkConfig{
+			Timeout:        1, // 1 second timeout
+			ConnectTimeout: 5,
+			TLSTimeout:     5,
+		}
+
+		client := createHTTPClient(cfg)
+		req, _ := http.NewRequest("GET", server.URL, nil)
+		_, err := client.Do(req)
+
+		// Should timeout
+		assert.Error(t, err)
+		// Error message contains either "timeout" or "deadline exceeded"
+		errMsg := err.Error()
+		assert.True(t,
+			strings.Contains(errMsg, "timeout") || strings.Contains(errMsg, "deadline exceeded"),
+			"expected timeout error, got: %v", err)
+	})
+}
+
+func TestHTTPClientProxy(t *testing.T) {
+	t.Run("uses proxy from config", func(t *testing.T) {
+		cfg := &config.NetworkConfig{
+			HTTPProxy:      "http://proxy.example.com:8080",
+			Timeout:        10,
+			ConnectTimeout: 5,
+			TLSTimeout:     5,
+		}
+
+		client := createHTTPClient(cfg)
+		require.NotNil(t, client)
+		require.NotNil(t, client.Transport)
+	})
+
+	t.Run("uses environment proxy when config is empty", func(t *testing.T) {
+		cfg := &config.NetworkConfig{
+			Timeout:        10,
+			ConnectTimeout: 5,
+			TLSTimeout:     5,
+		}
+
+		client := createHTTPClient(cfg)
+		require.NotNil(t, client)
+		require.NotNil(t, client.Transport)
 	})
 }
