@@ -78,8 +78,13 @@ uninstall:
 		echo "Binary not found at $$GOBIN/$(BINARY_NAME)"; \
 	fi
 
+## vuln: Check for known vulnerabilities
+vuln:
+	@command -v govulncheck >/dev/null 2>&1 || { echo "Installing govulncheck..."; go install golang.org/x/vuln/cmd/govulncheck@latest; }
+	govulncheck ./...
+
 ## check: Run tests and linting (machine-readable output for CI/AI agents)
-check: test check-coverage lint vet
+check: test check-coverage lint vet vuln
 
 ## find-test-targets: Find functions/methods that need test coverage
 find-test-targets:
