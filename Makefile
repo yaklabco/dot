@@ -83,12 +83,12 @@ vuln:
 	@command -v govulncheck >/dev/null 2>&1 || { echo "Installing govulncheck..."; go install golang.org/x/vuln/cmd/govulncheck@latest; }
 	@echo "Running vulnerability check..."
 	@govulncheck -json ./... 2>&1 | tee /tmp/vuln-output.json > /dev/null || true
-	@if grep -q '"OSV":.*"GO-2024-3295"' /tmp/vuln-output.json 2>/dev/null; then \
-		echo "  ℹ Found GO-2024-3295 (accepted risk - GitHub Codespaces only, see SECURITY.md)"; \
-	fi
-	@VULN_IDS=$$(grep -o '"OSV":.*"id":"GO-[^"]*"' /tmp/vuln-output.json 2>/dev/null | grep -o 'GO-[^"]*' | sort -u || echo ""); \
+	@VULN_IDS=$$(grep -A 1 '"finding"' /tmp/vuln-output.json 2>/dev/null | grep '"osv"' | grep -o 'GO-[0-9-]*' | sort -u || echo ""); \
 	EXCLUDED="GO-2024-3295"; \
-	OTHER_VULNS=$$(echo "$$VULN_IDS" | grep -v "$$EXCLUDED" || true); \
+	if echo "$$VULN_IDS" | grep -q "$$EXCLUDED" 2>/dev/null; then \
+		echo "  ℹ Found GO-2024-3295 (accepted risk - GitHub Codespaces only, see SECURITY.md)"; \
+	fi; \
+	OTHER_VULNS=$$(echo "$$VULN_IDS" | grep -v "^$$" | grep -v "$$EXCLUDED" || true); \
 	if [ -n "$$OTHER_VULNS" ]; then \
 		echo ""; \
 		echo "ERROR: Unaccepted vulnerabilities found:"; \

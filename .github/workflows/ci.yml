@@ -102,10 +102,11 @@ jobs:
           echo "Running vulnerability check..."
           govulncheck -json ./... 2>&1 | tee vuln-output.json > /dev/null || true
           
-          # Extract vulnerability IDs using JSON parsing
-          VULN_IDS=$(grep '"id"' vuln-output.json 2>/dev/null | grep 'GO-' | sed 's/.*"id": *"\([^"]*\)".*/\1/' | sort -u || echo "")
+          # Extract vulnerability IDs from FINDINGS only (not all OSV entries)
+          # Look for lines with "finding" that contain "osv" field
+          VULN_IDS=$(grep -A 1 '"finding"' vuln-output.json 2>/dev/null | grep '"osv"' | grep -o 'GO-[0-9-]*' | sort -u || echo "")
           EXCLUDED="GO-2024-3295"
-          OTHER_VULNS=$(echo "$VULN_IDS" | grep -v "$EXCLUDED" || true)
+          OTHER_VULNS=$(echo "$VULN_IDS" | grep -v "^$" | grep -v "$EXCLUDED" || true)
           
           if [ -n "$OTHER_VULNS" ]; then
             echo ""
