@@ -255,3 +255,165 @@ func TestResolvePackageManager_Coverage(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     []string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid command",
+			cmd:     []string{"brew", "upgrade", "dot"},
+			wantErr: false,
+		},
+		{
+			name:    "valid command with flags",
+			cmd:     []string{"sudo", "apt-get", "install", "--only-upgrade", "-y", "dot"},
+			wantErr: false,
+		},
+		{
+			name:    "empty command",
+			cmd:     []string{},
+			wantErr: true,
+			errMsg:  "empty command",
+		},
+		{
+			name:    "command with semicolon",
+			cmd:     []string{"brew", "upgrade", "dot; rm -rf /"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with pipe",
+			cmd:     []string{"brew", "upgrade", "dot | cat"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with ampersand",
+			cmd:     []string{"brew", "upgrade", "dot &"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with backtick",
+			cmd:     []string{"brew", "upgrade", "`whoami`"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with dollar",
+			cmd:     []string{"brew", "upgrade", "$HOME"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with null byte",
+			cmd:     []string{"brew", "upgrade", "dot\x00"},
+			wantErr: true,
+			errMsg:  "null byte",
+		},
+		{
+			name:    "command with &&",
+			cmd:     []string{"brew", "upgrade", "dot && reboot"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+		{
+			name:    "command with ||",
+			cmd:     []string{"brew", "upgrade", "dot || exit"},
+			wantErr: true,
+			errMsg:  "shell metacharacter",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCommand(tt.cmd)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidatePackageManager(t *testing.T) {
+	tests := []struct {
+		name    string
+		pmName  string
+		wantErr bool
+	}{
+		{"brew is allowed", "brew", false},
+		{"apt is allowed", "apt", false},
+		{"yum is allowed", "yum", false},
+		{"pacman is allowed", "pacman", false},
+		{"dnf is allowed", "dnf", false},
+		{"zypper is allowed", "zypper", false},
+		{"manual is allowed", "manual", false},
+		{"unknown is rejected", "unknown", true},
+		{"malicious is rejected", "rm -rf /", true},
+		{"empty is rejected", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePackageManager(tt.pmName)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestPackageManagerValidate(t *testing.T) {
+	t.Run("BrewManager validation passes", func(t *testing.T) {
+		mgr := &BrewManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("AptManager validation passes", func(t *testing.T) {
+		mgr := &AptManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("YumManager validation passes", func(t *testing.T) {
+		mgr := &YumManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("PacmanManager validation passes", func(t *testing.T) {
+		mgr := &PacmanManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("DnfManager validation passes", func(t *testing.T) {
+		mgr := &DnfManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("ZypperManager validation passes", func(t *testing.T) {
+		mgr := &ZypperManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("ManualManager validation passes", func(t *testing.T) {
+		mgr := &ManualManager{}
+		err := mgr.Validate()
+		assert.NoError(t, err)
+	})
+}

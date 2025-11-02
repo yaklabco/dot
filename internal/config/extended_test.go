@@ -433,6 +433,44 @@ func TestExtendedConfig_ValidateUpdate(t *testing.T) {
 	}
 }
 
+func TestExtendedConfig_ValidateNetwork(t *testing.T) {
+	tests := []struct {
+		name           string
+		timeout        int
+		connectTimeout int
+		tlsTimeout     int
+		wantErr        bool
+		errContains    string
+	}{
+		{"valid defaults (all zero)", 0, 0, 0, false, ""},
+		{"valid positive timeout", 30, 10, 10, false, ""},
+		{"valid large values", 300, 60, 60, false, ""},
+		{"negative timeout", -1, 0, 0, true, "network.timeout must be non-negative"},
+		{"negative connect_timeout", 0, -5, 0, true, "network.connect_timeout must be non-negative"},
+		{"negative tls_timeout", 0, 0, -10, true, "network.tls_timeout must be non-negative"},
+		{"multiple negative (timeout checked first)", -1, -5, -10, true, "network.timeout must be non-negative"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.DefaultExtended()
+			cfg.Network.Timeout = tt.timeout
+			cfg.Network.ConnectTimeout = tt.connectTimeout
+			cfg.Network.TLSTimeout = tt.tlsTimeout
+
+			err := cfg.Validate()
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestExtendedConfig_MarshalYAML(t *testing.T) {
 	cfg := config.DefaultExtended()
 	cfg.Directories.Package = "/test/dotfiles"

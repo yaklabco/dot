@@ -1,0 +1,5 @@
+Error: cannot manage packages: 63 conflict(s) detected
+  - file_exists at /Volumes/ArsOculusDev/dot/cmd/dot/testdata/golden/errors/upgrade_no_package_manager.golden: File exists at target (size=78)
+  - file_exists at /Volumes/ArsOculusDev/dot/cmd/dot/clone.go: File exists at target (size=6911)
+  - file_exists at /Volumes/ArsOculusDev/dot/cmd/dot/clone_bootstrap_test.go: File exists at target (size=5884)
+  ... and 60 more

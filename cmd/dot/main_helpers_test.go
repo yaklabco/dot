@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestExecuteCommand(t *testing.T) {
 	rootCmd := NewRootCommand("test", "abc123", "2025-01-01")
 	rootCmd.SetArgs([]string{"--help"})
 
-	cmd, err := executeCommand(rootCmd)
+	cmd, err := executeCommand(context.Background(), rootCmd)
 	assert.NoError(t, err)
 	// cmd may be nil for --help since it exits early, which is acceptable
 	_ = cmd
@@ -74,6 +75,6 @@ func TestExecuteCommandWithError(t *testing.T) {
 	rootCmd := NewRootCommand("test", "abc123", "2025-01-01")
 	rootCmd.SetArgs([]string{"--invalid-flag"})
 
-	_, err := executeCommand(rootCmd)
+	_, err := executeCommand(context.Background(), rootCmd)
 	assert.Error(t, err)
 }

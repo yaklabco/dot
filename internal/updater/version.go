@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/jamesainslie/dot/internal/config"
 )
 
 // GitHubRelease represents a GitHub release from the API.
@@ -35,13 +39,87 @@ type VersionChecker struct {
 	repository string
 }
 
-// NewVersionChecker creates a new version checker.
+// NewVersionChecker creates a new version checker with default configuration.
 func NewVersionChecker(repository string) *VersionChecker {
+	return NewVersionCheckerWithConfig(repository, nil)
+}
+
+// NewVersionCheckerWithConfig creates a new version checker with explicit network configuration.
+func NewVersionCheckerWithConfig(repository string, networkCfg *config.NetworkConfig) *VersionChecker {
+	// Use defaults if no config provided
+	if networkCfg == nil {
+		networkCfg = &config.NetworkConfig{
+			Timeout:        10,
+			ConnectTimeout: 5,
+			TLSTimeout:     5,
+		}
+	}
+
+	// Create HTTP client with comprehensive timeout configuration
+	client := createHTTPClient(networkCfg)
+
 	return &VersionChecker{
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		httpClient: client,
 		repository: repository,
+	}
+}
+
+// createHTTPClient creates an HTTP client with comprehensive timeout and proxy configuration.
+func createHTTPClient(cfg *config.NetworkConfig) *http.Client {
+	// Apply defaults if values are 0
+	timeout := time.Duration(cfg.Timeout) * time.Second
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+
+	connectTimeout := time.Duration(cfg.ConnectTimeout) * time.Second
+	if connectTimeout == 0 {
+		connectTimeout = 5 * time.Second
+	}
+
+	tlsTimeout := time.Duration(cfg.TLSTimeout) * time.Second
+	if tlsTimeout == 0 {
+		tlsTimeout = 5 * time.Second
+	}
+
+	// Create transport with timeout configuration
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   connectTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   tlsTimeout,
+		ResponseHeaderTimeout: 5 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+		MaxIdleConns:          10,
+		MaxIdleConnsPerHost:   2,
+	}
+
+	// Configure proxy if specified
+	if cfg.HTTPProxy != "" || cfg.HTTPSProxy != "" {
+		proxyFunc := func(req *http.Request) (*url.URL, error) {
+			var proxyURL string
+			if req.URL.Scheme == "https" && cfg.HTTPSProxy != "" {
+				proxyURL = cfg.HTTPSProxy
+			} else if cfg.HTTPProxy != "" {
+				proxyURL = cfg.HTTPProxy
+			}
+
+			if proxyURL != "" {
+				return url.Parse(proxyURL)
+			}
+			// Fall back to environment
+			return http.ProxyFromEnvironment(req)
+		}
+		transport.Proxy = proxyFunc
+	} else {
+		// Use environment variables
+		transport.Proxy = http.ProxyFromEnvironment
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
 	}
 }
 

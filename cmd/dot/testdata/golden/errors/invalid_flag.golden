@@ -1,0 +1,38 @@
+Usage:
+  dot [command]
+
+Available Commands:
+  adopt       Move existing files into package then link
+  clone       Clone dotfiles repository and install packages
+  completion  Generate the autocompletion script for the specified shell
+  config      Manage dot configuration
+  doctor      Perform health checks on the installation
+  help        Help about any command
+  list        List all installed packages
+  manage      Install packages by creating symlinks
+  remanage    Reinstall packages with incremental updates
+  status      Show installation status for packages
+  unmanage    Remove packages by deleting symlinks
+  upgrade     Upgrade dot to the latest version
+
+Flags:
+      --backup-dir string    Directory for backup files (default: <target>/.dot-backup)
+      --batch                Batch mode for scripting (implies --quiet)
+      --cpu-profile string   Write CPU profile to file (for diagnostics)
+  -d, --dir string           Source directory containing packages (default ".")
+  -n, --dry-run              Show what would be done without applying changes
+  -h, --help                 help for dot
+      --log-json             Output logs in JSON format
+      --mem-profile string   Write memory profile to file (for diagnostics)
+      --no-color             Disable color output
+      --pprof string         Enable pprof HTTP server on address (e.g. :6060)
+  -q, --quiet                Suppress all non-error output
+  -t, --target string        Target directory for symlinks (default "/Volumes/ArsOculusDev/dot/cmd/dot")
+  -v, --verbose count        Increase verbosity: -v (info), -vv (debug), -vvv (trace)
+      --version              version for dot
+
+Use "dot [command] --help" for more information about a command.
+
+--- stderr ---
+Error: unknown flag: --invalid-flag
+

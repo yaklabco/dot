@@ -92,6 +92,11 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 		return nil
 	}
 
+	// Validate package manager before proceeding
+	if err := pkgMgr.Validate(); err != nil {
+		return fmt.Errorf("package manager validation failed: %w", err)
+	}
+
 	// Show upgrade command
 	cmd := pkgMgr.UpgradeCommand()
 	fmt.Printf("Package manager: %s\n", accent(pkgMgr.Name()))
