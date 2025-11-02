@@ -343,6 +343,9 @@ func (c *ExtendedConfig) Validate() error {
 	if err := c.validateUpdate(); err != nil {
 		return err
 	}
+	if err := c.validateNetwork(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -491,6 +494,19 @@ func (c *ExtendedConfig) validateUpdate() error {
 			c.Update.Repository)
 	}
 
+	return nil
+}
+
+func (c *ExtendedConfig) validateNetwork() error {
+	if c.Network.Timeout < 0 {
+		return fmt.Errorf("network.timeout must be non-negative, got %d", c.Network.Timeout)
+	}
+	if c.Network.ConnectTimeout < 0 {
+		return fmt.Errorf("network.connect_timeout must be non-negative, got %d", c.Network.ConnectTimeout)
+	}
+	if c.Network.TLSTimeout < 0 {
+		return fmt.Errorf("network.tls_timeout must be non-negative, got %d", c.Network.TLSTimeout)
+	}
 	return nil
 }
 
