@@ -119,6 +119,126 @@ func TestOperationBelongsToPackage(t *testing.T) {
 	}
 }
 
+func TestOperationBelongsToPackage_FileBackupAndDelete(t *testing.T) {
+	tests := []struct {
+		name            string
+		op              domain.Operation
+		pkgName         string
+		pkgPath         string
+		targetToPackage map[string]string
+		want            bool
+	}{
+		{
+			name: "FileBackup belongs to package that will create link at target",
+			op: domain.NewFileBackup(
+				domain.OperationID("backup-1"),
+				mustFilePath("/home/user/.vimrc"),
+				mustFilePath("/backup/.vimrc_2024"),
+			),
+			pkgName: "vim",
+			pkgPath: "/packages/vim",
+			targetToPackage: map[string]string{
+				"/home/user/.vimrc": "vim",
+			},
+			want: true,
+		},
+		{
+			name: "FileBackup does not belong to different package",
+			op: domain.NewFileBackup(
+				domain.OperationID("backup-2"),
+				mustFilePath("/home/user/.vimrc"),
+				mustFilePath("/backup/.vimrc_2024"),
+			),
+			pkgName: "zsh",
+			pkgPath: "/packages/zsh",
+			targetToPackage: map[string]string{
+				"/home/user/.vimrc": "vim",
+			},
+			want: false,
+		},
+		{
+			name: "FileBackup target not in mapping",
+			op: domain.NewFileBackup(
+				domain.OperationID("backup-3"),
+				mustFilePath("/home/user/.bashrc"),
+				mustFilePath("/backup/.bashrc_2024"),
+			),
+			pkgName:         "vim",
+			pkgPath:         "/packages/vim",
+			targetToPackage: map[string]string{},
+			want:            false,
+		},
+		{
+			name: "FileDelete belongs to package that will create link at target",
+			op: domain.NewFileDelete(
+				domain.OperationID("delete-1"),
+				mustFilePath("/home/user/.vimrc"),
+			),
+			pkgName: "vim",
+			pkgPath: "/packages/vim",
+			targetToPackage: map[string]string{
+				"/home/user/.vimrc": "vim",
+			},
+			want: true,
+		},
+		{
+			name: "FileDelete does not belong to different package",
+			op: domain.NewFileDelete(
+				domain.OperationID("delete-2"),
+				mustFilePath("/home/user/.vimrc"),
+			),
+			pkgName: "zsh",
+			pkgPath: "/packages/zsh",
+			targetToPackage: map[string]string{
+				"/home/user/.vimrc": "vim",
+			},
+			want: false,
+		},
+		{
+			name: "FileDelete target not in mapping",
+			op: domain.NewFileDelete(
+				domain.OperationID("delete-3"),
+				mustFilePath("/home/user/.bashrc"),
+			),
+			pkgName:         "vim",
+			pkgPath:         "/packages/vim",
+			targetToPackage: map[string]string{},
+			want:            false,
+		},
+		{
+			name: "FileMove to package destination",
+			op: domain.NewFileMove(
+				domain.OperationID("move-1"),
+				mustTargetPath("/home/user/.vimrc"),
+				mustFilePath("/packages/vim/dot-vimrc"),
+			),
+			pkgName:         "vim",
+			pkgPath:         "/packages/vim",
+			targetToPackage: map[string]string{},
+			want:            true,
+		},
+		{
+			name: "FileMove to different package destination",
+			op: domain.NewFileMove(
+				domain.OperationID("move-2"),
+				mustTargetPath("/home/user/.vimrc"),
+				mustFilePath("/packages/zsh/dot-vimrc"),
+			),
+			pkgName:         "vim",
+			pkgPath:         "/packages/vim",
+			targetToPackage: map[string]string{},
+			want:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := operationBelongsToPackage(tt.op, tt.pkgName, tt.pkgPath, tt.targetToPackage)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestBuildPackageOperationMapping(t *testing.T) {
 	// Create test packages
 	packages := []domain.Package{
