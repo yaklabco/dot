@@ -2,6 +2,99 @@
 ## [Unreleased]
 
 
+<a name="v0.4.4"></a>
+## [v0.4.4] - 2025-11-02
+### Chore
+- fix the bootstrap config
+- fix the bootstrap config
+- update IDE exclusions in .gitignore
+- **build:** add fuzz and bench targets to Makefile
+
+### Ci
+- add vulnerability checking with govulncheck
+
+### Docs
+- add security policy with vulnerability disclosure
+- remove stale and broken links from documentation
+- **changelog:** update for v0.4.4 release
+- **cli:** improve clone help text scannability
+- **readme:** update adopt command documentation
+
+### Feat
+- **adapters:** integrate GitHub CLI authentication
+- **api:** integrate backup system with manage service
+- **cli:** add batch mode and async version check
+- **cli:** add color helper for dynamic color detection
+- **cli:** add profiling and diagnostics support
+- **cli:** add command aliases for config
+- **cli:** add pluralization helpers for output formatting
+- **cli:** improve package selection UI with colors and layout
+- **cli:** add interactive prompt utilities
+- **clone:** derive directory from repository name like git clone
+- **config:** add network configuration support
+- **config:** add backup and overwrite configuration options
+- **config:** add validation for network timeout fields
+- **domain:** add FileDelete operation and fix FileBackup permissions
+- **manifest:** add backup tracking to package metadata
+- **pipeline:** add current state scanner for conflict detection
+- **planner:** implement backup and overwrite conflict policies
+- **retry:** add exponential backoff retry utility
+- **updater:** add security validation for package managers
+- **updater:** improve version checking with better error handling
+
+### Fix
+- **cli:** improve async version check and test file cleanup
+- **cli:** resolve gosec G602 array bounds warnings in pager
+- **test:** update tests for new conflict detection behavior
+- **vuln:** exclude GO-2024-3295 from vulnerability checks
+
+### Refactor
+- **cli:** make cleanup grace period a constant
+- **cli:** remove redundant goroutine wrapper
+- **cli:** enhance unmanage output and add -y flag
+- **cli:** improve success messages with proper pluralization
+
+### Test
+- add fuzz tests for config, domain, and ignore packages
+- **backup:** add comprehensive integration tests for backup workflow
+- **cli:** fix verification test expectations
+- **cli:** improve signal handling test isolation
+- **cli:** add golden tests for adopt and manage commands
+- **cli:** add golden file testing framework
+- **cli:** add comprehensive main package test coverage
+- **cli:** add signal handling integration tests
+- **clone:** add coverage for auth method name formatting
+- **pipeline:** add coverage for operation mapping and state scanner
+- **scanner:** add benchmarks for package scanning performance
+
+### Pull Requests
+- Merge pull request [#36](https://github.com/jamesainslie/dot/issues/36) from jamesainslie/feature-improve-testing
+- Merge pull request [#35](https://github.com/jamesainslie/dot/issues/35) from jamesainslie/feature-improve-ux
+- Merge pull request [#34](https://github.com/jamesainslie/dot/issues/34) from jamesainslie/feature-use-go-gh-sdk-for-auth
+
+### BREAKING CHANGE
+
+```
+Remove automatic glob mode detection to eliminate ambiguous behavior. Users must now provide explicit package names when adopting multiple files.
+
+Changes:
+- Remove fileExists(), deriveCommonPackageName(), and commonPrefix()
+- Simplify logic: single file = auto-naming, multiple = explicit
+- Update help text with section headers for clarity
+- Remove tests for deleted helper functions
+- Update success message format
+
+Before:
+  dot adopt .git*  # Auto-detected package name from files
+
+After:
+  dot adopt git .git*  # Explicit package name required
+
+This ensures predictable behavior and clearer package organization.
+```
+
+
+
 <a name="v0.4.3"></a>
 ## [v0.4.3] - 2025-10-13
 ### Docs
@@ -622,7 +715,8 @@ should not exist since it was an internal package.
 - Merge pull request [#1](https://github.com/jamesainslie/dot/issues/1) from jamesainslie/jamesainslie-implement-func-scanner
 
 
-[Unreleased]: https://github.com/jamesainslie/dot/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/jamesainslie/dot/compare/v0.4.4...HEAD
+[v0.4.4]: https://github.com/jamesainslie/dot/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/jamesainslie/dot/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/jamesainslie/dot/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/jamesainslie/dot/compare/v0.4.0...v0.4.1
