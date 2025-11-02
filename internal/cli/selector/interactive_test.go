@@ -21,6 +21,8 @@ func TestInteractiveSelector_Select_SingleChoice(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"dot-vim"}, selected)
+	assert.Contains(t, output.String(), "Package Selection")
+	assert.Contains(t, output.String(), "packages available")
 	assert.Contains(t, output.String(), "dot-vim")
 	assert.Contains(t, output.String(), "dot-zsh")
 	assert.Contains(t, output.String(), "dot-tmux")
@@ -104,7 +106,7 @@ func TestInteractiveSelector_Select_InvalidInput(t *testing.T) {
 
 			// Should recover and select based on second input
 			assert.Equal(t, []string{"dot-vim"}, selected)
-			assert.Contains(t, output.String(), "Invalid")
+			assert.Contains(t, output.String(), "Invalid selection")
 		})
 	}
 }

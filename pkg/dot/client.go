@@ -52,9 +52,18 @@ func NewClient(cfg Config) (*Client, error) {
 	// Create default ignore set
 	ignoreSet := ignore.NewDefaultIgnoreSet()
 
-	// Create default resolution policies
+	// Determine resolution policy from config
+	// Priority: Overwrite > Backup > Fail (safe default)
+	fileExistsPolicy := planner.PolicyFail
+	if cfg.Overwrite {
+		fileExistsPolicy = planner.PolicyOverwrite
+	} else if cfg.Backup {
+		fileExistsPolicy = planner.PolicyBackup
+	}
+
+	// Create resolution policies
 	policies := planner.ResolutionPolicies{
-		OnFileExists: planner.PolicyFail, // Safe default
+		OnFileExists: fileExistsPolicy,
 	}
 
 	// Create manage pipeline

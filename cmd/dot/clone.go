@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/spf13/cobra"
@@ -23,18 +26,24 @@ func newCloneCommand() *cobra.Command {
 		Short: "Clone dotfiles repository and install packages",
 		Long: `Clone a dotfiles repository and install packages.
 
+Like git clone, the repository is cloned into a subdirectory named after the
+repository. For example, 'dot clone https://github.com/user/my-dotfiles' creates
+a 'my-dotfiles' directory in the current location. Use --dir to specify a different
+target directory.
+
 The clone command performs the following steps:
-  1. Validates package directory is empty (unless --force is used)
-  2. Clones the repository to the configured package directory
-  3. Detects and uses repository configuration (.config/dot/config.yaml)
-  4. Loads optional .dotbootstrap.yaml for package selection
-  5. Selects packages to install:
+  1. Determines target directory (from repo name or --dir flag)
+  2. Validates directory is empty (unless --force is used)
+  3. Clones the repository to the target directory
+  4. Detects and uses repository configuration (.config/dot/config.yaml)
+  5. Loads optional .dotbootstrap.yaml for package selection
+  6. Selects packages to install:
      - Via named profile (--profile)
      - Interactively (--interactive or automatic terminal detection)
      - All packages (non-interactive mode)
-  6. Filters packages by current platform
-  7. Installs selected packages
-  8. Updates manifest with repository tracking
+  7. Filters packages by current platform
+  8. Installs selected packages
+  9. Updates manifest with repository tracking
 
 Repository Configuration:
   If the repository contains .config/dot/config.yaml, it will be used
@@ -48,8 +57,9 @@ Authentication:
   The command automatically resolves authentication in this order:
   1. GITHUB_TOKEN environment variable (for GitHub repositories)
   2. GIT_TOKEN environment variable (for general git repositories)
-  3. SSH keys in ~/.ssh/ directory (id_rsa, id_ed25519)
-  4. No authentication (public repositories only)
+  3. SSH keys in ~/.ssh/ directory (for SSH URLs: git@github.com:...)
+  4. GitHub CLI (gh) authenticated session (for HTTPS GitHub repositories)
+  5. No authentication (public repositories only)
 
 Bootstrap Configuration:
   If .dotbootstrap.yaml exists in the repository root, it defines:
@@ -60,8 +70,11 @@ Bootstrap Configuration:
   Without bootstrap configuration, all discovered packages are offered.
 
 Examples:
-  # Clone and install all packages
+  # Clone and install all packages (creates ./dotfiles directory)
   dot clone https://github.com/user/dotfiles
+
+  # Clone creates ./my-dotfiles directory
+  dot clone https://github.com/user/my-dotfiles
 
   # Clone specific branch
   dot clone https://github.com/user/dotfiles --branch develop
@@ -72,8 +85,11 @@ Examples:
   # Force interactive selection
   dot clone https://github.com/user/dotfiles --interactive
 
+  # Clone to specific directory (overrides default)
+  dot clone --dir ~/packages https://github.com/user/dotfiles
+
   # Overwrite existing package directory
-  dot clone https://github.com/user/dotfiles --force
+  dot clone --force https://github.com/user/dotfiles
 
   # Clone via SSH
   dot clone git@github.com:user/dotfiles.git`,
@@ -101,7 +117,23 @@ Examples:
 func runClone(cmd *cobra.Command, args []string, profile string, interactive bool, force bool, branch string) error {
 	repoURL := args[0]
 
-	// Build config
+	// Check if --dir flag was explicitly provided
+	dirFlag := cmd.Flags().Lookup("dir")
+	dirExplicitlySet := dirFlag != nil && dirFlag.Changed
+
+	// If --dir was NOT explicitly set, derive directory from repo URL
+	// This makes dot clone behave like git clone
+	if !dirExplicitlySet {
+		repoName := extractRepoName(repoURL)
+		cwd, err := os.Getwd()
+		if err != nil {
+			return formatError(fmt.Errorf("get current directory: %w", err))
+		}
+		// Override the global packageDir with repo-based directory in current working directory
+		globalCfg.packageDir = filepath.Join(cwd, repoName)
+	}
+
+	// Build config (will use the modified packageDir if set above)
 	cfg, err := buildConfigWithCmd(cmd)
 	if err != nil {
 		return formatError(err)
@@ -168,4 +200,43 @@ func formatCloneError(err error) error {
 	}
 
 	return err
+}
+
+// extractRepoName extracts the repository name from a URL.
+// It handles various URL formats:
+//   - HTTPS: https://github.com/user/my-dotfiles.git -> my-dotfiles
+//   - SSH: git@github.com:user/my-dotfiles.git -> my-dotfiles
+//   - Simple paths: my-dotfiles -> my-dotfiles
+//
+// Returns "dotfiles" as a fallback if extraction fails.
+func extractRepoName(repoURL string) string {
+	if repoURL == "" {
+		return "dotfiles"
+	}
+
+	// Remove query parameters if present (e.g., ?ref=main)
+	if idx := strings.Index(repoURL, "?"); idx != -1 {
+		repoURL = repoURL[:idx]
+	}
+
+	// Handle SSH URLs: git@github.com:user/repo -> user/repo
+	if strings.Contains(repoURL, ":") && strings.Contains(repoURL, "@") {
+		parts := strings.Split(repoURL, ":")
+		if len(parts) >= 2 {
+			repoURL = parts[len(parts)-1]
+		}
+	}
+
+	// Extract last path component
+	parts := strings.Split(repoURL, "/")
+	if len(parts) > 0 {
+		name := parts[len(parts)-1]
+		if name != "" {
+			// Remove .git suffix if present
+			name = strings.TrimSuffix(name, ".git")
+			return name
+		}
+	}
+
+	return "dotfiles" // fallback
 }

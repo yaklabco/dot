@@ -391,8 +391,7 @@ Migration path: See [Migration from GNU Stow](migration-from-stow.md) for transi
 - [Command Reference](05-commands.md): Complete command documentation
 
 For developers:
-- [Architecture Overview](../architecture/architecture.md): System design and structure
-- [API Reference](../developer/api-reference.md): Library usage documentation
+- [Architecture Overview](../developer/architecture.md): System design and structure
 
 ## Navigation
 

@@ -102,6 +102,22 @@ func TestFileBackupOperation(t *testing.T) {
 	assert.Empty(t, deps)
 }
 
+func TestFileDeleteOperation(t *testing.T) {
+	path := domain.NewFilePath("/home/user/.vimrc").Unwrap()
+
+	op := domain.NewFileDelete("delete1", path)
+
+	assert.Equal(t, domain.OpKindFileDelete, op.Kind())
+	assert.Contains(t, op.String(), "delete")
+	assert.Contains(t, op.String(), "vimrc")
+
+	err := op.Validate()
+	assert.NoError(t, err)
+
+	deps := op.Dependencies()
+	assert.Empty(t, deps)
+}
+
 func TestOperationEquality(t *testing.T) {
 	source := domain.NewFilePath("/home/user/.dotfiles/vim/vimrc").Unwrap()
 	target := domain.NewTargetPath("/home/user/.vimrc").Unwrap()
@@ -244,6 +260,20 @@ func TestFileBackupEquals(t *testing.T) {
 	assert.False(t, op1.Equals(op4), "different operation type should not be equal")
 }
 
+func TestFileDeleteEquals(t *testing.T) {
+	path1 := domain.NewFilePath("/home/user/.vimrc").Unwrap()
+	path2 := domain.NewFilePath("/home/user/.bashrc").Unwrap()
+
+	op1 := domain.NewFileDelete("delete1", path1)
+	op2 := domain.NewFileDelete("delete2", path1)
+	op3 := domain.NewFileDelete("delete3", path2)
+	op4 := domain.NewFileBackup("backup1", path1, path2)
+
+	assert.True(t, op1.Equals(op2), "same path should be equal")
+	assert.False(t, op1.Equals(op3), "different path should not be equal")
+	assert.False(t, op1.Equals(op4), "different operation type should not be equal")
+}
+
 func TestOperationKindString(t *testing.T) {
 	tests := []struct {
 		kind domain.OperationKind
@@ -256,6 +286,7 @@ func TestOperationKindString(t *testing.T) {
 		{domain.OpKindDirRemoveAll, "DirRemoveAll"},
 		{domain.OpKindFileMove, "FileMove"},
 		{domain.OpKindFileBackup, "FileBackup"},
+		{domain.OpKindFileDelete, "FileDelete"},
 		{domain.OpKindDirCopy, "DirCopy"},
 	}
 

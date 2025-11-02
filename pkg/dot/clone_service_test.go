@@ -566,7 +566,7 @@ func TestCloneService_SelectPackagesWithBootstrap_ExplicitInteractiveOverridesDe
 	// Should use user selection, not default profile
 	assert.ElementsMatch(t, []string{"dot-vim", "dot-zsh"}, packages)
 	// Verify selector was called by checking output contains prompt
-	assert.Contains(t, output.String(), "Select packages")
+	assert.Contains(t, output.String(), "Package Selection")
 }
 
 func TestCloneService_SelectPackagesWithoutBootstrap_AllPackages(t *testing.T) {
@@ -933,4 +933,40 @@ func TestGetCurrentBranch(t *testing.T) {
 		assert.Contains(t, err.Error(), "detached HEAD or unexpected format")
 		assert.Empty(t, branch)
 	})
+}
+
+func TestGetAuthMethodName(t *testing.T) {
+	tests := []struct {
+		name     string
+		auth     adapters.AuthMethod
+		expected string
+	}{
+		{
+			name:     "nil auth returns none",
+			auth:     nil,
+			expected: "none",
+		},
+		{
+			name:     "NoAuth returns none",
+			auth:     adapters.NoAuth{},
+			expected: "none",
+		},
+		{
+			name:     "TokenAuth returns token",
+			auth:     adapters.TokenAuth{Token: "ghp_test123"},
+			expected: "token",
+		},
+		{
+			name:     "SSHAuth returns ssh",
+			auth:     adapters.SSHAuth{},
+			expected: "ssh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getAuthMethodName(tt.auth)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

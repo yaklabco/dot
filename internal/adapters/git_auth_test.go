@@ -136,7 +136,8 @@ func TestResolveAuth_NoAuth(t *testing.T) {
 	os.Unsetenv("GIT_TOKEN")
 	os.Setenv("HOME", "/nonexistent")
 
-	auth, err := ResolveAuth(ctx, "https://github.com/user/repo")
+	// Use non-GitHub URL to test NoAuth fallback without gh CLI interference
+	auth, err := ResolveAuth(ctx, "https://gitlab.com/user/repo")
 	require.NoError(t, err)
 
 	_, ok := auth.(NoAuth)
@@ -245,6 +246,166 @@ func TestIsSSHURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.url, func(t *testing.T) {
 			result := isSSHURL(tt.url)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestResolveAuth_WithGitHubCLI(t *testing.T) {
+	ctx := context.Background()
+
+	// Clear environment tokens
+	originalGitHubToken := os.Getenv("GITHUB_TOKEN")
+	originalGitToken := os.Getenv("GIT_TOKEN")
+	defer func() {
+		if originalGitHubToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalGitHubToken)
+		} else {
+			os.Unsetenv("GITHUB_TOKEN")
+		}
+		if originalGitToken != "" {
+			os.Setenv("GIT_TOKEN", originalGitToken)
+		} else {
+			os.Unsetenv("GIT_TOKEN")
+		}
+	}()
+
+	os.Unsetenv("GITHUB_TOKEN")
+	os.Unsetenv("GIT_TOKEN")
+
+	// Test with GitHub URL
+	// Note: This test may pass or fail depending on local gh CLI authentication
+	// In CI, this should gracefully return NoAuth if gh is not authenticated
+	auth, err := ResolveAuth(ctx, "https://github.com/user/repo")
+	require.NoError(t, err)
+
+	// Should either be TokenAuth (if gh is authenticated) or NoAuth (if not)
+	_, isToken := auth.(TokenAuth)
+	_, isNoAuth := auth.(NoAuth)
+	assert.True(t, isToken || isNoAuth, "Expected TokenAuth or NoAuth")
+}
+
+func TestResolveAuth_GitHubCLI_WithEnvVarOverride(t *testing.T) {
+	ctx := context.Background()
+
+	// Set GITHUB_TOKEN environment variable
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		} else {
+			os.Unsetenv("GITHUB_TOKEN")
+		}
+	}()
+
+	os.Setenv("GITHUB_TOKEN", "env_token_123")
+
+	auth, err := ResolveAuth(ctx, "https://github.com/user/repo")
+	require.NoError(t, err)
+
+	tokenAuth, ok := auth.(TokenAuth)
+	assert.True(t, ok)
+	// Environment variable should take precedence over gh CLI
+	assert.Equal(t, "env_token_123", tokenAuth.Token)
+}
+
+func TestResolveAuth_GitHubCLI_NotGitHub(t *testing.T) {
+	ctx := context.Background()
+
+	// Clear environment tokens
+	originalGitHubToken := os.Getenv("GITHUB_TOKEN")
+	originalGitToken := os.Getenv("GIT_TOKEN")
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		if originalGitHubToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalGitHubToken)
+		} else {
+			os.Unsetenv("GITHUB_TOKEN")
+		}
+		if originalGitToken != "" {
+			os.Setenv("GIT_TOKEN", originalGitToken)
+		} else {
+			os.Unsetenv("GIT_TOKEN")
+		}
+		if originalHome != "" {
+			os.Setenv("HOME", originalHome)
+		}
+	}()
+
+	os.Unsetenv("GITHUB_TOKEN")
+	os.Unsetenv("GIT_TOKEN")
+	os.Setenv("HOME", "/nonexistent")
+
+	// Test with non-GitHub URL (GitLab)
+	auth, err := ResolveAuth(ctx, "https://gitlab.com/user/repo")
+	require.NoError(t, err)
+
+	// Should be NoAuth since it's not GitHub and no other auth available
+	_, ok := auth.(NoAuth)
+	assert.True(t, ok)
+}
+
+func TestIsGitHubURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected bool
+	}{
+		{
+			name:     "HTTPS GitHub URL",
+			url:      "https://github.com/user/repo",
+			expected: true,
+		},
+		{
+			name:     "HTTPS GitHub URL with .git",
+			url:      "https://github.com/user/repo.git",
+			expected: true,
+		},
+		{
+			name:     "SSH GitHub URL",
+			url:      "git@github.com:user/repo.git",
+			expected: true,
+		},
+		{
+			name:     "SSH GitHub URL without .git",
+			url:      "git@github.com:user/repo",
+			expected: true,
+		},
+		{
+			name:     "GitLab HTTPS URL",
+			url:      "https://gitlab.com/user/repo",
+			expected: false,
+		},
+		{
+			name:     "GitLab SSH URL",
+			url:      "git@gitlab.com:user/repo.git",
+			expected: false,
+		},
+		{
+			name:     "Bitbucket URL",
+			url:      "https://bitbucket.org/user/repo",
+			expected: false,
+		},
+		{
+			name:     "Generic git URL",
+			url:      "https://git.example.com/repo",
+			expected: false,
+		},
+		{
+			name:     "Empty URL",
+			url:      "",
+			expected: false,
+		},
+		{
+			name:     "GitHub Enterprise (contains github.com)",
+			url:      "https://github.company.com/user/repo",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isGitHubURL(tt.url)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

@@ -194,22 +194,28 @@ All global options also apply.
 
 The clone command provides single-command setup for new machines. It clones a dotfiles repository and installs packages based on optional bootstrap configuration.
 
+Like `git clone`, the repository is cloned into a subdirectory named after the repository. For example, `dot clone https://github.com/user/my-dotfiles` creates a `my-dotfiles` directory in the current location. Use `--dir` to specify a different target directory.
+
 **Workflow**:
-1. Validates package directory is empty (unless `--force`)
-2. Clones repository to configured package directory
-3. Loads optional `.dotbootstrap.yaml` configuration
-4. Selects packages (via profile, interactively, or all)
-5. Filters packages by current platform
-6. Installs selected packages via `manage` command
-7. Updates manifest with repository tracking information
+1. Determines target directory (from repository name or `--dir` flag)
+2. Validates target directory is empty (unless `--force`)
+3. Clones repository to target directory
+4. Loads optional `.dotbootstrap.yaml` configuration
+5. Selects packages (via profile, interactively, or all)
+6. Filters packages by current platform
+7. Installs selected packages via `manage` command
+8. Updates manifest with repository tracking information
 
 **Authentication**:
 
 Authentication is automatically resolved in priority order:
 1. `GITHUB_TOKEN` environment variable (GitHub repositories)
 2. `GIT_TOKEN` environment variable (general git repositories)
-3. SSH keys in `~/.ssh/` directory (`id_rsa`, `id_ed25519`)
-4. No authentication (public repositories only)
+3. SSH keys in `~/.ssh/` directory (for SSH URLs like `git@github.com:user/repo.git`)
+4. GitHub CLI (`gh`) authenticated session (for HTTPS GitHub repositories)
+5. No authentication (public repositories only)
+
+If you've authenticated with `gh auth login`, dot will automatically use your GitHub CLI credentials when cloning private GitHub repositories via HTTPS. For SSH URLs, SSH keys are preferred as expected.
 
 **Bootstrap Configuration**:
 
@@ -225,8 +231,11 @@ See [Bootstrap Configuration Specification](bootstrap-config-spec.md) for comple
 **Examples**:
 
 ```bash
-# Clone and install all packages
+# Clone and install all packages (creates ./dotfiles directory)
 dot clone https://github.com/user/dotfiles
+
+# Clone creates ./my-dotfiles directory based on repo name
+dot clone https://github.com/user/my-dotfiles
 
 # Clone specific branch
 dot clone https://github.com/user/dotfiles --branch develop
@@ -237,14 +246,14 @@ dot clone https://github.com/user/dotfiles --profile minimal
 # Force interactive selection
 dot clone https://github.com/user/dotfiles --interactive
 
+# Clone to specific directory (overrides default behavior)
+dot clone --dir ~/my-packages https://github.com/user/dotfiles
+
 # Overwrite existing package directory
-dot clone https://github.com/user/dotfiles --force
+dot clone --force https://github.com/user/dotfiles
 
 # Clone via SSH
 dot clone git@github.com:user/dotfiles.git
-
-# Clone with custom directories
-dot --dir ~/my-dotfiles clone https://github.com/user/dotfiles
 
 # Preview what would be installed
 dot --dry-run clone https://github.com/user/dotfiles

@@ -70,8 +70,8 @@ Clone an existing dotfiles repository:
 dot clone https://github.com/user/dotfiles
 ```
 
-This single command:
-- Clones the repository
+Like `git clone`, this creates a subdirectory named after the repository (e.g., `./dotfiles`). This single command:
+- Clones the repository to the local directory
 - Selects packages to install (via profile or interactively)
 - Creates all symlinks
 - Tracks repository information for updates
@@ -240,8 +240,11 @@ dot adopt zsh ~/.zshrc ~/.zprofile ~/.zshenv
 Clone a dotfiles repository and set up on a new machine:
 
 ```bash
-# Basic clone
+# Basic clone (creates ./dotfiles directory)
 dot clone https://github.com/user/dotfiles
+
+# Clone creates ./my-dotfiles directory based on repo name
+dot clone https://github.com/user/my-dotfiles
 
 # Clone with specific profile
 dot clone https://github.com/user/dotfiles --profile minimal
@@ -249,12 +252,12 @@ dot clone https://github.com/user/dotfiles --profile minimal
 # Clone specific branch
 dot clone https://github.com/user/dotfiles --branch develop
 
-# Clone to specific directory
-dot clone https://github.com/user/dotfiles --dir ~/my-dotfiles
+# Clone to specific directory (overrides default)
+dot clone --dir ~/packages https://github.com/user/dotfiles
 ```
 
 The clone command:
-- Clones the Git repository
+- Clones the Git repository into a subdirectory (named after the repo, like `git clone`)
 - Reads `.dotbootstrap.yaml` if present for configuration
 - Prompts for package selection (or uses specified profile)
 - Creates all symlinks for selected packages
@@ -498,9 +501,7 @@ Complete documentation index available at [docs/README.md](docs/README.md).
 ### Examples
 
 - [Basic Usage Examples](examples/basic/)
-- [Configuration Examples](examples/configuration/)
-- [Workflow Examples](examples/workflows/)
-- [Library Embedding Examples](examples/library/)
+- [Examples README](examples/README.md)
 
 ## Development
 
@@ -599,8 +600,6 @@ func main() {
 }
 ```
 
-See [Library Examples](examples/library/) for more detailed usage patterns.
-
 ## Contributing
 
 Contributions are welcome. All contributions must follow project standards:
@@ -674,7 +673,7 @@ See [Migration Guide](docs/user/migration-from-stow.md) for transitioning from G
 
 **Stability**: Stable
 
-See [CHANGELOG](CHANGELOG.md) for release history and [docs/planning/](docs/planning/) for development milestones.
+See [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Acknowledgments
 

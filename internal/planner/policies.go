@@ -1,6 +1,10 @@
 package planner
 
 import (
+	"fmt"
+	"path/filepath"
+	"time"
+
 	"github.com/jamesainslie/dot/internal/domain"
 )
 
@@ -72,5 +76,56 @@ func applySkipPolicy(op domain.LinkCreate, c Conflict) ResolutionOutcome {
 	return ResolutionOutcome{
 		Status:  ResolveSkip,
 		Warning: &warning,
+	}
+}
+
+// applyBackupPolicy creates backup of existing file then creates symlink
+func applyBackupPolicy(
+	op domain.LinkCreate,
+	conflict Conflict,
+	backupDir string,
+) ResolutionOutcome {
+	// Generate timestamp for backup file
+	timestamp := time.Now().Format("20060102-150405")
+
+	// Extract filename from conflict path
+	filename := filepath.Base(conflict.Path.String())
+
+	// Generate backup path: <backupDir>/<filename>.<timestamp>
+	backupPath := filepath.Join(backupDir, fmt.Sprintf("%s.%s", filename, timestamp))
+	backupFilePath := domain.NewFilePath(backupPath).Unwrap()
+
+	// Create operations:
+	// 1. FileBackup: backs up the conflicting file
+	backupOpID := domain.OperationID(fmt.Sprintf("backup-%s-%s", conflict.Path.String(), timestamp))
+	backupOp := domain.NewFileBackup(backupOpID, conflict.Path, backupFilePath)
+
+	// 2. FileDelete: removes the original file
+	deleteOpID := domain.OperationID(fmt.Sprintf("delete-%s", conflict.Path.String()))
+	deleteOp := domain.NewFileDelete(deleteOpID, conflict.Path)
+
+	// 3. LinkCreate: creates the symlink (original operation)
+
+	return ResolutionOutcome{
+		Status:     ResolveOK,
+		Operations: []domain.Operation{backupOp, deleteOp, op},
+	}
+}
+
+// applyOverwritePolicy deletes existing file then creates symlink
+func applyOverwritePolicy(
+	op domain.LinkCreate,
+	conflict Conflict,
+) ResolutionOutcome {
+	// Create operations:
+	// 1. FileDelete: removes the conflicting file
+	deleteOpID := domain.OperationID(fmt.Sprintf("delete-%s", conflict.Path.String()))
+	deleteOp := domain.NewFileDelete(deleteOpID, conflict.Path)
+
+	// 2. LinkCreate: creates the symlink (original operation)
+
+	return ResolutionOutcome{
+		Status:     ResolveOK,
+		Operations: []domain.Operation{deleteOp, op},
 	}
 }

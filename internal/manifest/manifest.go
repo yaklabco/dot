@@ -23,11 +23,12 @@ const (
 
 // PackageInfo contains installation metadata for a package
 type PackageInfo struct {
-	Name        string        `json:"name"`
-	InstalledAt time.Time     `json:"installed_at"`
-	LinkCount   int           `json:"link_count"`
-	Links       []string      `json:"links"`
-	Source      PackageSource `json:"source,omitempty"` // How package was installed (adopted vs managed)
+	Name        string            `json:"name"`
+	InstalledAt time.Time         `json:"installed_at"`
+	LinkCount   int               `json:"link_count"`
+	Links       []string          `json:"links"`
+	Backups     map[string]string `json:"backups,omitempty"` // target path -> backup path
+	Source      PackageSource     `json:"source,omitempty"`  // How package was installed (adopted vs managed)
 }
 
 // RepositoryInfo contains metadata about the cloned repository.
