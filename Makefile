@@ -83,6 +83,47 @@ vuln:
 	@command -v govulncheck >/dev/null 2>&1 || { echo "Installing govulncheck..."; go install golang.org/x/vuln/cmd/govulncheck@latest; }
 	govulncheck ./...
 
+## fuzz: Run fuzzing tests (short duration)
+fuzz:
+	@echo "Running fuzzing tests for 30 seconds each..."
+	@echo ""
+	@echo "Fuzzing config parsing..."
+	@go test -fuzz=FuzzLoadFromFile -fuzztime=30s ./internal/config/ -run=^$$
+	@go test -fuzz=FuzzValidateExtended -fuzztime=30s ./internal/config/ -run=^$$
+	@go test -fuzz=FuzzLoaderLoad -fuzztime=30s ./internal/config/ -run=^$$
+	@echo ""
+	@echo "Fuzzing ignore patterns..."
+	@go test -fuzz=FuzzGlobToRegex -fuzztime=30s ./internal/ignore/ -run=^$$
+	@go test -fuzz=FuzzPatternMatch -fuzztime=30s ./internal/ignore/ -run=^$$
+	@go test -fuzz=FuzzIgnoreSetShouldIgnore -fuzztime=30s ./internal/ignore/ -run=^$$
+	@echo ""
+	@echo "Fuzzing domain path validation..."
+	@go test -fuzz=FuzzNewPackagePath -fuzztime=30s ./internal/domain/ -run=^$$
+	@go test -fuzz=FuzzNewTargetPath -fuzztime=30s ./internal/domain/ -run=^$$
+	@go test -fuzz=FuzzNewFilePath -fuzztime=30s ./internal/domain/ -run=^$$
+	@echo ""
+	@echo "✓ All fuzzing tests passed"
+
+## bench: Run benchmarks
+bench:
+	@echo "Running benchmarks..."
+	@go test -bench=. -benchmem -run=^$$ ./internal/planner/ ./internal/scanner/ ./internal/executor/
+
+## bench-compare: Run benchmarks and compare with baseline
+bench-compare:
+	@if [ ! -f bench-baseline.txt ]; then \
+		echo "Creating baseline..."; \
+		go test -bench=. -benchmem -run=^$$ ./internal/planner/ ./internal/scanner/ ./internal/executor/ > bench-baseline.txt; \
+		echo "✓ Baseline created in bench-baseline.txt"; \
+		echo ""; \
+		echo "Run 'make bench-compare' again after making changes to compare results."; \
+	else \
+		echo "Comparing against baseline..."; \
+		go test -bench=. -benchmem -run=^$$ ./internal/planner/ ./internal/scanner/ ./internal/executor/ > bench-current.txt; \
+		command -v benchstat >/dev/null 2>&1 || { echo "Installing benchstat..."; go install golang.org/x/perf/cmd/benchstat@latest; }; \
+		benchstat bench-baseline.txt bench-current.txt; \
+	fi
+
 ## check: Run tests and linting (machine-readable output for CI/AI agents)
 check: test check-coverage lint vet vuln
 
