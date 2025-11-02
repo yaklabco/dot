@@ -28,7 +28,13 @@ func colorize(color, text string) string {
 }
 
 // shouldUseColor determines if color output should be enabled
+// Precedence: --no-color flag > NO_COLOR env > terminal detection
 func shouldUseColor() bool {
+	// Check --no-color flag first (highest precedence)
+	if globalCfg.noColor {
+		return false
+	}
+
 	// Check NO_COLOR environment variable
 	if os.Getenv("NO_COLOR") != "" {
 		return false
