@@ -460,14 +460,20 @@ func TestAdoptCommand_Verification(t *testing.T) {
 		rootCmd := NewRootCommand("test", "abc123", "2024-01-01")
 		rootCmd.SetOut(&stdout)
 		rootCmd.SetErr(&stderr)
-		rootCmd.SetArgs([]string{"--target", targetDir, "--dir", packageDir, "adopt", ".config/test/config.yml", "test"})
+		rootCmd.SetArgs([]string{"--target", targetDir, "--dir", packageDir, "adopt", "test", ".config/test/config.yml"})
 
 		ctx := context.Background()
 		_, err := executeCommand(ctx, rootCmd)
 		require.NoError(t, err)
 
-		// Verify package structure with nested path
-		expectedFile := filepath.Join(packageDir, "test", "dot-config-test-config-yml")
+		// Verify package structure with nested path (adopt uses base name only)
+		expectedFile := filepath.Join(packageDir, "test", "config.yml")
 		require.FileExists(t, expectedFile, "adopted nested file should exist in package")
+
+		// Verify symlink at original location
+		symlinkPath := filepath.Join(targetDir, ".config", "test", "config.yml")
+		info, err := os.Lstat(symlinkPath)
+		require.NoError(t, err)
+		require.True(t, info.Mode()&os.ModeSymlink != 0, "file at original location should be a symlink")
 	})
 }

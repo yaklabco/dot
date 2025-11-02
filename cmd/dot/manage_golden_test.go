@@ -448,8 +448,8 @@ func TestManageCommand_Verification(t *testing.T) {
 		_, err := executeCommand(ctx, rootCmd)
 		require.NoError(t, err)
 
-		// Verify symlink was created
-		symlinkPath := filepath.Join(targetDir, ".vimrc")
+		// Verify symlink was created (with package name mapping: vim/dot-vimrc -> vim/.vimrc)
+		symlinkPath := filepath.Join(targetDir, "vim", ".vimrc")
 		info, err := os.Lstat(symlinkPath)
 		require.NoError(t, err)
 		require.True(t, info.Mode()&os.ModeSymlink != 0, "should be a symlink")
@@ -475,7 +475,7 @@ func TestManageCommand_Verification(t *testing.T) {
 
 		// Create package with nested structure
 		configPkg := filepath.Join(packageDir, "config")
-		nestedDir := filepath.Join(configPkg, "dot-config-app")
+		nestedDir := filepath.Join(configPkg, "dot-config", "app")
 		os.MkdirAll(nestedDir, 0755)
 		os.WriteFile(filepath.Join(nestedDir, "config.yml"), []byte("key: value\n"), 0644)
 
@@ -494,7 +494,9 @@ func TestManageCommand_Verification(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify nested directory structure was created in target
-		expectedDir := filepath.Join(targetDir, ".config", "app")
+		// Note: Only final path component gets dot- translation, not intermediate directories
+		// So packages/config/dot-config/app -> target/config/dot-config/app (not config/.config/app)
+		expectedDir := filepath.Join(targetDir, "config", "dot-config", "app")
 		require.DirExists(t, expectedDir, "nested directory should be created")
 
 		// Verify file symlink in nested directory
@@ -534,9 +536,9 @@ func TestManageCommand_Verification(t *testing.T) {
 		_, err := executeCommand(ctx, rootCmd)
 		require.NoError(t, err)
 
-		// Verify all symlinks were created
+		// Verify all symlinks were created (with package name mapping: pkg/dot-pkgrc -> pkg/.pkgrc)
 		for _, pkg := range packages {
-			symlinkPath := filepath.Join(targetDir, "."+pkg+"rc")
+			symlinkPath := filepath.Join(targetDir, pkg, "."+pkg+"rc")
 			info, err := os.Lstat(symlinkPath)
 			require.NoError(t, err, "symlink should exist for %s", pkg)
 			require.True(t, info.Mode()&os.ModeSymlink != 0, "%s should be a symlink", pkg)
