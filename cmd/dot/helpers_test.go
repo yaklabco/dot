@@ -30,6 +30,15 @@ func TestShouldColorize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Unset NO_COLOR for this test to ensure it doesn't interfere
+			original := os.Getenv("NO_COLOR")
+			os.Unsetenv("NO_COLOR")
+			t.Cleanup(func() {
+				if original != "" {
+					os.Setenv("NO_COLOR", original)
+				}
+			})
+
 			result := shouldColorize(tt.color)
 			assert.Equal(t, tt.want, result)
 		})

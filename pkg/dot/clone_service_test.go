@@ -566,7 +566,7 @@ func TestCloneService_SelectPackagesWithBootstrap_ExplicitInteractiveOverridesDe
 	// Should use user selection, not default profile
 	assert.ElementsMatch(t, []string{"dot-vim", "dot-zsh"}, packages)
 	// Verify selector was called by checking output contains prompt
-	assert.Contains(t, output.String(), "Select packages")
+	assert.Contains(t, output.String(), "Package Selection")
 }
 
 func TestCloneService_SelectPackagesWithoutBootstrap_AllPackages(t *testing.T) {
