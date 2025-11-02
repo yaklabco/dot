@@ -112,7 +112,8 @@ func TestOperationBelongsToPackage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := operationBelongsToPackage(tt.op, tt.pkgPath)
+			// For basic LinkCreate and FileMove tests, targetToPackage is not needed
+			got := operationBelongsToPackage(tt.op, "", tt.pkgPath, make(map[string]string))
 			assert.Equal(t, tt.want, got)
 		})
 	}

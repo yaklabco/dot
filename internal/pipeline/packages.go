@@ -72,6 +72,7 @@ func (p *ManagePipeline) Execute(ctx context.Context, input ManageInput) domain.
 	// Stage 3: Resolve conflicts and generate operations
 	resolveInput := ResolveInput{
 		Desired:   desired,
+		TargetDir: input.TargetDir,
 		FS:        p.opts.FS,
 		Policies:  p.opts.Policies,
 		BackupDir: p.opts.BackupDir,
@@ -147,6 +148,19 @@ func countOperationsByKind(ops []domain.Operation, kind domain.OperationKind) in
 func buildPackageOperationMapping(packages []domain.Package, operations []domain.Operation) map[string][]domain.OperationID {
 	packageOps := make(map[string][]domain.OperationID)
 
+	// Build a map of target paths to package names from LinkCreate operations
+	targetToPackage := make(map[string]string)
+	for _, pkg := range packages {
+		pkgPath := pkg.Path.String()
+		for _, op := range operations {
+			if linkOp, ok := op.(domain.LinkCreate); ok {
+				if isUnderPath(linkOp.Source.String(), pkgPath) {
+					targetToPackage[linkOp.Target.String()] = pkg.Name
+				}
+			}
+		}
+	}
+
 	// For each package, find operations that reference files from that package
 	for _, pkg := range packages {
 		pkgPath := pkg.Path.String()
@@ -154,7 +168,7 @@ func buildPackageOperationMapping(packages []domain.Package, operations []domain
 
 		for _, op := range operations {
 			// Check if this operation's source is from this package
-			if operationBelongsToPackage(op, pkgPath) {
+			if operationBelongsToPackage(op, pkg.Name, pkgPath, targetToPackage) {
 				ops = append(ops, op.ID())
 			}
 		}
@@ -167,8 +181,9 @@ func buildPackageOperationMapping(packages []domain.Package, operations []domain
 	return packageOps
 }
 
-// operationBelongsToPackage checks if an operation's source is from the given package path.
-func operationBelongsToPackage(op domain.Operation, pkgPath string) bool {
+// operationBelongsToPackage checks if an operation belongs to the given package.
+// For FileBackup and FileDelete, it checks if they're preparing for a LinkCreate from this package.
+func operationBelongsToPackage(op domain.Operation, pkgName string, pkgPath string, targetToPackage map[string]string) bool {
 	switch o := op.(type) {
 	case domain.LinkCreate:
 		// LinkCreate source is the file in the package
@@ -176,6 +191,16 @@ func operationBelongsToPackage(op domain.Operation, pkgPath string) bool {
 	case domain.FileMove:
 		// FileMove destination is the file in the package
 		return isUnderPath(o.Dest.String(), pkgPath)
+	case domain.FileBackup:
+		// FileBackup belongs to package that will create a link at this location
+		// The Source of FileBackup is the original file being backed up
+		targetPkgName, exists := targetToPackage[o.Source.String()]
+		return exists && targetPkgName == pkgName
+	case domain.FileDelete:
+		// FileDelete belongs to package that will create a link at this location
+		// The Path of FileDelete is the file being deleted
+		targetPkgName, exists := targetToPackage[o.Path.String()]
+		return exists && targetPkgName == pkgName
 	default:
 		// Other operations (DirCreate, LinkDelete, etc.) don't belong to a specific package
 		return false

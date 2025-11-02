@@ -10,6 +10,62 @@ import (
 	"github.com/jamesainslie/dot/internal/scanner"
 )
 
+// scanCurrentState scans the target directory to detect existing files, links, and directories
+func scanCurrentState(ctx context.Context, fs domain.FS, targetDir domain.TargetPath) planner.CurrentState {
+	current := planner.CurrentState{
+		Files: make(map[string]planner.FileInfo),
+		Links: make(map[string]planner.LinkTarget),
+		Dirs:  make(map[string]bool),
+	}
+
+	// Early return if target doesn't exist
+	if !fs.Exists(ctx, targetDir.String()) {
+		return current
+	}
+
+	// Recursively scan target directory
+	var scan func(string) error
+	scan = func(dir string) error {
+		entries, err := fs.ReadDir(ctx, dir)
+		if err != nil {
+			return nil // Continue on error
+		}
+
+		for _, entry := range entries {
+			path := filepath.Join(dir, entry.Name())
+
+			// Check if it's a symlink
+			if isLink, _ := fs.IsSymlink(ctx, path); isLink {
+				if linkTarget, err := fs.ReadLink(ctx, path); err == nil {
+					current.Links[path] = planner.LinkTarget{
+						Target: linkTarget,
+					}
+				}
+				continue
+			}
+
+			// Check if it's a directory
+			if entry.IsDir() {
+				current.Dirs[path] = true
+				// Recurse into subdirectory
+				_ = scan(path)
+				continue
+			}
+
+			// It's a regular file
+			if info, err := fs.Stat(ctx, path); err == nil {
+				current.Files[path] = planner.FileInfo{
+					Size: info.Size(),
+				}
+			}
+		}
+		return nil
+	}
+
+	_ = scan(targetDir.String())
+	return current
+}
+
 // ScanInput contains the input for scanning packages
 type ScanInput struct {
 	PackageDir domain.PackagePath
@@ -87,6 +143,7 @@ func PlanStage() Pipeline[PlanInput, planner.DesiredState] {
 // ResolveInput contains the input for conflict resolution
 type ResolveInput struct {
 	Desired   planner.DesiredState
+	TargetDir domain.TargetPath
 	FS        domain.FS
 	Policies  planner.ResolutionPolicies
 	BackupDir string
@@ -113,13 +170,8 @@ func ResolveStage() Pipeline[ResolveInput, planner.ResolveResult] {
 		default:
 		}
 
-		// For now, use empty current state (will scan target in future phases)
-		// This will be enhanced when we add current state scanning
-		current := planner.CurrentState{
-			Files: make(map[string]planner.FileInfo),
-			Links: make(map[string]planner.LinkTarget),
-			Dirs:  make(map[string]bool),
-		}
+		// Scan target directory to build current state for conflict detection
+		current := scanCurrentState(ctx, input.FS, input.TargetDir)
 
 		// Check for cancellation before potentially long-running conflict resolution
 		select {
