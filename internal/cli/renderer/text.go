@@ -3,6 +3,7 @@ package renderer
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/jamesainslie/dot/pkg/dot"
@@ -23,14 +24,24 @@ func (r *TextRenderer) RenderStatus(w io.Writer, status dot.Status) error {
 		return nil
 	}
 
+	// Sort packages by name for consistent output
+	sort.Slice(status.Packages, func(i, j int) bool {
+		return status.Packages[i].Name < status.Packages[j].Name
+	})
+
 	for _, pkg := range status.Packages {
 		fmt.Fprintf(w, "%s%s%s\n", r.colorText(r.scheme.Info), pkg.Name, r.resetColor())
 		fmt.Fprintf(w, "  Links: %d\n", pkg.LinkCount)
 		fmt.Fprintf(w, "  Installed: %s\n", formatDuration(pkg.InstalledAt))
 
 		if len(pkg.Links) > 0 {
+			// Sort links for consistent output
+			links := make([]string, len(pkg.Links))
+			copy(links, pkg.Links)
+			sort.Strings(links)
+
 			fmt.Fprintf(w, "  Files:\n")
-			for i, link := range pkg.Links {
+			for i, link := range links {
 				// If displayLimit is 0, show all; otherwise respect the limit
 				if r.displayLimit > 0 && i >= r.displayLimit {
 					remaining := len(pkg.Links) - r.displayLimit

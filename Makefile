@@ -78,26 +78,28 @@ uninstall:
 		echo "Binary not found at $$GOBIN/$(BINARY_NAME)"; \
 	fi
 
-## vuln: Check for known vulnerabilities
+## vuln: Check for known vulnerabilities (excludes GO-2024-3295 - see SECURITY.md)
 vuln:
 	@command -v govulncheck >/dev/null 2>&1 || { echo "Installing govulncheck..."; go install golang.org/x/vuln/cmd/govulncheck@latest; }
-	@echo "Running vulnerability check (excluding GO-2024-3295 - Codespace-only issue)..."
-	@govulncheck ./... 2>&1 | tee /tmp/vuln-output.txt || true
-	@if grep "GO-2024-3295" /tmp/vuln-output.txt > /dev/null 2>&1; then \
-		echo "  ℹ Found GO-2024-3295 (Codespace-only, accepted risk - see .github/SECURITY_EXCEPTIONS.md)"; \
+	@echo "Running vulnerability check..."
+	@govulncheck -json ./... 2>&1 | tee /tmp/vuln-output.json > /dev/null || true
+	@if grep -q '"OSV":.*"GO-2024-3295"' /tmp/vuln-output.json 2>/dev/null; then \
+		echo "  ℹ Found GO-2024-3295 (accepted risk - GitHub Codespaces only, see SECURITY.md)"; \
 	fi
-	@VULN_COUNT=$$(grep -c "^Vulnerability #" /tmp/vuln-output.txt 2>/dev/null || echo "0"); \
-	GO_2024_3295_COUNT=$$(grep -c "GO-2024-3295" /tmp/vuln-output.txt 2>/dev/null || echo "0"); \
-	OTHER_VULNS=$$((VULN_COUNT - GO_2024_3295_COUNT)); \
-	if [ $$OTHER_VULNS -gt 0 ]; then \
+	@VULN_IDS=$$(grep -o '"OSV":.*"id":"GO-[^"]*"' /tmp/vuln-output.json 2>/dev/null | grep -o 'GO-[^"]*' | sort -u || echo ""); \
+	EXCLUDED="GO-2024-3295"; \
+	OTHER_VULNS=$$(echo "$$VULN_IDS" | grep -v "$$EXCLUDED" || true); \
+	if [ -n "$$OTHER_VULNS" ]; then \
 		echo ""; \
-		echo "ERROR: $$OTHER_VULNS critical vulnerabilities found (excluding GO-2024-3295)"; \
-		cat /tmp/vuln-output.txt; \
-		rm -f /tmp/vuln-output.txt; \
+		echo "ERROR: Unaccepted vulnerabilities found:"; \
+		echo "$$OTHER_VULNS" | sed 's/^/  - /'; \
+		echo ""; \
+		govulncheck ./...; \
+		rm -f /tmp/vuln-output.json; \
 		exit 1; \
 	fi
-	@rm -f /tmp/vuln-output.txt
-	@echo "✓ No critical vulnerabilities found (GO-2024-3295 excluded - Codespace-only)"
+	@rm -f /tmp/vuln-output.json
+	@echo "✓ No unaccepted vulnerabilities found (GO-2024-3295 excluded - see SECURITY.md)"
 
 ## fuzz: Run fuzzing tests (short duration)
 fuzz:

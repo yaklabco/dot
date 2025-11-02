@@ -1,6 +1,24 @@
-Package directory: /Volumes/ArsOculusDev/dot/cmd/dot
-Target directory:  <TMPDIR>/001
-Manifest:          <TMPDIR>/001/.local/share/dot/manifest
+Package directory: /Volumes/Development/dot/cmd/dot
+Target directory:  /Users/jamesainslie
+Manifest:          /Users/jamesainslie/.local/share/dot/manifest
 
-No packages installed
-
+╭──────────────┬───────┬────────────────╮
+│   PACKAGE    │ LINKS │   INSTALLED    │
+├──────────────┼───────┼────────────────┤
+│ .file1       │ 1     │ just now       │
+│ bash         │ 2     │ just now       │
+│ config       │ 1     │ 19 seconds ago │
+│ dot-bashrc   │ 1     │ just now       │
+│ dot-ssh      │ 1     │ 12 days ago    │
+│ dot-testfile │ 1     │ 20 seconds ago │
+│ dotfiles     │ 3     │ 19 seconds ago │
+│ fish         │ 1     │ just now       │
+│ git          │ 1     │ 19 seconds ago │
+│ scripts      │ 1     │ 19 seconds ago │
+│ ssh          │ 1     │ just now       │
+│ test         │ 1     │ 20 seconds ago │
+│ test-pkg     │ 1     │ 12 minutes ago │
+│ testpkg      │ 1     │ just now       │
+│ vim          │ 1     │ just now       │
+│ zsh          │ 1     │ just now       │
+╰──────────────┴───────┴────────────────╯

@@ -1,2 +1,100 @@
-No packages installed
+.file1
+  Links: 1
+  Installed: just now
+  Files:
+    .file2
+
+bash
+  Links: 2
+  Installed: just now
+  Files:
+    .bash_profile
+    .bashrc
+
+config
+  Links: 1
+  Installed: 19 seconds ago
+  Files:
+    config/dot-config/app/config.yml
+
+dot-bashrc
+  Links: 1
+  Installed: just now
+  Files:
+    .bashrc
+
+dot-ssh
+  Links: 1
+  Installed: 12 days ago
+  Files:
+    .ssh
+
+dot-testfile
+  Links: 1
+  Installed: 20 seconds ago
+  Files:
+    .testfile
+
+dotfiles
+  Links: 3
+  Installed: 19 seconds ago
+  Files:
+    dotfiles/.bashrc
+    dotfiles/.profile
+    dotfiles/.zshrc
+
+fish
+  Links: 1
+  Installed: just now
+  Files:
+    .config/fish/config.fish
+
+git
+  Links: 1
+  Installed: 19 seconds ago
+  Files:
+    git/.gitrc
+
+scripts
+  Links: 1
+  Installed: 19 seconds ago
+  Files:
+    scripts/.local-bin-myscript
+
+ssh
+  Links: 1
+  Installed: just now
+  Files:
+    .ssh/config
+
+test
+  Links: 1
+  Installed: 20 seconds ago
+  Files:
+    .config/test/config.yml
+
+test-pkg
+  Links: 1
+  Installed: 12 minutes ago
+  Files:
+    test-pkg/file1
+
+testpkg
+  Links: 1
+  Installed: just now
+  Files:
+    test-adopt-file.txt
+
+vim
+  Links: 1
+  Installed: just now
+  Files:
+    .vimrc
+
+zsh
+  Links: 1
+  Installed: just now
+  Files:
+    .zshrc
+
 

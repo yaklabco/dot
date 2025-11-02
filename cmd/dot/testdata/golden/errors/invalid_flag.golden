@@ -27,7 +27,7 @@ Flags:
       --no-color             Disable color output
       --pprof string         Enable pprof HTTP server on address (e.g. :6060)
   -q, --quiet                Suppress all non-error output
-  -t, --target string        Target directory for symlinks (default "/Volumes/ArsOculusDev/dot/cmd/dot")
+  -t, --target string        Target directory for symlinks (default "/Volumes/Development/dot/cmd/dot")
   -v, --verbose count        Increase verbosity: -v (info), -vv (debug), -vvv (trace)
       --version              version for dot
 

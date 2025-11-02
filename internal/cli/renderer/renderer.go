@@ -123,7 +123,13 @@ func formatBytes(bytes int64) string {
 
 // formatDuration converts a time to a human-readable relative duration.
 func formatDuration(t time.Time) string {
-	duration := time.Since(t)
+	return formatDurationFrom(t, time.Now())
+}
+
+// formatDurationFrom converts a time to a human-readable relative duration from a specific point.
+// This function is exported for testing purposes.
+func formatDurationFrom(t time.Time, now time.Time) string {
+	duration := now.Sub(t)
 
 	if duration < time.Minute {
 		if duration < 10*time.Second {

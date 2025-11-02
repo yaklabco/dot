@@ -157,16 +157,14 @@ func TestAdoptCommand_Golden(t *testing.T) {
 
 				os.MkdirAll(packageDir, 0755)
 
-				// Create file with absolute path
-				testFile := filepath.Join(tmpDir, "test-adopt-file.txt")
+				// Create file in target directory
+				testFile := filepath.Join(targetDir, "test-adopt-file.txt")
 				os.WriteFile(testFile, []byte("test content\n"), 0644)
 
-				os.Setenv("HOME", tmpDir)
 				oldDir, _ := os.Getwd()
 				os.Chdir(tmpDir)
 
 				return targetDir, packageDir, func() {
-					os.Unsetenv("HOME")
 					os.Chdir(oldDir)
 				}
 			},

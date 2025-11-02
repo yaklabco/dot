@@ -3,6 +3,7 @@ package renderer
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/jamesainslie/dot/internal/cli/pretty"
@@ -24,6 +25,11 @@ func (r *TableRenderer) RenderStatus(w io.Writer, status dot.Status) error {
 		fmt.Fprintln(w, "No packages installed")
 		return nil
 	}
+
+	// Sort packages by name for consistent output
+	sort.Slice(status.Packages, func(i, j int) bool {
+		return status.Packages[i].Name < status.Packages[j].Name
+	})
 
 	// Use legacy simple rendering if configured
 	if r.tableStyle == "simple" {
