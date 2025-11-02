@@ -26,6 +26,18 @@ func normalizeTempPaths(output string) string {
 	re = regexp.MustCompile(`/[^/]+/folders/[^/]+/[^/]+/[^/\s]+`)
 	output = re.ReplaceAllString(output, "<TMPDIR>")
 
+	// Replace current working directory (for error messages that include it)
+	if wd, err := os.Getwd(); err == nil {
+		re = regexp.MustCompile(regexp.QuoteMeta(wd))
+		output = re.ReplaceAllString(output, "<CWD>")
+	}
+
+	// Replace home directory references
+	if home := os.Getenv("HOME"); home != "" {
+		re = regexp.MustCompile(regexp.QuoteMeta(home))
+		output = re.ReplaceAllString(output, "<HOME>")
+	}
+
 	return output
 }
 
