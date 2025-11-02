@@ -109,8 +109,9 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 		return err
 	}
 
-	fmt.Printf("\n%s Upgrade completed successfully!\n", success("✓"))
+	fmt.Printf("\nUpgrade completed\n")
 	fmt.Printf("Run %s to verify the new version.\n", accent("dot --version"))
+	fmt.Println() // Blank line for terminal spacing
 
 	return nil
 }

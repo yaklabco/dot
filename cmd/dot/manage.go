@@ -84,7 +84,8 @@ func runManage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Successfully managed %d package(s)\n", len(packages))
+	fmt.Printf("Managed %s\n", formatCount(len(packages), "package", "packages"))
+	fmt.Println() // Blank line for terminal spacing
 
 	return nil
 }

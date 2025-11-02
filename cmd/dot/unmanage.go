@@ -76,7 +76,7 @@ unless --yes or --force is specified.`,
 	cmd.Flags().BoolVar(&noRestore, "no-restore", false, "Don't restore adopted files (leave in package directory)")
 	cmd.Flags().BoolVar(&cleanup, "cleanup", false, "Remove orphaned manifest entries (packages with missing links/directories)")
 	cmd.Flags().BoolVar(&all, "all", false, "Remove all managed packages")
-	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt (can also use --force)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVar(&yes, "force", false, "Skip confirmation prompt (alias for --yes)")
 
 	return cmd
@@ -121,17 +121,18 @@ func runUnmanage(cmd *cobra.Command, args []string, purge, noRestore, cleanup, a
 	if !cfg.DryRun {
 		if cleanup {
 			if len(packages) > 0 {
-				fmt.Printf("Cleaned up %d orphaned package(s) from manifest\n", len(packages))
+				fmt.Printf("Cleaned up %s from manifest\n", formatCount(len(packages), "orphaned package", "orphaned packages"))
 			} else {
 				fmt.Println("No orphaned packages found in manifest")
 			}
 		} else if purge {
-			fmt.Printf("Successfully unmanaged and purged %d package(s)\n", len(packages))
+			fmt.Printf("Unmanaged and purged %s\n", formatCount(len(packages), "package", "packages"))
 		} else if opts.Restore {
-			fmt.Printf("Successfully unmanaged and restored %d package(s)\n", len(packages))
+			fmt.Printf("Unmanaged and restored %s\n", formatCount(len(packages), "package", "packages"))
 		} else {
-			fmt.Printf("Successfully unmanaged %d package(s)\n", len(packages))
+			fmt.Printf("Unmanaged %s\n", formatCount(len(packages), "package", "packages"))
 		}
+		fmt.Println() // Blank line for terminal spacing
 	}
 
 	return nil
@@ -242,17 +243,18 @@ func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool) 
 		operation = "unmanage and restore"
 	}
 
+	packageText := formatCount(count, "package", "packages")
+
 	if dryRun {
 		fmt.Printf("%s %s %s\n",
 			dim("Would"),
 			operation,
-			accent(fmt.Sprintf("%d package(s)", count)),
+			accent(packageText),
 		)
 	} else {
-		fmt.Printf("%s %s %s\n",
-			success("✓"),
+		fmt.Printf("%s %s\n",
 			operation,
-			accent(fmt.Sprintf("%d package(s)", count)),
+			accent(packageText),
 		)
 	}
 }
