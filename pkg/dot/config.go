@@ -33,6 +33,15 @@ type Config struct {
 	// If empty, backups go to <TargetDir>/.dot-backup/
 	BackupDir string
 
+	// Backup enables automatic backup of conflicting files.
+	// When true, conflicting files are backed up before being replaced.
+	Backup bool
+
+	// Overwrite enables automatic overwriting of conflicting files.
+	// When true, conflicting files are deleted before creating symlinks.
+	// Takes precedence over Backup if both are true.
+	Overwrite bool
+
 	// ManifestDir specifies where to store the manifest file.
 	// If empty, manifest is stored in TargetDir for backward compatibility.
 	ManifestDir string

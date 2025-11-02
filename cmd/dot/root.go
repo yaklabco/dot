@@ -120,12 +120,15 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 
 	// Start with config file values
 	var packageDir, targetDir, backupDir, manifestDir string
+	var backup, overwrite bool
 
 	if extCfg != nil {
 		packageDir = extCfg.Directories.Package
 		targetDir = extCfg.Directories.Target
 		backupDir = extCfg.Symlinks.BackupDir
 		manifestDir = extCfg.Directories.Manifest
+		backup = extCfg.Symlinks.Backup
+		overwrite = extCfg.Symlinks.Overwrite
 	}
 
 	// Override with globalCfg if set (covers both flag and test scenarios)
@@ -169,6 +172,8 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 		PackageDir:         packageDir,
 		TargetDir:          targetDir,
 		BackupDir:          backupDir,
+		Backup:             backup,
+		Overwrite:          overwrite,
 		ManifestDir:        manifestDir,
 		DryRun:             globalCfg.dryRun,
 		Verbosity:          globalCfg.verbose,
