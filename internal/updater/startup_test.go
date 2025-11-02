@@ -155,12 +155,11 @@ func TestStartupChecker_ShowNotification(t *testing.T) {
 		output := buf.String()
 
 		assert.NotEmpty(t, output)
-		assert.Contains(t, output, "new version")
+		assert.Contains(t, output, "New version available")
 		assert.Contains(t, output, "1.0.0")  // current version
 		assert.Contains(t, output, "v2.0.0") // latest version
 		assert.Contains(t, output, "dot upgrade")
-		assert.Contains(t, output, "┌") // box drawing characters
-		assert.Contains(t, output, "└")
+		assert.Contains(t, output, "→") // arrow between versions
 	})
 }
 
@@ -194,14 +193,14 @@ func TestStartupChecker_ShowNotification_Format(t *testing.T) {
 	sc.ShowNotification(result)
 	output := buf.String()
 
-	// Verify box drawing characters are present
-	assert.Contains(t, output, "┌")
-	assert.Contains(t, output, "└")
-	assert.Contains(t, output, "│")
+	// Verify content is present with new format
+	assert.Contains(t, output, "New version available")
+	assert.Contains(t, output, "→") // arrow between versions
+	assert.Contains(t, output, "dot upgrade")
 
-	// Verify content is aligned
+	// Verify multi-line format
 	lines := strings.Split(output, "\n")
-	assert.True(t, len(lines) > 5, "should have multiple lines")
+	assert.True(t, len(lines) >= 3, "should have at least 3 lines (blank, message, command, blank)")
 }
 
 func TestStartupChecker_ShowNotification_LongVersions(t *testing.T) {
@@ -224,15 +223,9 @@ func TestStartupChecker_ShowNotification_LongVersions(t *testing.T) {
 	// Verify truncation occurred
 	assert.Contains(t, output, "...")
 
-	// Verify box is properly formed
-	assert.Contains(t, output, "┌")
-	assert.Contains(t, output, "└")
-	assert.Contains(t, output, "│")
-
-	// Verify content is present
-	assert.Contains(t, output, "new version")
-	assert.Contains(t, output, "Current:")
-	assert.Contains(t, output, "Latest:")
+	// Verify content is present with new format
+	assert.Contains(t, output, "New version available")
+	assert.Contains(t, output, "→") // arrow between versions
 	assert.Contains(t, output, "dot upgrade")
 
 	// Verify no lines are excessively long

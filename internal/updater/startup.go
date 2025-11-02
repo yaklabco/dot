@@ -153,54 +153,20 @@ func (sc *StartupChecker) ShowNotification(result *CheckResult) {
 		latest = string(runes[:17]) + "..."
 	}
 
-	// Box drawing characters (always visible)
-	boxColor := colorGray
-	topLeft := sc.colorize(boxColor, "┌")
-	topRight := sc.colorize(boxColor, "┐")
-	bottomLeft := sc.colorize(boxColor, "└")
-	bottomRight := sc.colorize(boxColor, "┘")
-	vertical := sc.colorize(boxColor, "│")
-	horizontal := sc.colorize(boxColor, "─────────────────────────────────────────────────────────")
-
+	// Simple, clean notification format
 	fmt.Fprintf(sc.output, "\n")
-	fmt.Fprintf(sc.output, "%s%s%s\n", topLeft, horizontal, topRight)
 
-	// Title line with bold and cyan
-	title := sc.colorize(colorBold+colorCyan, "A new version of dot is available!")
-	titleLen := len(stripANSI(title))
-	titlePad := 57 - titleLen - 2 // -2 for "  " prefix
-	fmt.Fprintf(sc.output, "%s  %s%*s%s\n", vertical, title, titlePad, "", vertical)
-
-	// Empty line
-	fmt.Fprintf(sc.output, "%s%-57s%s\n", vertical, "", vertical)
-
-	// Current version line
-	currentLabel := sc.colorize(colorGray, "Current:")
-	currentVer := sc.colorize(colorYellow, current)
-	currentLine := fmt.Sprintf("  %s %s", currentLabel, currentVer)
-	currentLen := len(stripANSI(currentLine))
-	currentPad := 57 - currentLen
-	fmt.Fprintf(sc.output, "%s%s%*s%s\n", vertical, currentLine, currentPad, "", vertical)
-
-	// Latest version line
-	latestLabel := sc.colorize(colorGray, "Latest:")
-	latestVer := sc.colorize(colorGreen, latest)
-	latestLine := fmt.Sprintf("  %s  %s", latestLabel, latestVer)
-	latestLen := len(stripANSI(latestLine))
-	latestPad := 57 - latestLen
-	fmt.Fprintf(sc.output, "%s%s%*s%s\n", vertical, latestLine, latestPad, "", vertical)
-
-	// Empty line
-	fmt.Fprintf(sc.output, "%s%-57s%s\n", vertical, "", vertical)
+	// Title with subtle emphasis
+	title := sc.colorize(colorCyan, "New version available:")
+	fmt.Fprintf(sc.output, "%s %s → %s\n",
+		title,
+		sc.colorize(colorGray, current),
+		sc.colorize(colorGreen, latest))
 
 	// Upgrade message
-	upgradeCmd := sc.colorize(colorCyan, "'dot upgrade'")
-	upgradeMsg := fmt.Sprintf("  Run %s to update", upgradeCmd)
-	upgradeMsgLen := len(stripANSI(upgradeMsg))
-	upgradePad := 57 - upgradeMsgLen
-	fmt.Fprintf(sc.output, "%s%s%*s%s\n", vertical, upgradeMsg, upgradePad, "", vertical)
+	upgradeCmd := sc.colorize(colorCyan, "dot upgrade")
+	fmt.Fprintf(sc.output, "Run %s to update\n", upgradeCmd)
 
-	fmt.Fprintf(sc.output, "%s%s%s\n", bottomLeft, horizontal, bottomRight)
 	fmt.Fprintf(sc.output, "\n")
 }
 

@@ -210,11 +210,26 @@ func (v *Version) IsNewerThan(other *Version) bool {
 	}
 
 	// If versions are equal, consider pre-release
+	// Special case: development versions like "2-g14ba5af" indicate commits ahead
+	// These should be considered newer than the base release
+	if v.PreRelease != "" && strings.Contains(v.PreRelease, "-g") {
+		// Development build (e.g., "2-g14ba5af" means 2 commits ahead of release)
+		// Consider this newer than the base release
+		if other.PreRelease == "" {
+			return true
+		}
+	}
+
 	// A release version is newer than a pre-release version
 	if v.PreRelease == "" && other.PreRelease != "" {
+		// But not if other is a development build ahead of this release
+		if strings.Contains(other.PreRelease, "-g") {
+			return false
+		}
 		return true
 	}
 	if v.PreRelease != "" && other.PreRelease == "" {
+		// If v is a development build, we already handled it above
 		return false
 	}
 

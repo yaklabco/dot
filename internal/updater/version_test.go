@@ -39,6 +39,10 @@ func TestParseVersion(t *testing.T) {
 		{"zero version", "0.0.0", 0, 0, 0, "", false},
 		{"large version numbers", "10.20.30", 10, 20, 30, "", false},
 		{"pre-release with multiple parts", "1.2.3-beta.1.2", 1, 2, 3, "beta.1.2", false},
+
+		// Development versions (git describe format)
+		{"dev build from git", "1.2.3-2-g14ba5af", 1, 2, 3, "2-g14ba5af", false},
+		{"dev build with many commits", "0.5.0-123-gabc1234", 0, 5, 0, "123-gabc1234", false},
 	}
 
 	for _, tt := range tests {
@@ -80,6 +84,12 @@ func TestVersion_IsNewerThan(t *testing.T) {
 		{"pre-release older than release", "1.2.3-beta", "1.2.3", false},
 		{"same pre-release", "1.2.3-beta", "1.2.3-beta", false},
 		{"newer pre-release version", "1.2.4-beta", "1.2.3", true},
+
+		// Development versions (git describe format)
+		{"dev build newer than release", "1.2.3-2-g14ba5af", "1.2.3", true},
+		{"release older than dev build", "1.2.3", "1.2.3-2-g14ba5af", false},
+		{"dev build with more commits newer", "1.2.3-5-gabc1234", "1.2.3", true},
+		{"dev build same base version", "0.5.0-2-g14ba5af", "0.5.0", true},
 	}
 
 	for _, tt := range tests {
