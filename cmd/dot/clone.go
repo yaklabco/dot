@@ -27,47 +27,31 @@ func newCloneCommand() *cobra.Command {
 		Long: `Clone a dotfiles repository and install packages.
 
 Like git clone, the repository is cloned into a subdirectory named after the
-repository. For example, 'dot clone https://github.com/user/my-dotfiles' creates
-a 'my-dotfiles' directory in the current location. Use --dir to specify a different
-target directory.
+repository. Use --dir to specify a different target directory.
 
-The clone command performs the following steps:
-  1. Determines target directory (from repo name or --dir flag)
-  2. Validates directory is empty (unless --force is used)
-  3. Clones the repository to the target directory
-  4. Detects and uses repository configuration (.config/dot/config.yaml)
-  5. Loads optional .dotbootstrap.yaml for package selection
-  6. Selects packages to install:
-     - Via named profile (--profile)
-     - Interactively (--interactive or automatic terminal detection)
-     - All packages (non-interactive mode)
-  7. Filters packages by current platform
-  8. Installs selected packages
-  9. Updates manifest with repository tracking
+WORKFLOW:
+  1. Clone repository to target directory
+  2. Load optional .dotbootstrap.yaml configuration
+  3. Select packages (via profile, interactive, or all)
+  4. Filter by current platform
+  5. Install selected packages
+  6. Track repository in manifest
 
-Repository Configuration:
-  If the repository contains .config/dot/config.yaml, it will be used
-  automatically for all subsequent dot commands. This allows repositories
-  to define their own management configuration without circular dependency.
+REPOSITORY CONFIGURATION:
+  If repository contains .config/dot/config.yaml, it will be
+  automatically used for all subsequent dot commands.
 
-  Example: ~/.dotfiles/.config/dot/config.yaml defines how the repository
-  should be managed, and dot uses it automatically after clone.
+AUTHENTICATION:
+  Automatic resolution order:
+  1. GITHUB_TOKEN environment variable
+  2. GIT_TOKEN environment variable
+  3. SSH keys (~/.ssh/)
+  4. GitHub CLI (gh) authenticated session
+  5. No authentication (public repos)
 
-Authentication:
-  The command automatically resolves authentication in this order:
-  1. GITHUB_TOKEN environment variable (for GitHub repositories)
-  2. GIT_TOKEN environment variable (for general git repositories)
-  3. SSH keys in ~/.ssh/ directory (for SSH URLs: git@github.com:...)
-  4. GitHub CLI (gh) authenticated session (for HTTPS GitHub repositories)
-  5. No authentication (public repositories only)
-
-Bootstrap Configuration:
-  If .dotbootstrap.yaml exists in the repository root, it defines:
-  - Available packages with platform requirements
-  - Named installation profiles
-  - Default profile and conflict resolution policies
-
-  Without bootstrap configuration, all discovered packages are offered.
+BOOTSTRAP CONFIGURATION:
+  Optional .dotbootstrap.yaml defines installation profiles,
+  platform requirements, and package metadata.
 
 Examples:
   # Clone and install all packages (creates ./dotfiles directory)
