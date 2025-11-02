@@ -1,0 +1,140 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+
+permissions:
+  contents: write
+
+jobs:
+  version-bump:
+    name: Bump Version and Update Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install git-chglog
+        run: go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Calculate new version
+        id: version
+        run: |
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Current version: $CURRENT_VERSION"
+          
+          MAJOR=$(echo $CURRENT_VERSION | sed 's/v//' | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | sed 's/v//' | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | sed 's/v//' | cut -d. -f3 | cut -d- -f1)
+          
+          case "${{ inputs.version_type }}" in
+            major)
+              NEW_VERSION="v$((MAJOR + 1)).0.0"
+              ;;
+            minor)
+              NEW_VERSION="v${MAJOR}.$((MINOR + 1)).0"
+              ;;
+            patch)
+              NEW_VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+              ;;
+          esac
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version will be: $NEW_VERSION"
+
+      - name: Run quality checks
+        run: |
+          echo "Running tests..."
+          go test -v -race -cover -coverprofile=coverage.out ./...
+          
+          echo "Checking coverage..."
+          make check-coverage
+          
+          echo "Running linters..."
+          make lint
+          
+          echo "Running go vet..."
+          go vet ./...
+          
+          echo "Running vulnerability check..."
+          make vuln
+
+      - name: Generate changelog
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          echo "Generating changelog for version $NEW_VERSION..."
+          git-chglog -o CHANGELOG.md
+
+      - name: Commit changelog
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          git add CHANGELOG.md .chglog/
+          git commit -m "docs(changelog): update for $NEW_VERSION release" || echo "No changes to commit"
+
+      - name: Create and push tag
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          echo "Creating tag $NEW_VERSION..."
+          git tag -a $NEW_VERSION -m "Release $NEW_VERSION"
+          
+          echo "Regenerating changelog with new tag..."
+          git-chglog -o CHANGELOG.md
+          
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changelog changes after tagging"
+          else
+            echo "Updating changelog with tag information..."
+            git add CHANGELOG.md
+            git commit --amend --no-edit
+            git tag -f $NEW_VERSION
+          fi
+
+      - name: Push changes
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          echo "Pushing changes to main..."
+          git push origin main
+          
+          echo "Pushing tag $NEW_VERSION..."
+          git push --force origin $NEW_VERSION
+          
+          echo ""
+          echo "✓ Version bump complete!"
+          echo "✓ Tag $NEW_VERSION created and pushed"
+          echo "✓ Release workflow will now trigger automatically"
+          echo ""
+          echo "View the release at: https://github.com/${{ github.repository }}/releases/tag/$NEW_VERSION"
+
