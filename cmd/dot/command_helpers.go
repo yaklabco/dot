@@ -42,7 +42,7 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 	}
 
 	if !cfg.DryRun {
-		fmt.Printf("Successfully %s %d package(s)\n", actionVerb, len(packages))
+		fmt.Printf("%s %s\n", actionVerb, formatCount(len(packages), "package", "packages"))
 	}
 
 	return nil
@@ -154,4 +154,22 @@ func derivePackageName(path string) string {
 	// Keep leading dot - scanner.UntranslateDotfile will handle translation
 	// ".ssh" stays as ".ssh", which scanner converts to "dot-ssh" for package name
 	return base
+}
+
+// pluralize returns the singular or plural form based on count.
+func pluralize(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
+}
+
+// formatCount formats a count with the appropriate singular or plural form.
+// Examples:
+//
+//	formatCount(1, "package", "packages") -> "1 package"
+//	formatCount(3, "package", "packages") -> "3 packages"
+//	formatCount(0, "file", "files") -> "0 files"
+func formatCount(count int, singular, plural string) string {
+	return fmt.Sprintf("%d %s", count, pluralize(count, singular, plural))
 }
