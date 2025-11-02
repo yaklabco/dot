@@ -14,8 +14,9 @@ import (
 // newConfigCommand creates the config command.
 func newConfigCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage dot configuration",
+		Use:     "config",
+		Aliases: []string{"cfg"},
+		Short:   "Manage dot configuration",
 		Long: `View and modify dot configuration settings.
 
 Configuration is loaded from multiple sources in order of precedence:
@@ -99,6 +100,7 @@ Use --force to overwrite existing configuration.`,
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing config")
+	cmd.Flags().BoolVarP(&force, "yes", "y", false, "Overwrite existing config (alias for --force)")
 	cmd.Flags().StringVar(&format, "format", "yaml", "Config format (yaml, json, toml)")
 
 	return cmd
@@ -313,8 +315,9 @@ func runConfigSet(key, value string) error {
 // newConfigListCommand creates the list subcommand.
 func newConfigListCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all configuration settings",
+		Use:     "list",
+		Aliases: []string{"show", "ls"},
+		Short:   "List all configuration settings",
 		Long: `Display all configuration settings with their current values.
 
 Shows the final merged configuration from all sources.`,
