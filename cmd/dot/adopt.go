@@ -3,12 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
@@ -18,16 +15,18 @@ func newAdoptCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "adopt [PACKAGE] FILE [FILE...]",
 		Short: "Move existing files into package then link",
-		Long: `Move one or more existing files from the target directory into 
-a package, then create symlinks back to the original locations.
+		Long: `Move existing files into a package and create symlinks.
 
-Package name can be auto-derived from the file name:
-  dot adopt .ssh              # Auto-creates package "ssh"
-  dot adopt .vimrc            # Auto-creates package "vimrc"
+Single File (auto-naming):
+  dot adopt .ssh              # Creates package "ssh"
+  dot adopt .vimrc            # Creates package "vimrc"
 
-Or explicitly specified:
-  dot adopt dot-ssh .ssh      # Use package "dot-ssh"
-  dot adopt vim .vimrc .vim   # Adopt multiple files to "vim"`,
+Multiple Files (explicit package):
+  dot adopt ssh .ssh .ssh/config
+  dot adopt vim .vimrc .vim
+
+For shell glob expansion, specify package name:
+  dot adopt git .git*         # Package "git" with all .git* files`,
 		Args: argsWithUsage(cobra.MinimumNArgs(1)),
 		RunE: runAdopt,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -65,9 +64,8 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	var pkg string
 	var files []string
 
-	// Determine if using auto-naming or explicit package name
 	if len(args) == 1 {
-		// Auto-naming mode: derive package from single file name
+		// Auto-naming: derive package from single file
 		files = []string{args[0]}
 		pkg = derivePackageName(args[0])
 		if pkg == "" {
@@ -77,25 +75,9 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		// ".ssh" → "dot-ssh", "README.md" → "README.md"
 		pkg = scanner.UntranslateDotfile(pkg)
 	} else {
-		// Multiple args: could be explicit package name OR glob expansion
-		// Check if first arg looks like an existing file/directory
-		firstArgIsFile := fileExists(ctx, cfg.FS, args[0])
-
-		if firstArgIsFile {
-			// Glob expansion mode: all args are files, derive package from common prefix
-			files = args
-			pkg = deriveCommonPackageName(args)
-			if pkg == "" {
-				// Fall back to first file's name if no common prefix
-				pkg = derivePackageName(args[0])
-			}
-			// Apply dotfile translation
-			pkg = scanner.UntranslateDotfile(pkg)
-		} else {
-			// Explicit mode: first arg is package, rest are files
-			pkg = args[0]
-			files = args[1:]
-		}
+		// Explicit mode: first arg is package name
+		pkg = args[0]
+		files = args[1:]
 	}
 
 	if err := client.Adopt(ctx, files, pkg); err != nil {
@@ -103,65 +85,9 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.DryRun {
-		fmt.Printf("Successfully adopted %d file(s) into %s\n", len(files), pkg)
+		fmt.Printf("Adopted %s into %s\n", formatCount(len(files), "file", "files"), pkg)
+		fmt.Println() // Blank line for terminal spacing
 	}
 
 	return nil
-}
-
-// fileExists checks if a path exists in the filesystem.
-func fileExists(ctx context.Context, fs domain.FS, path string) bool {
-	return fs.Exists(ctx, path)
-}
-
-// deriveCommonPackageName derives a package name from multiple file paths
-// by finding their common prefix. Returns empty string if no common prefix.
-func deriveCommonPackageName(paths []string) string {
-	if len(paths) == 0 {
-		return ""
-	}
-	if len(paths) == 1 {
-		return derivePackageName(paths[0])
-	}
-
-	// Get base names (without directory paths)
-	baseNames := make([]string, len(paths))
-	for i, path := range paths {
-		baseNames[i] = filepath.Base(path)
-	}
-
-	// Find longest common prefix
-	prefix := baseNames[0]
-	for _, name := range baseNames[1:] {
-		prefix = commonPrefix(prefix, name)
-		if prefix == "" {
-			return ""
-		}
-	}
-
-	// Clean up the prefix to make a valid package name
-	// Remove trailing dots, hyphens, underscores
-	prefix = strings.TrimRight(prefix, ".-_")
-
-	// If prefix is too short or just a dot, use first file's name
-	if len(prefix) < 2 || prefix == "." {
-		return derivePackageName(paths[0])
-	}
-
-	return prefix
-}
-
-// commonPrefix returns the longest common prefix of two strings.
-func commonPrefix(a, b string) string {
-	minLen := len(a)
-	if len(b) < minLen {
-		minLen = len(b)
-	}
-
-	for i := 0; i < minLen; i++ {
-		if a[i] != b[i] {
-			return a[:i]
-		}
-	}
-	return a[:minLen]
 }
