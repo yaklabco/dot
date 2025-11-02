@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/term"
 
@@ -42,8 +44,8 @@ comprehensive conflict detection, and incremental updates.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Perform startup version check (non-blocking)
-			performStartupVersionCheck(version)
+			// Perform startup version check (async, non-blocking)
+			go performStartupVersionCheckAsync(version)
 			return nil
 		},
 	}
@@ -76,11 +78,13 @@ comprehensive conflict detection, and incremental updates.`,
 	rootCmd.PersistentFlags().BoolVarP(&globalCfg.dryRun, "dry-run", "n", false,
 		"Show what would be done without applying changes")
 	rootCmd.PersistentFlags().CountVarP(&globalCfg.verbose, "verbose", "v",
-		"Increase verbosity (repeatable: -v, -vv, -vvv)")
+		"Increase verbosity: -v (info), -vv (debug), -vvv (trace)")
 	rootCmd.PersistentFlags().BoolVarP(&globalCfg.quiet, "quiet", "q", false,
 		"Suppress all non-error output")
 	rootCmd.PersistentFlags().BoolVar(&globalCfg.logJSON, "log-json", false,
 		"Output logs in JSON format")
+	rootCmd.PersistentFlags().Bool("batch", false,
+		"Batch mode for scripting (implies --quiet)")
 
 	// Add subcommands
 	rootCmd.AddCommand(
@@ -107,6 +111,13 @@ func buildConfig() (dot.Config, error) {
 
 // buildConfigWithCmd creates config with flag precedence awareness.
 func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
+	// Check batch mode first (if cmd is provided)
+	if cmd != nil {
+		if batch, _ := cmd.Flags().GetBool("batch"); batch {
+			globalCfg.quiet = true
+		}
+	}
+
 	// Create adapters
 	fs := adapters.NewOSFilesystem()
 	logger := createLogger()
@@ -336,4 +347,28 @@ func performStartupVersionCheck(currentVersion string) {
 		return // Silent failure
 	}
 	checker.ShowNotification(result)
+}
+
+// performStartupVersionCheckAsync performs an async version check with timeout.
+func performStartupVersionCheckAsync(currentVersion string) {
+	// Create a context with timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// Run check in a channel
+	done := make(chan struct{})
+	go func() {
+		performStartupVersionCheck(currentVersion)
+		close(done)
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case <-done:
+		// Check completed
+		return
+	case <-ctx.Done():
+		// Timeout - silently abort
+		return
+	}
 }
