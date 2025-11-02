@@ -85,8 +85,8 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.DryRun {
-		fmt.Printf("Adopted %s into %s\n", formatCount(len(files), "file", "files"), pkg)
-		fmt.Println() // Blank line for terminal spacing
+		fmt.Fprintf(cmd.OutOrStdout(), "Adopted %s into %s\n", formatCount(len(files), "file", "files"), pkg)
+		fmt.Fprintln(cmd.OutOrStdout()) // Blank line for terminal spacing
 	}
 
 	return nil
