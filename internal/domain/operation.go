@@ -34,6 +34,9 @@ const (
 	// OpKindFileBackup creates a backup copy of a file.
 	OpKindFileBackup
 
+	// OpKindFileDelete deletes a file.
+	OpKindFileDelete
+
 	// OpKindDirCopy recursively copies a directory.
 	OpKindDirCopy
 )
@@ -55,6 +58,8 @@ func (k OperationKind) String() string {
 		return "FileMove"
 	case OpKindFileBackup:
 		return "FileBackup"
+	case OpKindFileDelete:
+		return "FileDelete"
 	case OpKindDirCopy:
 		return "DirCopy"
 	default:
@@ -565,11 +570,20 @@ func (op FileBackup) Dependencies() []Operation {
 }
 
 func (op FileBackup) Execute(ctx context.Context, fs FS) error {
+	// Get source file info to preserve permissions
+	info, err := fs.Stat(ctx, op.Source.String())
+	if err != nil {
+		return err
+	}
+
+	// Read source file data
 	data, err := fs.ReadFile(ctx, op.Source.String())
 	if err != nil {
 		return err
 	}
-	return fs.WriteFile(ctx, op.Backup.String(), data, DefaultFilePerms)
+
+	// Write backup with same permissions as source
+	return fs.WriteFile(ctx, op.Backup.String(), data, info.Mode())
 }
 
 func (op FileBackup) Rollback(ctx context.Context, fs FS) error {
@@ -589,6 +603,63 @@ func (op FileBackup) Equals(other Operation) bool {
 		return false
 	}
 	return op.Source.Equals(o.Source) && op.Backup.Equals(o.Backup)
+}
+
+// FileDelete deletes a file.
+type FileDelete struct {
+	OpID OperationID
+	Path FilePath
+}
+
+// NewFileDelete creates a new file delete operation.
+func NewFileDelete(id OperationID, path FilePath) FileDelete {
+	return FileDelete{
+		OpID: id,
+		Path: path,
+	}
+}
+
+func (op FileDelete) ID() OperationID {
+	return op.OpID
+}
+
+func (op FileDelete) Kind() OperationKind {
+	return OpKindFileDelete
+}
+
+func (op FileDelete) Validate() error {
+	if op.OpID == "" {
+		return ErrInvalidPath{Path: "", Reason: "operation ID cannot be empty"}
+	}
+	return nil
+}
+
+func (op FileDelete) Dependencies() []Operation {
+	return nil
+}
+
+func (op FileDelete) Execute(ctx context.Context, fs FS) error {
+	return fs.Remove(ctx, op.Path.String())
+}
+
+func (op FileDelete) Rollback(ctx context.Context, fs FS) error {
+	// Cannot restore deleted file without backup
+	return nil
+}
+
+func (op FileDelete) String() string {
+	return fmt.Sprintf("delete file %s", op.Path.String())
+}
+
+func (op FileDelete) Equals(other Operation) bool {
+	if other.Kind() != OpKindFileDelete {
+		return false
+	}
+	o, ok := other.(FileDelete)
+	if !ok {
+		return false
+	}
+	return op.Path.Equals(o.Path)
 }
 
 // DirCopy recursively copies a directory without removing the source.

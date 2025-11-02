@@ -16,6 +16,7 @@ const (
 	OpKindDirRemoveAll = domain.OpKindDirRemoveAll
 	OpKindFileMove     = domain.OpKindFileMove
 	OpKindFileBackup   = domain.OpKindFileBackup
+	OpKindFileDelete   = domain.OpKindFileDelete
 	OpKindDirCopy      = domain.OpKindDirCopy
 )
 
@@ -45,6 +46,9 @@ type FileMove = domain.FileMove
 
 // FileBackup backs up a file before modification.
 type FileBackup = domain.FileBackup
+
+// FileDelete deletes a file.
+type FileDelete = domain.FileDelete
 
 // DirCopy recursively copies a directory.
 type DirCopy = domain.DirCopy
@@ -82,6 +86,11 @@ func NewDirRemoveAll(id OperationID, path FilePath) DirRemoveAll {
 // NewFileBackup creates a new FileBackup operation.
 func NewFileBackup(id OperationID, source, backup FilePath) FileBackup {
 	return domain.NewFileBackup(id, source, backup)
+}
+
+// NewFileDelete creates a new FileDelete operation.
+func NewFileDelete(id OperationID, path FilePath) FileDelete {
+	return domain.NewFileDelete(id, path)
 }
 
 // NewDirCopy creates a new DirCopy operation.
