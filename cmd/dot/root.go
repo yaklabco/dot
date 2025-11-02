@@ -26,6 +26,10 @@ type globalConfig struct {
 	verbose    int
 	quiet      bool
 	logJSON    bool
+	noColor    bool
+	cpuProfile string
+	memProfile string
+	pprofAddr  string
 }
 
 var globalCfg globalConfig
@@ -45,7 +49,7 @@ comprehensive conflict detection, and incremental updates.`,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Perform startup version check (async, non-blocking)
-			performStartupVersionCheckAsync(version)
+			go performStartupVersionCheckAsync(version)
 			return nil
 		},
 	}
@@ -83,6 +87,14 @@ comprehensive conflict detection, and incremental updates.`,
 		"Suppress all non-error output")
 	rootCmd.PersistentFlags().BoolVar(&globalCfg.logJSON, "log-json", false,
 		"Output logs in JSON format")
+	rootCmd.PersistentFlags().BoolVar(&globalCfg.noColor, "no-color", false,
+		"Disable color output")
+	rootCmd.PersistentFlags().StringVar(&globalCfg.cpuProfile, "cpu-profile", "",
+		"Write CPU profile to file (for diagnostics)")
+	rootCmd.PersistentFlags().StringVar(&globalCfg.memProfile, "mem-profile", "",
+		"Write memory profile to file (for diagnostics)")
+	rootCmd.PersistentFlags().StringVar(&globalCfg.pprofAddr, "pprof", "",
+		"Enable pprof HTTP server on address (e.g. :6060)")
 	rootCmd.PersistentFlags().Bool("batch", false,
 		"Batch mode for scripting (implies --quiet)")
 
@@ -299,12 +311,19 @@ func argsWithUsage(validator cobra.PositionalArgs) cobra.PositionalArgs {
 }
 
 // shouldColorize determines if output should be colorized based on the color flag.
+// Precedence: --no-color flag > NO_COLOR env > --color flag > auto
 func shouldColorize(color string) bool {
+	// Check --no-color flag first (highest precedence)
+	if globalCfg.noColor {
+		return false
+	}
+
 	// Respect NO_COLOR environment variable (https://no-color.org/)
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
 
+	// Check --color flag value
 	switch color {
 	case "always":
 		return true
@@ -314,7 +333,8 @@ func shouldColorize(color string) bool {
 		// Check if stdout is a terminal using portable detection
 		return term.IsTerminal(int(os.Stdout.Fd()))
 	default:
-		return false
+		// Default to auto behavior
+		return term.IsTerminal(int(os.Stdout.Fd()))
 	}
 }
 
