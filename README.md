@@ -220,18 +220,16 @@ dot adopt ~/.vimrc
 dot adopt ~/.ssh
 # Creates package: dot-ssh
 
-# Glob expansion: multiple files with common prefix
-dot adopt .git*
-# Shell expands to: .gitconfig .gitignore .git-credentials
-# Creates single package: dot-git
-# All files adopted into one package
-
-# Explicit package: specify package name
+# Explicit package: specify package name for multiple files
 dot adopt vim ~/.vimrc ~/.vim
 dot adopt zsh ~/.zshrc ~/.zprofile ~/.zshenv
+
+# Shell glob expansion: specify package name
+dot adopt git .git*
+# Package "git" with all .git* files
 ```
 
-**Glob Support**: When using shell glob patterns like `.git*`, all matching files are adopted into a single package. The package name is derived from the common prefix of the matched files.
+**Note**: When adopting multiple files, you must provide an explicit package name as the first argument. This ensures predictable behavior and clear package organization.
 
 ### Repository Commands
 
