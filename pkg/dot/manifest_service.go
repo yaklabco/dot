@@ -60,15 +60,17 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 	}
 
 	for _, pkg := range packagesToUpdate {
-		// Extract links from package operations
+		// Extract links and backups from package operations
 		ops := plan.OperationsForPackage(pkg)
 		links := s.extractLinksFromOperations(ops, targetPath.String())
+		backups := s.extractBackupsFromOperations(ops)
 
 		m.AddPackage(manifest.PackageInfo{
 			Name:        pkg,
 			InstalledAt: time.Now(),
 			LinkCount:   len(links),
 			Links:       links,
+			Backups:     backups,
 			Source:      source,
 		})
 
@@ -117,4 +119,15 @@ func (s *ManifestService) extractLinksFromOperations(ops []Operation, targetDir 
 		}
 	}
 	return links
+}
+
+func (s *ManifestService) extractBackupsFromOperations(ops []Operation) map[string]string {
+	backups := make(map[string]string)
+	for _, op := range ops {
+		if backupOp, ok := op.(FileBackup); ok {
+			// Map source (original file location) to backup location
+			backups[backupOp.Source.String()] = backupOp.Backup.String()
+		}
+	}
+	return backups
 }
