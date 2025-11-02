@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"os"
-	"syscall"
 	"testing"
 	"time"
 
@@ -18,7 +16,7 @@ func TestMain_Exists(t *testing.T) {
 }
 
 func TestSetupSignalHandler(t *testing.T) {
-	t.Run("context is created", func(t *testing.T) {
+	t.Run("context is created and not initially canceled", func(t *testing.T) {
 		ctx := setupSignalHandler()
 		require.NotNil(t, ctx)
 
@@ -31,39 +29,14 @@ func TestSetupSignalHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("context cancels on SIGINT", func(t *testing.T) {
-		ctx := setupSignalHandler()
-
-		// Send SIGINT to self
-		err := syscall.Kill(os.Getpid(), syscall.SIGINT)
-		require.NoError(t, err)
-
-		// Wait for context to be canceled
-		select {
-		case <-ctx.Done():
-			// Expected: context was canceled
-			assert.Equal(t, context.Canceled, ctx.Err())
-		case <-time.After(500 * time.Millisecond):
-			t.Fatal("context should have been canceled")
-		}
-	})
-
-	t.Run("context cancels on SIGTERM", func(t *testing.T) {
-		ctx := setupSignalHandler()
-
-		// Send SIGTERM to self
-		err := syscall.Kill(os.Getpid(), syscall.SIGTERM)
-		require.NoError(t, err)
-
-		// Wait for context to be canceled
-		select {
-		case <-ctx.Done():
-			// Expected: context was canceled
-			assert.Equal(t, context.Canceled, ctx.Err())
-		case <-time.After(500 * time.Millisecond):
-			t.Fatal("context should have been canceled")
-		}
-	})
+	// Note: Actual signal handling behavior (SIGINT/SIGTERM) is tested in
+	// tests/integration/signal_test.go using subprocess isolation.
+	// Testing signals in unit tests by sending them to the test process itself
+	// is unsafe because:
+	// - Signal handlers are process-global, not goroutine-local
+	// - Multiple concurrent tests could interfere with each other
+	// - The test runner itself could be affected by these signals
+	// - May cause flaky test behavior in CI or when running with -p flag
 }
 
 func TestSetupProfiling(t *testing.T) {
