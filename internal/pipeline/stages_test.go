@@ -176,13 +176,20 @@ func TestStages_ValidContextPropagation(t *testing.T) {
 func TestScanCurrentState_NonExistentDirectory(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()
-	targetDir := domain.NewTargetPath("/nonexistent").Unwrap()
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state with some paths
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/nonexistent/.vimrc": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
 
-	assert.Empty(t, result.Files, "should have no files for nonexistent directory")
-	assert.Empty(t, result.Links, "should have no links for nonexistent directory")
-	assert.Empty(t, result.Dirs, "should have no dirs for nonexistent directory")
+	result := scanCurrentState(ctx, fs, desired)
+
+	assert.Empty(t, result.Files, "should have no files for nonexistent paths")
+	assert.Empty(t, result.Links, "should have no links for nonexistent paths")
+	assert.Empty(t, result.Dirs, "should have no dirs for nonexistent paths")
 }
 
 func TestScanCurrentState_EmptyDirectory(t *testing.T) {
@@ -193,11 +200,20 @@ func TestScanCurrentState_EmptyDirectory(t *testing.T) {
 	// Create empty target directory
 	require.NoError(t, fs.MkdirAll(ctx, targetDir.String(), 0o755))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state with paths that don't have conflicts
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/.vimrc": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
 
-	assert.Empty(t, result.Files, "should have no files in empty directory")
-	assert.Empty(t, result.Links, "should have no links in empty directory")
-	assert.Empty(t, result.Dirs, "should have no dirs in empty directory")
+	result := scanCurrentState(ctx, fs, desired)
+
+	assert.Empty(t, result.Files, "should have no files - paths don't exist yet")
+	assert.Empty(t, result.Links, "should have no links - paths don't exist yet")
+	// The target directory itself will be detected
+	assert.Contains(t, result.Dirs, "/target", "should detect target directory")
 }
 
 func TestScanCurrentState_FilesOnly(t *testing.T) {
@@ -210,7 +226,16 @@ func TestScanCurrentState_FilesOnly(t *testing.T) {
 	require.NoError(t, fs.WriteFile(ctx, "/target/.vimrc", []byte("vim config"), 0o644))
 	require.NoError(t, fs.WriteFile(ctx, "/target/.bashrc", []byte("bash config"), 0o644))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state that wants to create links where files exist (conflict scenario)
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/.vimrc":  {},
+			"/target/.bashrc": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
+
+	result := scanCurrentState(ctx, fs, desired)
 
 	assert.Len(t, result.Files, 2, "should detect 2 files")
 	assert.Contains(t, result.Files, "/target/.vimrc")
@@ -218,7 +243,7 @@ func TestScanCurrentState_FilesOnly(t *testing.T) {
 	assert.Equal(t, int64(10), result.Files["/target/.vimrc"].Size)
 	assert.Equal(t, int64(11), result.Files["/target/.bashrc"].Size)
 	assert.Empty(t, result.Links, "should have no links")
-	assert.Empty(t, result.Dirs, "should have no dirs")
+	assert.Contains(t, result.Dirs, "/target", "should detect target directory")
 }
 
 func TestScanCurrentState_SymlinksOnly(t *testing.T) {
@@ -231,7 +256,16 @@ func TestScanCurrentState_SymlinksOnly(t *testing.T) {
 	require.NoError(t, fs.Symlink(ctx, "/packages/vim/.vimrc", "/target/.vimrc"))
 	require.NoError(t, fs.Symlink(ctx, "/packages/bash/.bashrc", "/target/.bashrc"))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state that wants to check these symlink paths
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/.vimrc":  {},
+			"/target/.bashrc": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
+
+	result := scanCurrentState(ctx, fs, desired)
 
 	assert.Len(t, result.Links, 2, "should detect 2 symlinks")
 	assert.Contains(t, result.Links, "/target/.vimrc")
@@ -239,13 +273,12 @@ func TestScanCurrentState_SymlinksOnly(t *testing.T) {
 	assert.Equal(t, "/packages/vim/.vimrc", result.Links["/target/.vimrc"].Target)
 	assert.Equal(t, "/packages/bash/.bashrc", result.Links["/target/.bashrc"].Target)
 	assert.Empty(t, result.Files, "should have no files")
-	assert.Empty(t, result.Dirs, "should have no dirs")
+	assert.Contains(t, result.Dirs, "/target", "should detect target directory")
 }
 
 func TestScanCurrentState_NestedDirectories(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()
-	targetDir := domain.NewTargetPath("/target").Unwrap()
 
 	// Create nested directory structure
 	require.NoError(t, fs.MkdirAll(ctx, "/target/.config/nvim", 0o755))
@@ -253,9 +286,19 @@ func TestScanCurrentState_NestedDirectories(t *testing.T) {
 	require.NoError(t, fs.WriteFile(ctx, "/target/.config/nvim/init.vim", []byte("neovim"), 0o644))
 	require.NoError(t, fs.WriteFile(ctx, "/target/.local/share/data.txt", []byte("data"), 0o644))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state that wants to create links in these nested paths
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/.config/nvim/init.vim": {},
+			"/target/.local/share/data.txt": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
 
-	assert.Len(t, result.Dirs, 4, "should detect 4 directories")
+	result := scanCurrentState(ctx, fs, desired)
+
+	// Should detect parent directories
+	assert.Contains(t, result.Dirs, "/target")
 	assert.Contains(t, result.Dirs, "/target/.config")
 	assert.Contains(t, result.Dirs, "/target/.config/nvim")
 	assert.Contains(t, result.Dirs, "/target/.local")
@@ -271,7 +314,6 @@ func TestScanCurrentState_NestedDirectories(t *testing.T) {
 func TestScanCurrentState_MixedContent(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()
-	targetDir := domain.NewTargetPath("/target").Unwrap()
 
 	// Create mixed content: files, symlinks, and directories
 	require.NoError(t, fs.MkdirAll(ctx, "/target/.config", 0o755))
@@ -280,10 +322,21 @@ func TestScanCurrentState_MixedContent(t *testing.T) {
 	require.NoError(t, fs.WriteFile(ctx, "/target/.config/settings.conf", []byte("settings"), 0o644))
 	require.NoError(t, fs.Symlink(ctx, "/packages/nvim/init.vim", "/target/.config/init.vim"))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state that wants to check all these paths
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/.bashrc":               {},
+			"/target/.vimrc":                {},
+			"/target/.config/settings.conf": {},
+			"/target/.config/init.vim":      {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
+
+	result := scanCurrentState(ctx, fs, desired)
 
 	// Check directories
-	assert.Len(t, result.Dirs, 1, "should detect 1 directory")
+	assert.Contains(t, result.Dirs, "/target")
 	assert.Contains(t, result.Dirs, "/target/.config")
 
 	// Check files
@@ -304,16 +357,24 @@ func TestScanCurrentState_MixedContent(t *testing.T) {
 func TestScanCurrentState_DeepNesting(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()
-	targetDir := domain.NewTargetPath("/target").Unwrap()
 
 	// Create deeply nested structure
 	deepPath := "/target/a/b/c/d/e"
 	require.NoError(t, fs.MkdirAll(ctx, deepPath, 0o755))
 	require.NoError(t, fs.WriteFile(ctx, deepPath+"/deep.txt", []byte("deep file"), 0o644))
 
-	result := scanCurrentState(ctx, fs, targetDir)
+	// Create desired state that wants to create a link in the deep path
+	desired := planner.DesiredState{
+		Links: map[string]planner.LinkSpec{
+			"/target/a/b/c/d/e/deep.txt": {},
+		},
+		Dirs: map[string]planner.DirSpec{},
+	}
 
-	assert.Len(t, result.Dirs, 5, "should detect 5 nested directories")
+	result := scanCurrentState(ctx, fs, desired)
+
+	// Should detect all parent directories
+	assert.Contains(t, result.Dirs, "/target")
 	assert.Contains(t, result.Dirs, "/target/a")
 	assert.Contains(t, result.Dirs, "/target/a/b")
 	assert.Contains(t, result.Dirs, "/target/a/b/c")

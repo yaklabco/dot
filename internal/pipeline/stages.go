@@ -10,60 +10,84 @@ import (
 	"github.com/jamesainslie/dot/internal/scanner"
 )
 
-// scanCurrentState scans the target directory to detect existing files, links, and directories
-func scanCurrentState(ctx context.Context, fs domain.FS, targetDir domain.TargetPath) planner.CurrentState {
+// scanCurrentState scans only the specific paths relevant to the desired state.
+// This is vastly more efficient than recursively scanning the entire target directory,
+// especially when the target is a home directory with large subdirectories like node_modules.
+func scanCurrentState(ctx context.Context, fs domain.FS, desired planner.DesiredState) planner.CurrentState {
 	current := planner.CurrentState{
 		Files: make(map[string]planner.FileInfo),
 		Links: make(map[string]planner.LinkTarget),
 		Dirs:  make(map[string]bool),
 	}
 
-	// Early return if target doesn't exist
-	if !fs.Exists(ctx, targetDir.String()) {
-		return current
+	// Collect all paths we need to check
+	pathsToCheck := make(map[string]bool)
+
+	// Add all desired link paths
+	for path := range desired.Links {
+		pathsToCheck[path] = true
+		// Also check parent directories
+		addParentPaths(path, pathsToCheck)
 	}
 
-	// Recursively scan target directory
-	var scan func(string) error
-	scan = func(dir string) error {
-		entries, err := fs.ReadDir(ctx, dir)
-		if err != nil {
-			return nil // Continue on error
-		}
-
-		for _, entry := range entries {
-			path := filepath.Join(dir, entry.Name())
-
-			// Check if it's a symlink
-			if isLink, _ := fs.IsSymlink(ctx, path); isLink {
-				if linkTarget, err := fs.ReadLink(ctx, path); err == nil {
-					current.Links[path] = planner.LinkTarget{
-						Target: linkTarget,
-					}
-				}
-				continue
-			}
-
-			// Check if it's a directory
-			if entry.IsDir() {
-				current.Dirs[path] = true
-				// Recurse into subdirectory
-				_ = scan(path)
-				continue
-			}
-
-			// It's a regular file
-			if info, err := fs.Stat(ctx, path); err == nil {
-				current.Files[path] = planner.FileInfo{
-					Size: info.Size(),
-				}
-			}
-		}
-		return nil
+	// Add all desired directory paths
+	for path := range desired.Dirs {
+		pathsToCheck[path] = true
+		// Also check parent directories
+		addParentPaths(path, pathsToCheck)
 	}
 
-	_ = scan(targetDir.String())
+	// Check each path
+	for path := range pathsToCheck {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return current
+		default:
+		}
+
+		// Check if path exists
+		if !fs.Exists(ctx, path) {
+			continue
+		}
+
+		// Check if it's a symlink
+		if isLink, _ := fs.IsSymlink(ctx, path); isLink {
+			if linkTarget, err := fs.ReadLink(ctx, path); err == nil {
+				current.Links[path] = planner.LinkTarget{
+					Target: linkTarget,
+				}
+			}
+			continue
+		}
+
+		// Check if it's a directory
+		if isDir, _ := fs.IsDir(ctx, path); isDir {
+			current.Dirs[path] = true
+			continue
+		}
+
+		// It's a regular file
+		if info, err := fs.Stat(ctx, path); err == nil {
+			current.Files[path] = planner.FileInfo{
+				Size: info.Size(),
+			}
+		}
+	}
+
 	return current
+}
+
+// addParentPaths adds all parent directory paths to the set
+func addParentPaths(path string, paths map[string]bool) {
+	dir := filepath.Dir(path)
+	for dir != "." && dir != "/" && dir != "" {
+		if paths[dir] {
+			break // Already added this and all its parents
+		}
+		paths[dir] = true
+		dir = filepath.Dir(dir)
+	}
 }
 
 // ScanInput contains the input for scanning packages
@@ -170,8 +194,9 @@ func ResolveStage() Pipeline[ResolveInput, planner.ResolveResult] {
 		default:
 		}
 
-		// Scan target directory to build current state for conflict detection
-		current := scanCurrentState(ctx, input.FS, input.TargetDir)
+		// Scan only the specific paths we care about for conflict detection
+		// This is much more efficient than scanning the entire target directory
+		current := scanCurrentState(ctx, input.FS, input.Desired)
 
 		// Check for cancellation before potentially long-running conflict resolution
 		select {
