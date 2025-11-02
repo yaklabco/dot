@@ -2,6 +2,7 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -54,6 +55,22 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 	if err != nil {
 		return err
 	}
+
+	// Check for conflicts before execution
+	if len(plan.Metadata.Conflicts) > 0 {
+		// Build error message with conflict details
+		conflictMsg := fmt.Sprintf("cannot manage packages: %d conflict(s) detected", len(plan.Metadata.Conflicts))
+		for i, conflict := range plan.Metadata.Conflicts {
+			if i < 3 { // Show first 3 conflicts
+				conflictMsg += fmt.Sprintf("\n  - %s at %s: %s", conflict.Type, conflict.Path, conflict.Details)
+			}
+		}
+		if len(plan.Metadata.Conflicts) > 3 {
+			conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
+		}
+		return errors.New(conflictMsg)
+	}
+
 	if s.dryRun {
 		return nil
 	}
@@ -273,7 +290,15 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 		return nil, nil, err
 	}
 
-	// Get manage operations
+	// Remove existing symlinks before planning manage operations
+	// This prevents the scanner from skipping recreation of links that will be deleted
+	for _, op := range unmanagePlan.Operations {
+		if linkDel, ok := op.(LinkDelete); ok {
+			_ = s.fs.Remove(ctx, linkDel.Target.String())
+		}
+	}
+
+	// Get manage operations (scanner will now not see the old symlinks)
 	managePlan, err := s.PlanManage(ctx, pkg)
 	if err != nil {
 		return nil, nil, err
