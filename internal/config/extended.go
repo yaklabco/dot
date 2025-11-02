@@ -21,6 +21,7 @@ type ExtendedConfig struct {
 	Packages     PackagesConfig     `mapstructure:"packages" json:"packages" yaml:"packages" toml:"packages"`
 	Doctor       DoctorConfig       `mapstructure:"doctor" json:"doctor" yaml:"doctor" toml:"doctor"`
 	Update       UpdateConfig       `mapstructure:"update" json:"update" yaml:"update" toml:"update"`
+	Network      NetworkConfig      `mapstructure:"network" json:"network" yaml:"network" toml:"network"`
 	Experimental ExperimentalConfig `mapstructure:"experimental" json:"experimental" yaml:"experimental" toml:"experimental"`
 }
 
@@ -179,6 +180,27 @@ type UpdateConfig struct {
 	IncludePrerelease bool `mapstructure:"include_prerelease" json:"include_prerelease" yaml:"include_prerelease" toml:"include_prerelease"`
 }
 
+// NetworkConfig contains network and HTTP configuration.
+type NetworkConfig struct {
+	// HTTP proxy URL (overrides environment)
+	HTTPProxy string `mapstructure:"http_proxy" json:"http_proxy" yaml:"http_proxy" toml:"http_proxy"`
+
+	// HTTPS proxy URL (overrides environment)
+	HTTPSProxy string `mapstructure:"https_proxy" json:"https_proxy" yaml:"https_proxy" toml:"https_proxy"`
+
+	// No proxy hosts (comma-separated)
+	NoProxy string `mapstructure:"no_proxy" json:"no_proxy" yaml:"no_proxy" toml:"no_proxy"`
+
+	// HTTP timeout in seconds (0 = use default 10s)
+	Timeout int `mapstructure:"timeout" json:"timeout" yaml:"timeout" toml:"timeout"`
+
+	// Connection timeout in seconds (0 = use default 5s)
+	ConnectTimeout int `mapstructure:"connect_timeout" json:"connect_timeout" yaml:"connect_timeout" toml:"connect_timeout"`
+
+	// TLS handshake timeout in seconds (0 = use default 5s)
+	TLSTimeout int `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
+}
+
 // ExperimentalConfig contains experimental feature flags.
 type ExperimentalConfig struct {
 	// Enable parallel operations
@@ -255,6 +277,14 @@ func DefaultExtended() *ExtendedConfig {
 			PackageManager:    "auto",
 			Repository:        "jamesainslie/dot",
 			IncludePrerelease: false,
+		},
+		Network: NetworkConfig{
+			HTTPProxy:      "", // Empty = use environment or no proxy
+			HTTPSProxy:     "", // Empty = use environment or no proxy
+			NoProxy:        "", // Empty = use environment or none
+			Timeout:        10, // 10 seconds total timeout
+			ConnectTimeout: 5,  // 5 seconds connection timeout
+			TLSTimeout:     5,  // 5 seconds TLS handshake timeout
 		},
 		Experimental: ExperimentalConfig{
 			Parallel:  false,
