@@ -99,18 +99,28 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          echo "Running vulnerability check (excluding GO-2024-3295 - Codespace-only issue)..."
-          govulncheck ./... 2>&1 | tee vuln-output.txt || true
+          echo "Running vulnerability check..."
+          govulncheck -json ./... 2>&1 | tee vuln-output.json > /dev/null || true
           
-          # Check if there are vulnerabilities other than GO-2024-3295
-          if grep -v "GO-2024-3295" vuln-output.txt | grep -q "Your code is affected by"; then
+          # Extract vulnerability IDs using JSON parsing
+          VULN_IDS=$(grep '"id"' vuln-output.json 2>/dev/null | grep 'GO-' | sed 's/.*"id": *"\([^"]*\)".*/\1/' | sort -u || echo "")
+          EXCLUDED="GO-2024-3295"
+          OTHER_VULNS=$(echo "$VULN_IDS" | grep -v "$EXCLUDED" || true)
+          
+          if [ -n "$OTHER_VULNS" ]; then
             echo ""
-            echo "ERROR: Vulnerabilities found (excluding known Codespace-only issue)"
-            grep -v "GO-2024-3295" vuln-output.txt
+            echo "ERROR: Unaccepted vulnerabilities found:"
+            echo "$OTHER_VULNS" | sed 's/^/  - /'
+            echo ""
+            govulncheck ./...
             exit 1
           fi
           
-          echo "✓ No critical vulnerabilities found (GO-2024-3295 excluded - Codespace-only)"
+          if echo "$VULN_IDS" | grep -q "GO-2024-3295" 2>/dev/null; then
+            echo "  ℹ Found GO-2024-3295 (accepted risk - GitHub Codespaces only, see SECURITY.md)"
+          fi
+          
+          echo "✓ No unaccepted vulnerabilities found (GO-2024-3295 excluded - see SECURITY.md)"
 
   # Testing job
   test:
