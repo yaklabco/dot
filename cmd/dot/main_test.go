@@ -2,12 +2,57 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain sets up test environment to prevent writing to source tree.
+func TestMain(m *testing.M) {
+	// Save original environment
+	oldXDGData := os.Getenv("XDG_DATA_HOME")
+	oldXDGConfig := os.Getenv("XDG_CONFIG_HOME")
+	oldXDGState := os.Getenv("XDG_STATE_HOME")
+
+	// Create temp directory for XDG paths
+	tmpDir, err := os.MkdirTemp("", "dot-test-*")
+	if err != nil {
+		panic("failed to create temp dir for tests: " + err.Error())
+	}
+
+	// Set XDG variables to temp directories to prevent writing to source tree
+	os.Setenv("XDG_DATA_HOME", filepath.Join(tmpDir, "data"))
+	os.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "config"))
+	os.Setenv("XDG_STATE_HOME", filepath.Join(tmpDir, "state"))
+
+	// Run tests
+	exitCode := m.Run()
+
+	// Cleanup temp directory
+	os.RemoveAll(tmpDir)
+
+	// Restore original environment
+	if oldXDGData != "" {
+		os.Setenv("XDG_DATA_HOME", oldXDGData)
+	} else {
+		os.Unsetenv("XDG_DATA_HOME")
+	}
+	if oldXDGConfig != "" {
+		os.Setenv("XDG_CONFIG_HOME", oldXDGConfig)
+	} else {
+		os.Unsetenv("XDG_CONFIG_HOME")
+	}
+	if oldXDGState != "" {
+		os.Setenv("XDG_STATE_HOME", oldXDGState)
+	} else {
+		os.Unsetenv("XDG_STATE_HOME")
+	}
+
+	os.Exit(exitCode)
+}
 
 func TestMain_Exists(t *testing.T) {
 	// This test verifies that main function exists and can be referenced.

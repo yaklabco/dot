@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,8 +13,17 @@ import (
 func setupGlobalCfg(t *testing.T) {
 	t.Helper()
 
-	// Save previous globalCfg
+	// Save previous globalCfg and environment
 	previous := globalCfg
+	oldXDGData := os.Getenv("XDG_DATA_HOME")
+	oldXDGConfig := os.Getenv("XDG_CONFIG_HOME")
+	oldXDGState := os.Getenv("XDG_STATE_HOME")
+
+	// Create temp directory for XDG paths to prevent writing to source tree
+	xdgBase := t.TempDir()
+	os.Setenv("XDG_DATA_HOME", filepath.Join(xdgBase, "data"))
+	os.Setenv("XDG_CONFIG_HOME", filepath.Join(xdgBase, "config"))
+	os.Setenv("XDG_STATE_HOME", filepath.Join(xdgBase, "state"))
 
 	// Set globalCfg to use temporary directories
 	globalCfg = globalConfig{
@@ -24,9 +35,24 @@ func setupGlobalCfg(t *testing.T) {
 		logJSON:    false,
 	}
 
-	// Restore previous globalCfg on cleanup
+	// Restore previous globalCfg and environment on cleanup
 	t.Cleanup(func() {
 		globalCfg = previous
+		if oldXDGData != "" {
+			os.Setenv("XDG_DATA_HOME", oldXDGData)
+		} else {
+			os.Unsetenv("XDG_DATA_HOME")
+		}
+		if oldXDGConfig != "" {
+			os.Setenv("XDG_CONFIG_HOME", oldXDGConfig)
+		} else {
+			os.Unsetenv("XDG_CONFIG_HOME")
+		}
+		if oldXDGState != "" {
+			os.Setenv("XDG_STATE_HOME", oldXDGState)
+		} else {
+			os.Unsetenv("XDG_STATE_HOME")
+		}
 	})
 }
 
