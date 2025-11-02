@@ -934,3 +934,39 @@ func TestGetCurrentBranch(t *testing.T) {
 		assert.Empty(t, branch)
 	})
 }
+
+func TestGetAuthMethodName(t *testing.T) {
+	tests := []struct {
+		name     string
+		auth     adapters.AuthMethod
+		expected string
+	}{
+		{
+			name:     "nil auth returns none",
+			auth:     nil,
+			expected: "none",
+		},
+		{
+			name:     "NoAuth returns none",
+			auth:     adapters.NoAuth{},
+			expected: "none",
+		},
+		{
+			name:     "TokenAuth returns token",
+			auth:     adapters.TokenAuth{Token: "ghp_test123"},
+			expected: "token",
+		},
+		{
+			name:     "SSHAuth returns ssh",
+			auth:     adapters.SSHAuth{},
+			expected: "ssh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getAuthMethodName(tt.auth)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
