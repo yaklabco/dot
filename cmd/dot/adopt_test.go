@@ -1,19 +1,16 @@
 package main
 
-import (
-	"testing"
-)
-
-// TestCommonPrefix removed - function removed as part of adopt simplification
-// TestDeriveCommonPackageName removed - function removed as part of adopt simplification
-// TestFileExists removed - function removed as part of adopt simplification
-
-// Placeholder test to keep package valid
-func TestAdoptHelperFunctionsRemoved(t *testing.T) {
-	// These helper functions were removed as part of the adopt command simplification.
-	// Glob mode auto-detection has been removed in favor of explicit package names.
-	// Users must now provide package names when adopting multiple files:
-	//   dot adopt .ssh              # Auto-naming for single file
-	//   dot adopt vim .vimrc .vim   # Explicit package for multiple files
-	t.Skip("Helper function tests removed - functions no longer exist")
-}
+// The following test functions were removed as part of the adopt command simplification:
+//
+// - TestCommonPrefix: tested commonPrefix() helper function
+// - TestDeriveCommonPackageName: tested deriveCommonPackageName() helper function
+// - TestFileExists: tested fileExists() helper function
+//
+// These functions were removed when glob mode auto-detection was eliminated from the adopt
+// command. The new behavior requires explicit package names when adopting multiple files:
+//
+//   dot adopt .ssh              # Auto-naming for single file
+//   dot adopt vim .vimrc .vim   # Explicit package for multiple files
+//
+// The adopt command now has only two modes: single-file auto-naming and explicit multi-file.
+// This simplification removes ambiguous behavior and makes the command more predictable.

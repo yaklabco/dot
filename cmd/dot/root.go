@@ -45,7 +45,7 @@ comprehensive conflict detection, and incremental updates.`,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Perform startup version check (async, non-blocking)
-			go performStartupVersionCheckAsync(version)
+			performStartupVersionCheckAsync(version)
 			return nil
 		},
 	}
@@ -352,7 +352,8 @@ func performStartupVersionCheck(currentVersion string) {
 // performStartupVersionCheckAsync performs an async version check with timeout.
 func performStartupVersionCheckAsync(currentVersion string) {
 	// Create a context with timeout to prevent hanging
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	// Use 3 seconds to allow for DNS resolution and network latency
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	// Run check in a channel
