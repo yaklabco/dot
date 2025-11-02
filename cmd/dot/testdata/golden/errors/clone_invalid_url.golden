@@ -1,0 +1,7 @@
+Error: clone failed for not-a-url: clone repository: remote repository is empty
+
+Ensure:
+  - URL is correct
+  - Repository is accessible
+  - Network connection is available
+  - Authentication is configured (for private repos)

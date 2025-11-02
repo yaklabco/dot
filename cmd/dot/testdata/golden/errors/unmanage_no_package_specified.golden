@@ -1,0 +1,51 @@
+Usage:
+  dot unmanage PACKAGE [PACKAGE...] [flags]
+
+Examples:
+  # Remove package and restore adopted files
+  dot unmanage ssh
+
+  # Remove package and delete package directory
+  dot unmanage ssh --purge
+
+  # Remove package without restoring (leave in package dir)
+  dot unmanage ssh --no-restore
+
+  # Clean up orphaned manifest entry (no filesystem changes)
+  dot unmanage old-package --cleanup
+
+  # Remove all packages (with confirmation)
+  dot unmanage --all
+
+  # Remove all packages without confirmation
+  dot unmanage --all --yes
+
+  # Preview removing all packages without changes
+  dot unmanage --all --dry-run
+
+Flags:
+      --all          Remove all managed packages
+      --cleanup      Remove orphaned manifest entries (packages with missing links/directories)
+      --force        Skip confirmation prompt (alias for --yes)
+  -h, --help         help for unmanage
+      --no-restore   Don't restore adopted files (leave in package directory)
+      --purge        Delete package directory instead of restoring files
+  -y, --yes          Skip confirmation prompt
+
+Global Flags:
+      --backup-dir string    Directory for backup files (default: <target>/.dot-backup)
+      --batch                Batch mode for scripting (implies --quiet)
+      --cpu-profile string   Write CPU profile to file (for diagnostics)
+  -d, --dir string           Source directory containing packages (default ".")
+  -n, --dry-run              Show what would be done without applying changes
+      --log-json             Output logs in JSON format
+      --mem-profile string   Write memory profile to file (for diagnostics)
+      --no-color             Disable color output
+      --pprof string         Enable pprof HTTP server on address (e.g. :6060)
+  -q, --quiet                Suppress all non-error output
+  -t, --target string        Target directory for symlinks (default "/Volumes/ArsOculusDev/dot/cmd/dot")
+  -v, --verbose count        Increase verbosity: -v (info), -vv (debug), -vvv (trace)
+
+--- stderr ---
+Error: requires at least 1 package name or --all flag
+

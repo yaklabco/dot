@@ -1,0 +1,1 @@
+Error: write config file: marshal config: unsupported format: invalid (supported: yaml, json, toml)
