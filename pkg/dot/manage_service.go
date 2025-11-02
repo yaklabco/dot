@@ -51,6 +51,13 @@ func newManageService(
 
 // Manage installs the specified packages by creating symlinks.
 func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
+	// Validate package names
+	for _, pkg := range packages {
+		if pkg == "" {
+			return fmt.Errorf("package name cannot be empty")
+		}
+	}
+
 	plan, err := s.PlanManage(ctx, packages...)
 	if err != nil {
 		return err
@@ -69,6 +76,12 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 			conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
 		}
 		return errors.New(conflictMsg)
+	}
+
+	// If plan is empty (no operations needed), consider it success
+	if len(plan.Operations) == 0 {
+		s.logger.Info(ctx, "no_operations_required", "packages", packages)
+		return nil
 	}
 
 	if s.dryRun {

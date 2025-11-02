@@ -279,7 +279,7 @@ func TestManageCommand_Golden(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "manage_empty_package",
+			name: "manage_empty_package", // Empty package directory - no operations needed
 			args: []string{"manage", "empty"},
 			setupFunc: func(t *testing.T) (string, string, func()) {
 				tmpDir := t.TempDir()
@@ -299,7 +299,7 @@ func TestManageCommand_Golden(t *testing.T) {
 					os.Unsetenv("HOME")
 				}
 			},
-			expectError: true, // Empty packages produce "cannot execute empty plan" error
+			expectError: false, // Empty package directory is OK - no operations needed
 		},
 		{
 			name: "manage_package_with_conflict",
