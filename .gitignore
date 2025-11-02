@@ -40,6 +40,9 @@ Thumbs.db
 *.tmp
 *.temp
 
+# Test artifacts
+cmd/dot/.local/
+
 # Planning and historical documentation (kept locally, not in git)
 docs/architecture/
 docs/archive/
