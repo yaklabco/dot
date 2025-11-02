@@ -2,6 +2,24 @@
 ## [Unreleased]
 
 
+<a name="v0.5.0"></a>
+## [v0.5.0] - 2025-11-02
+### Chore
+- **git:** add test artifacts to .gitignore
+
+### Ci
+- **vuln:** use JSON parsing for reliable vulnerability exclusion
+
+### Docs
+- **changelog:** update for v0.5.0 release
+
+### Fix
+- **test:** isolate XDG directories to prevent writes to source tree
+- **test:** normalize working directory paths in golden tests
+- **test:** use cmd.OutOrStdout for adopt command output
+- **vuln:** extract findings only, not all OSV database entries
+
+
 <a name="v0.4.4"></a>
 ## [v0.4.4] - 2025-11-02
 ### Chore
@@ -715,7 +733,8 @@ should not exist since it was an internal package.
 - Merge pull request [#1](https://github.com/jamesainslie/dot/issues/1) from jamesainslie/jamesainslie-implement-func-scanner
 
 
-[Unreleased]: https://github.com/jamesainslie/dot/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/jamesainslie/dot/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/jamesainslie/dot/compare/v0.4.4...v0.5.0
 [v0.4.4]: https://github.com/jamesainslie/dot/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/jamesainslie/dot/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/jamesainslie/dot/compare/v0.4.1...v0.4.2
