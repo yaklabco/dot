@@ -295,3 +295,106 @@ func TestManifest_JSON_BackwardCompatibility(t *testing.T) {
 	assert.False(t, exists)
 	assert.Equal(t, RepositoryInfo{}, repo)
 }
+
+func TestPackageInfo_WithDirectories(t *testing.T) {
+	m := New()
+
+	pkg := PackageInfo{
+		Name:        "vim",
+		InstalledAt: time.Now(),
+		LinkCount:   5,
+		Links:       []string{".vimrc", ".vim/colors"},
+		TargetDir:   "/home/user",
+		PackageDir:  "/home/user/dotfiles",
+	}
+
+	m.AddPackage(pkg)
+
+	retrieved, exists := m.GetPackage("vim")
+	assert.True(t, exists)
+	assert.Equal(t, "vim", retrieved.Name)
+	assert.Equal(t, "/home/user", retrieved.TargetDir)
+	assert.Equal(t, "/home/user/dotfiles", retrieved.PackageDir)
+}
+
+func TestPackageInfo_JSON_WithDirectories(t *testing.T) {
+	pkg := PackageInfo{
+		Name:        "vim",
+		InstalledAt: time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC),
+		LinkCount:   2,
+		Links:       []string{".vimrc"},
+		TargetDir:   "/home/user",
+		PackageDir:  "/home/user/dotfiles",
+		Source:      SourceManaged,
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(pkg)
+	require.NoError(t, err)
+
+	// Unmarshal back
+	var loaded PackageInfo
+	err = json.Unmarshal(data, &loaded)
+	require.NoError(t, err)
+
+	// Verify all fields preserved
+	assert.Equal(t, "vim", loaded.Name)
+	assert.Equal(t, "/home/user", loaded.TargetDir)
+	assert.Equal(t, "/home/user/dotfiles", loaded.PackageDir)
+	assert.Equal(t, SourceManaged, loaded.Source)
+}
+
+func TestPackageInfo_JSON_WithoutDirectories(t *testing.T) {
+	pkg := PackageInfo{
+		Name:        "vim",
+		InstalledAt: time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC),
+		LinkCount:   2,
+		Links:       []string{".vimrc"},
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(pkg)
+	require.NoError(t, err)
+
+	// Verify directory fields are omitted when empty
+	var raw map[string]interface{}
+	err = json.Unmarshal(data, &raw)
+	require.NoError(t, err)
+	_, hasTargetDir := raw["target_dir"]
+	_, hasPackageDir := raw["package_dir"]
+	assert.False(t, hasTargetDir, "target_dir should be omitted when empty")
+	assert.False(t, hasPackageDir, "package_dir should be omitted when empty")
+
+	// Unmarshal back
+	var loaded PackageInfo
+	err = json.Unmarshal(data, &loaded)
+	require.NoError(t, err)
+
+	// Verify fields are empty strings
+	assert.Equal(t, "", loaded.TargetDir)
+	assert.Equal(t, "", loaded.PackageDir)
+}
+
+func TestPackageInfo_BackwardCompatibility_NoDirectories(t *testing.T) {
+	// Old package format without target_dir and package_dir
+	oldJSON := `{
+		"name": "vim",
+		"installed_at": "2025-01-01T12:00:00Z",
+		"link_count": 2,
+		"links": [".vimrc", ".vim"],
+		"source": "managed"
+	}`
+
+	var pkg PackageInfo
+	err := json.Unmarshal([]byte(oldJSON), &pkg)
+	require.NoError(t, err)
+
+	// Verify old fields work
+	assert.Equal(t, "vim", pkg.Name)
+	assert.Equal(t, 2, pkg.LinkCount)
+	assert.Equal(t, SourceManaged, pkg.Source)
+
+	// Verify new fields default to empty
+	assert.Equal(t, "", pkg.TargetDir)
+	assert.Equal(t, "", pkg.PackageDir)
+}
