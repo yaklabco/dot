@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"sort"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -53,36 +55,41 @@ func newListCommand() *cobra.Command {
 		// Determine colorization
 		colorize := shouldColorize(color)
 
-		// Print context header (only for text/table formats)
-		if format == "text" || format == "table" {
-			fmt.Fprintf(cmd.OutOrStdout(), "Package directory: %s\n", cfg.PackageDir)
-			fmt.Fprintf(cmd.OutOrStdout(), "Target directory:  %s\n", cfg.TargetDir)
-			if cfg.ManifestDir != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Manifest:          %s\n", cfg.ManifestDir)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Manifest:          %s/.dot-manifest.json\n", cfg.TargetDir)
+		// Use clean text format by default, structured formats for others
+		if format == "text" {
+			renderCleanList(cmd.OutOrStdout(), packages, cfg.PackageDir)
+		} else {
+			// Print context header for table formats
+			if format == "table" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Package directory: %s\n", cfg.PackageDir)
+				fmt.Fprintf(cmd.OutOrStdout(), "Target directory:  %s\n", cfg.TargetDir)
+				if cfg.ManifestDir != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "Manifest:          %s\n", cfg.ManifestDir)
+				} else {
+					fmt.Fprintf(cmd.OutOrStdout(), "Manifest:          %s/.dot-manifest.json\n", cfg.TargetDir)
+				}
+				fmt.Fprintln(cmd.OutOrStdout())
 			}
-			fmt.Fprintln(cmd.OutOrStdout())
-		}
 
-		// Create renderer with table_style from config
-		tableStyle := ""
-		if extCfg != nil {
-			tableStyle = extCfg.Output.TableStyle
-		}
-		r, err := renderer.NewRenderer(format, colorize, tableStyle)
-		if err != nil {
-			return fmt.Errorf("invalid format: %w", err)
-		}
+			// Create renderer with table_style from config
+			tableStyle := ""
+			if extCfg != nil {
+				tableStyle = extCfg.Output.TableStyle
+			}
+			r, err := renderer.NewRenderer(format, colorize, tableStyle)
+			if err != nil {
+				return fmt.Errorf("invalid format: %w", err)
+			}
 
-		// Render list
-		if err := r.RenderStatus(cmd.OutOrStdout(), status); err != nil {
-			return fmt.Errorf("render failed: %w", err)
-		}
+			// Render list
+			if err := r.RenderStatus(cmd.OutOrStdout(), status); err != nil {
+				return fmt.Errorf("render failed: %w", err)
+			}
 
-		// Add newline after output for better terminal spacing
-		if format == "text" || format == "table" {
-			fmt.Fprintln(cmd.OutOrStdout())
+			// Add newline after output for better terminal spacing
+			if format == "table" {
+				fmt.Fprintln(cmd.OutOrStdout())
+			}
 		}
 
 		return nil
@@ -122,11 +129,104 @@ fields and displayed in multiple output formats.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (text, json, yaml, table)")
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml, table)")
 	cmd.Flags().StringVar(&color, "color", "auto", "Colorize output (auto, always, never)")
 	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort by field (name, links, date)")
 
 	return cmd
+}
+
+// renderCleanList renders a clean, minimalist package list.
+func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string) {
+	if len(packages) == 0 {
+		fmt.Fprintf(w, "No packages installed\n")
+		return
+	}
+
+	// Header
+	pluralS := ""
+	if len(packages) != 1 {
+		pluralS = "s"
+	}
+	fmt.Fprintf(w, "Packages: %d package%s in %s\n\n", len(packages), pluralS, packageDir)
+
+	// Calculate column widths for alignment
+	maxNameWidth := 0
+	maxLinkTextWidth := 0
+	for _, pkg := range packages {
+		if len(pkg.Name) > maxNameWidth {
+			maxNameWidth = len(pkg.Name)
+		}
+		linkText := fmt.Sprintf("(%d link", pkg.LinkCount)
+		if pkg.LinkCount != 1 {
+			linkText += "s"
+		}
+		linkText += ")"
+		if len(linkText) > maxLinkTextWidth {
+			maxLinkTextWidth = len(linkText)
+		}
+	}
+
+	// List packages with aligned columns
+	for _, pkg := range packages {
+		linkText := fmt.Sprintf("(%d link", pkg.LinkCount)
+		if pkg.LinkCount != 1 {
+			linkText += "s"
+		}
+		linkText += ")"
+
+		timeAgo := formatTimeAgo(pkg.InstalledAt)
+		fmt.Fprintf(w, "%-*s  %-*s  installed %s\n",
+			maxNameWidth, pkg.Name,
+			maxLinkTextWidth, linkText,
+			timeAgo)
+	}
+}
+
+// formatTimeAgo formats a time as a human-readable "time ago" string.
+func formatTimeAgo(t time.Time) string {
+	duration := time.Since(t)
+
+	switch {
+	case duration < time.Minute:
+		return "just now"
+	case duration < time.Hour:
+		minutes := int(duration.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	case duration < 24*time.Hour:
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case duration < 7*24*time.Hour:
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	case duration < 30*24*time.Hour:
+		weeks := int(duration.Hours() / 24 / 7)
+		if weeks == 1 {
+			return "1 week ago"
+		}
+		return fmt.Sprintf("%d weeks ago", weeks)
+	case duration < 365*24*time.Hour:
+		months := int(duration.Hours() / 24 / 30)
+		if months == 1 {
+			return "1 month ago"
+		}
+		return fmt.Sprintf("%d months ago", months)
+	default:
+		years := int(duration.Hours() / 24 / 365)
+		if years == 1 {
+			return "1 year ago"
+		}
+		return fmt.Sprintf("%d years ago", years)
+	}
 }
 
 // sortPackages sorts packages by the specified field.
