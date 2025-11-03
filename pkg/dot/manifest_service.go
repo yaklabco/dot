@@ -72,6 +72,8 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 			Links:       links,
 			Backups:     backups,
 			Source:      source,
+			TargetDir:   targetPath.String(),
+			PackageDir:  filepath.Join(packageDir, pkg),
 		})
 
 		// Compute and store package hash

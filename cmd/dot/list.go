@@ -59,7 +59,7 @@ func newListCommand() *cobra.Command {
 
 		// Use clean text format by default, structured formats for others
 		if format == "text" {
-			renderCleanList(cmd.OutOrStdout(), packages, cfg.PackageDir, cfg.TargetDir, showTarget)
+			renderCleanList(cmd.OutOrStdout(), packages, cfg.PackageDir, showTarget)
 		} else {
 			// Print context header for table formats
 			if format == "table" {
@@ -144,7 +144,7 @@ fields and displayed in multiple output formats.`,
 }
 
 // renderCleanList renders a clean, minimalist package list with subtle colorization.
-func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir, targetDir string, showTarget bool) {
+func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string, showTarget bool) {
 	if len(packages) == 0 {
 		fmt.Fprintf(w, "No packages installed\n")
 		return
@@ -159,18 +159,12 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir, target
 	if len(packages) != 1 {
 		pluralS = "s"
 	}
-	fmt.Fprintf(w, "Packages: %d package%s in %s\n", len(packages), pluralS, packageDir)
-
-	// Show target directory if requested
-	if showTarget {
-		fmt.Fprintf(w, "Target:   %s\n", targetDir)
-	}
-
-	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Packages: %d package%s in %s\n\n", len(packages), pluralS, packageDir)
 
 	// Calculate column widths for alignment
 	maxNameWidth := 0
 	maxLinkTextWidth := 0
+	maxTargetWidth := 0
 	for _, pkg := range packages {
 		if len(pkg.Name) > maxNameWidth {
 			maxNameWidth = len(pkg.Name)
@@ -182,6 +176,9 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir, target
 		linkText += ")"
 		if len(linkText) > maxLinkTextWidth {
 			maxLinkTextWidth = len(linkText)
+		}
+		if showTarget && len(pkg.TargetDir) > maxTargetWidth {
+			maxTargetWidth = len(pkg.TargetDir)
 		}
 	}
 
@@ -202,6 +199,16 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir, target
 		// Link count in dim color
 		fmt.Fprintf(w, "%s  ",
 			colorizer.Dim(fmt.Sprintf("%-*s", maxLinkTextWidth, linkText)))
+
+		// Show target directory if requested
+		if showTarget {
+			targetText := pkg.TargetDir
+			if targetText == "" {
+				targetText = "(default)"
+			}
+			fmt.Fprintf(w, "%s  ",
+				colorizer.Dim(fmt.Sprintf("→ %-*s", maxTargetWidth, targetText)))
+		}
 
 		// Time in dim color
 		fmt.Fprintf(w, "%s\n",

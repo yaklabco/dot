@@ -50,6 +50,8 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 				InstalledAt: info.InstalledAt,
 				LinkCount:   info.LinkCount,
 				Links:       info.Links,
+				TargetDir:   info.TargetDir,
+				PackageDir:  info.PackageDir,
 			})
 		}
 	} else {
@@ -62,6 +64,8 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 					InstalledAt: info.InstalledAt,
 					LinkCount:   info.LinkCount,
 					Links:       info.Links,
+					TargetDir:   info.TargetDir,
+					PackageDir:  info.PackageDir,
 				})
 			}
 		}
