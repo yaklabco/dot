@@ -85,7 +85,7 @@ func TestRenderCleanList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			renderCleanList(&buf, tt.packages, tt.packageDir)
+			renderCleanList(&buf, tt.packages, tt.packageDir, "/home/user", false)
 			assert.Equal(t, tt.wantOutput, buf.String())
 		})
 	}

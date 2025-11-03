@@ -32,6 +32,7 @@ func newListCommand() *cobra.Command {
 		format, _ := cmd.Flags().GetString("format")
 		color, _ := cmd.Flags().GetString("color")
 		sortBy, _ := cmd.Flags().GetString("sort")
+		showTarget, _ := cmd.Flags().GetBool("show-target")
 
 		// Create client
 		client, err := dot.NewClient(cfg)
@@ -58,7 +59,7 @@ func newListCommand() *cobra.Command {
 
 		// Use clean text format by default, structured formats for others
 		if format == "text" {
-			renderCleanList(cmd.OutOrStdout(), packages, cfg.PackageDir)
+			renderCleanList(cmd.OutOrStdout(), packages, cfg.PackageDir, cfg.TargetDir, showTarget)
 		} else {
 			// Print context header for table formats
 			if format == "table" {
@@ -104,6 +105,7 @@ func NewListCommand(cfg *dot.Config) *cobra.Command {
 	var format string
 	var color string
 	var sortBy string
+	var showTarget bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -119,6 +121,9 @@ fields and displayed in multiple output formats.`,
   # List packages sorted by link count
   dot list --sort=links
 
+  # Show target directory
+  dot list --show-target
+
   # List packages in JSON format
   dot list --format=json
 
@@ -133,12 +138,13 @@ fields and displayed in multiple output formats.`,
 	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml, table)")
 	cmd.Flags().StringVar(&color, "color", "auto", "Colorize output (auto, always, never)")
 	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort by field (name, links, date)")
+	cmd.Flags().BoolVar(&showTarget, "show-target", false, "Show target directory in output")
 
 	return cmd
 }
 
 // renderCleanList renders a clean, minimalist package list with subtle colorization.
-func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string) {
+func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir, targetDir string, showTarget bool) {
 	if len(packages) == 0 {
 		fmt.Fprintf(w, "No packages installed\n")
 		return
@@ -153,7 +159,14 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string)
 	if len(packages) != 1 {
 		pluralS = "s"
 	}
-	fmt.Fprintf(w, "Packages: %d package%s in %s\n\n", len(packages), pluralS, packageDir)
+	fmt.Fprintf(w, "Packages: %d package%s in %s\n", len(packages), pluralS, packageDir)
+
+	// Show target directory if requested
+	if showTarget {
+		fmt.Fprintf(w, "Target:   %s\n", targetDir)
+	}
+
+	fmt.Fprintln(w)
 
 	// Calculate column widths for alignment
 	maxNameWidth := 0
