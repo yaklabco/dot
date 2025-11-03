@@ -199,6 +199,19 @@ func TestPlan_Validate(t *testing.T) {
 		err := plan.Validate()
 		assert.NoError(t, err)
 	})
+
+	t.Run("Invalid operation with empty ID", func(t *testing.T) {
+		// Create invalid operation
+		op := domain.LinkCreate{
+			OpID: "", // Invalid: empty ID
+		}
+		plan := domain.Plan{
+			Operations: []domain.Operation{op},
+		}
+		err := plan.Validate()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "operation ID cannot be empty")
+	})
 }
 
 func TestPlan_CanParallelize(t *testing.T) {

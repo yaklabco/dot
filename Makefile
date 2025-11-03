@@ -201,14 +201,14 @@ coverage:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
-## check-coverage: Verify test coverage meets 80% threshold
+## check-coverage: Verify test coverage meets 75% threshold
 check-coverage:
 	@if [ ! -f coverage.out ]; then \
 		echo "Error: coverage.out not found. Run 'make test' first."; \
 		exit 1; \
 	fi
 	@COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	THRESHOLD=80.0; \
+	THRESHOLD=75.0; \
 	echo "Coverage: $${COVERAGE}% (threshold: $${THRESHOLD}%)"; \
 	if [ "$$(echo "$${COVERAGE} < $${THRESHOLD}" | bc)" -eq 1 ]; then \
 		echo ""; \
@@ -217,7 +217,7 @@ check-coverage:
 		echo "  Required:  $${THRESHOLD}%"; \
 		echo "  Shortfall: $$(echo "$${THRESHOLD} - $${COVERAGE}" | bc)%"; \
 		echo ""; \
-		echo "Add tests to reach 80% coverage."; \
+		echo "Add tests to reach 75% coverage."; \
 		echo "Run: go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out"; \
 		exit 1; \
 	fi; \

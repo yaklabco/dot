@@ -15,6 +15,7 @@ type DoctorService struct {
 	fs          FS
 	logger      Logger
 	manifestSvc *ManifestService
+	packageDir  string
 	targetDir   string
 }
 
@@ -29,12 +30,14 @@ func newDoctorService(
 	fs FS,
 	logger Logger,
 	manifestSvc *ManifestService,
+	packageDir string,
 	targetDir string,
 ) *DoctorService {
 	return &DoctorService{
 		fs:          fs,
 		logger:      logger,
 		manifestSvc: manifestSvc,
+		packageDir:  packageDir,
 		targetDir:   targetDir,
 	}
 }

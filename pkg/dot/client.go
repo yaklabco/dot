@@ -95,7 +95,7 @@ func NewClient(cfg Config) (*Client, error) {
 	unmanageSvc := newUnmanageService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 	manageSvc := newManageService(cfg.FS, cfg.Logger, managePipe, exec, manifestSvc, unmanageSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 	statusSvc := newStatusService(manifestSvc, cfg.TargetDir)
-	doctorSvc := newDoctorService(cfg.FS, cfg.Logger, manifestSvc, cfg.TargetDir)
+	doctorSvc := newDoctorService(cfg.FS, cfg.Logger, manifestSvc, cfg.PackageDir, cfg.TargetDir)
 	adoptSvc := newAdoptService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 
 	// Create git cloner and package selector for clone service
