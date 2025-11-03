@@ -75,6 +75,7 @@ Like `git clone`, this creates a subdirectory named after the repository (e.g., 
 - Selects packages to install (via profile or interactively)
 - Creates all symlinks
 - Tracks repository information for updates
+- Offers to save the package directory location to your config
 
 The repository can include:
 - **Configuration** (`.config/dot/config.yaml`): Repository-specific dot configuration that's automatically used after clone
@@ -83,6 +84,19 @@ The repository can include:
 **Repository configuration** allows your repository to define how it should be managed without circular dependency. See [Repository Configuration](docs/user/repository-config.md) for details.
 
 **Bootstrap configuration** enables installation profiles and platform-specific package selection. See [Bootstrap Specification](docs/user/bootstrap-config-spec.md) for details.
+
+### Package Directory Resolution
+
+`dot` intelligently locates your dotfiles repository using the following precedence:
+
+1. **Explicit flag**: `--dir /path/to/dotfiles` (highest priority)
+2. **Environment variable**: `DOT_PACKAGE_DIR=/path/to/dotfiles`
+3. **Current directory**: If current directory contains `.dotbootstrap.yaml`
+4. **Parent search**: Searches up directory tree for `.dotbootstrap.yaml`
+5. **Configuration file**: From `directories.package` in config
+6. **Default fallback**: `~/.dotfiles` (lowest priority)
+
+This means you can `cd` into your dotfiles directory and run `dot` commands without flags, or set `DOT_PACKAGE_DIR` for project-wide consistency.
 
 ### Initial Setup
 

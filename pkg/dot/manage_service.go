@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jamesainslie/dot/internal/executor"
 	"github.com/jamesainslie/dot/internal/manifest"
@@ -108,6 +110,25 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 
 // PlanManage computes the execution plan for managing packages without applying changes.
 func (s *ManageService) PlanManage(ctx context.Context, packages ...string) (Plan, error) {
+	// Validate packages - filter out reserved names
+	validPackages := make([]string, 0, len(packages))
+	for _, pkg := range packages {
+		// Check reserved name
+		if isReservedPackageName(pkg) {
+			s.logger.Warn(ctx, "skipping_reserved_package", "package", pkg)
+			fmt.Fprintf(os.Stderr,
+				"Warning: Package %q is reserved for dot's internal use. Skipping.\n", pkg)
+			continue
+		}
+		validPackages = append(validPackages, pkg)
+	}
+
+	if len(validPackages) == 0 {
+		return Plan{}, fmt.Errorf("no valid packages to manage")
+	}
+
+	packages = validPackages
+
 	packagePathResult := NewPackagePath(s.packageDir)
 	if !packagePathResult.IsOk() {
 		return Plan{}, fmt.Errorf("invalid package directory: %w", packagePathResult.UnwrapErr())
@@ -407,4 +428,22 @@ func (s *ManageService) verifyLinksExist(ctx context.Context, pkg string, m *man
 	}
 
 	return true, nil
+}
+
+// isReservedPackageName checks if the given package name is reserved for dot's internal use.
+func isReservedPackageName(name string) bool {
+	reserved := []string{
+		"dot",
+		".dot",
+		"dot-config",
+	}
+
+	nameLower := strings.ToLower(name)
+	for _, r := range reserved {
+		if nameLower == r {
+			return true
+		}
+	}
+
+	return false
 }

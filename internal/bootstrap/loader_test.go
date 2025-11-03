@@ -140,12 +140,11 @@ packages:
 			errMsg:  "version is required",
 		},
 		{
-			name: "invalid config - no packages",
+			name: "valid config - no packages",
 			content: `version: "1.0"
 packages: []
 `,
-			wantErr: true,
-			errMsg:  "at least one package is required",
+			wantErr: false,
 		},
 		{
 			name: "invalid config - invalid platform",

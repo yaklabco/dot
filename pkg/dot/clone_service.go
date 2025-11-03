@@ -13,7 +13,9 @@ import (
 	"github.com/jamesainslie/dot/internal/bootstrap"
 	"github.com/jamesainslie/dot/internal/cli/selector"
 	"github.com/jamesainslie/dot/internal/cli/terminal"
+	"github.com/jamesainslie/dot/internal/config"
 	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/jamesainslie/dot/internal/scanner"
 )
 
 // CloneService handles repository cloning and package installation.
@@ -146,6 +148,8 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 
 	if len(packagesToInstall) == 0 {
 		s.logger.Info(ctx, "no_packages_selected")
+		fmt.Fprintln(os.Stderr, "Warning: No packages selected for installation")
+		fmt.Fprintln(os.Stderr, "Repository cloned successfully, but no symlinks were created")
 		return nil
 	}
 
@@ -165,38 +169,17 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 	s.logger.Info(ctx, "packages_installed_successfully", "count", len(packagesToInstall))
 
 	// Update manifest with repository information
-	s.logger.Debug(ctx, "updating_manifest_with_repository_info")
-	branch := opts.Branch
-	if branch == "" {
-		// Read actual branch from repository HEAD
-		detectedBranch, err := getCurrentBranch(s.packageDir)
-		if err != nil {
-			// If we can't detect the branch (detached HEAD, IO error, etc.),
-			// fall back to "main" as a sensible default
-			s.logger.Warn(ctx, "failed_to_detect_branch", "error", err, "fallback", "main")
-			branch = "main"
-		} else {
-			s.logger.Debug(ctx, "detected_branch", "branch", detectedBranch)
-			branch = detectedBranch
+	s.updateRepoManifest(ctx, repoURL, opts.Branch)
+
+	s.logger.Info(ctx, "clone_complete", "packages_installed", len(packagesToInstall))
+
+	// Offer to persist package directory to config
+	if !s.dryRun {
+		if err := s.offerToPersistPackageDirectory(ctx, s.packageDir); err != nil {
+			s.logger.Warn(ctx, "failed_to_persist_package_directory", "error", err)
 		}
 	}
 
-	commitSHA, err := getCommitSHA(s.packageDir)
-	if err != nil {
-		s.logger.Debug(ctx, "failed_to_get_commit_sha", "error", err)
-	} else {
-		s.logger.Debug(ctx, "detected_commit_sha", "sha", commitSHA)
-	}
-
-	repoInfo := buildRepositoryInfo(repoURL, branch, commitSHA)
-
-	if err := s.updateManifestRepository(ctx, repoInfo); err != nil {
-		s.logger.Warn(ctx, "failed_to_update_manifest_repository", "error", err)
-	} else {
-		s.logger.Debug(ctx, "manifest_updated_with_repository_info")
-	}
-
-	s.logger.Info(ctx, "clone_complete", "packages_installed", len(packagesToInstall))
 	return nil
 }
 
@@ -207,6 +190,29 @@ func (s *CloneService) selectPackagesWithBootstrap(ctx context.Context, config b
 	filtered := bootstrap.FilterPackagesByPlatform(config.Packages, runtime.GOOS)
 	allPackages := extractPackageNames(filtered)
 	s.logger.Debug(ctx, "platform_filtered_packages", "count", len(allPackages), "packages", allPackages)
+
+	// Filter out reserved packages with warning
+	validPackages := make([]string, 0, len(allPackages))
+	skipped := []string{}
+
+	for _, pkg := range allPackages {
+		if scanner.IsReservedPackageName(pkg) {
+			skipped = append(skipped, pkg)
+			continue
+		}
+		validPackages = append(validPackages, pkg)
+	}
+
+	// Show warning if any were skipped
+	if len(skipped) > 0 {
+		s.logger.Warn(ctx, "skipped_reserved_packages", "packages", skipped)
+		fmt.Fprintf(os.Stderr,
+			"\nWarning: Skipped %d reserved package(s): %s\n"+
+				"Dot cannot manage its own configuration and state files.\n\n",
+			len(skipped), strings.Join(skipped, ", "))
+	}
+
+	allPackages = validPackages
 
 	// If profile specified, use it
 	if opts.Profile != "" {
@@ -510,4 +516,103 @@ func getAuthMethodName(auth adapters.AuthMethod) string {
 	default:
 		return "unknown"
 	}
+}
+
+// updateRepoManifest updates the manifest with repository information.
+func (s *CloneService) updateRepoManifest(ctx context.Context, repoURL, branchOpt string) {
+	s.logger.Debug(ctx, "updating_manifest_with_repository_info")
+	branch := branchOpt
+	if branch == "" {
+		// Read actual branch from repository HEAD
+		detectedBranch, err := getCurrentBranch(s.packageDir)
+		if err != nil {
+			// If we can't detect the branch (detached HEAD, IO error, etc.),
+			// fall back to "main" as a sensible default
+			s.logger.Warn(ctx, "failed_to_detect_branch", "error", err, "fallback", "main")
+			branch = "main"
+		} else {
+			s.logger.Debug(ctx, "detected_branch", "branch", detectedBranch)
+			branch = detectedBranch
+		}
+	}
+
+	commitSHA, err := getCommitSHA(s.packageDir)
+	if err != nil {
+		s.logger.Debug(ctx, "failed_to_get_commit_sha", "error", err)
+	} else {
+		s.logger.Debug(ctx, "detected_commit_sha", "sha", commitSHA)
+	}
+
+	repoInfo := buildRepositoryInfo(repoURL, branch, commitSHA)
+
+	if err := s.updateManifestRepository(ctx, repoInfo); err != nil {
+		s.logger.Warn(ctx, "failed_to_update_manifest_repository", "error", err)
+	} else {
+		s.logger.Debug(ctx, "manifest_updated_with_repository_info")
+	}
+}
+
+// offerToPersistPackageDirectory asks the user if they want to save the package directory to config.
+func (s *CloneService) offerToPersistPackageDirectory(ctx context.Context, packageDir string) error {
+	configPath := filepath.Join(config.GetConfigPath("dot"), "config.yaml")
+
+	// Check if already set in config
+	loader := config.NewLoader("dot", configPath)
+	cfg, err := loader.LoadWithEnv()
+	if err == nil && cfg != nil && cfg.Directories.Package != "" {
+		existingAbs, _ := filepath.Abs(cfg.Directories.Package)
+		newAbs, _ := filepath.Abs(packageDir)
+		if existingAbs == newAbs {
+			return nil // Already set correctly
+		}
+	}
+
+	// Ask user for confirmation
+	if !terminal.IsInteractive() {
+		return nil // Skip in non-interactive mode
+	}
+
+	fmt.Printf("\nSave package directory to config?\n")
+	fmt.Printf("  Location: %s\n", packageDir)
+	fmt.Printf("  Config:   %s\n\n", configPath)
+	fmt.Printf("This will make dot automatically use this directory. [Y/n] ")
+
+	var response string
+	fmt.Scanln(&response)
+	response = strings.ToLower(strings.TrimSpace(response))
+
+	if response != "" && response != "y" && response != "yes" {
+		fmt.Println("Skipped. Use --dir flag or DOT_PACKAGE_DIR environment variable.")
+		return nil
+	}
+
+	return persistPackageDirectory(packageDir, configPath)
+}
+
+// persistPackageDirectory saves the package directory to the config file.
+func persistPackageDirectory(packageDir, configPath string) error {
+	// Load or create config
+	loader := config.NewLoader("dot", configPath)
+	cfg, err := loader.LoadWithEnv()
+	if err != nil || cfg == nil {
+		cfg = config.DefaultExtended()
+	}
+
+	// Update package directory
+	cfg.Directories.Package = packageDir
+
+	// Ensure config directory exists
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	// Save config
+	writer := config.NewWriter(configPath)
+	opts := config.WriteOptions{
+		Format:          "yaml",
+		IncludeComments: true,
+		Indent:          2,
+	}
+	return writer.Write(cfg, opts)
 }

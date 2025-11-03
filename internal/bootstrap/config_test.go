@@ -103,13 +103,12 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "version is required",
 		},
 		{
-			name: "no packages",
+			name: "no packages allowed",
 			config: Config{
 				Version:  "1.0",
 				Packages: []PackageSpec{},
 			},
-			wantErr: true,
-			errMsg:  "at least one package is required",
+			wantErr: false,
 		},
 		{
 			name: "invalid platform",

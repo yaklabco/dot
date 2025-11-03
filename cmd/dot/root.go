@@ -154,12 +154,14 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 		overwrite = extCfg.Symlinks.Overwrite
 	}
 
-	// Override with globalCfg if set (covers both flag and test scenarios)
-	// For flags to override config, they must be non-default values
-	if globalCfg.packageDir != "" && globalCfg.packageDir != "." {
-		packageDir = globalCfg.packageDir
+	// Resolve package directory using hierarchical discovery
+	// Priority: flag > env > cwd/.dotbootstrap.yaml > parent search > config > default
+	packageDir, err = resolvePackageDirectory(globalCfg.packageDir)
+	if err != nil {
+		return dot.Config{}, fmt.Errorf("resolve package directory: %w", err)
 	}
 
+	// Override with globalCfg for target directory if set
 	homeDir, _ := os.UserHomeDir()
 	if globalCfg.targetDir != "" && globalCfg.targetDir != homeDir {
 		targetDir = globalCfg.targetDir
@@ -170,20 +172,11 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 	}
 
 	// Apply final defaults if still empty
-	if packageDir == "" {
-		packageDir = "."
-	}
 	if targetDir == "" {
 		targetDir, _ = os.UserHomeDir()
 		if targetDir == "" {
 			targetDir = "."
 		}
-	}
-
-	// Make paths absolute
-	packageDir, err = filepath.Abs(packageDir)
-	if err != nil {
-		return dot.Config{}, fmt.Errorf("invalid package directory: %w", err)
 	}
 
 	targetDir, err = filepath.Abs(targetDir)

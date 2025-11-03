@@ -69,6 +69,16 @@ func (p *ManagePipeline) Execute(ctx context.Context, input ManageInput) domain.
 	}
 	desired := planResult.Unwrap()
 
+	// Validate no self-management - check if any package attempts to manage dot's directories
+	for _, pkg := range packages {
+		// For simplicity, validate the entire desired state against this package name
+		// This is conservative but prevents self-management issues
+		if err := planner.ValidateNoSelfManagement(pkg.Name, desired); err != nil {
+			// Return error plan - this should not be allowed
+			return domain.Err[domain.Plan](err)
+		}
+	}
+
 	// Stage 3: Resolve conflicts and generate operations
 	resolveInput := ResolveInput{
 		Desired:   desired,

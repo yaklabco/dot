@@ -76,12 +76,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("version is required")
 	}
 
-	// Check packages exist
-	if len(c.Packages) == 0 {
-		return fmt.Errorf("at least one package is required")
-	}
-
-	// Validate packages and build name set
+	// Validate packages and build name set (empty package list is allowed)
 	packageNames, err := c.validatePackages()
 	if err != nil {
 		return err
