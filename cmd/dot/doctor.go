@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jamesainslie/dot/internal/cli/pretty"
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/cli/renderer"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
@@ -114,6 +115,9 @@ func newDoctorCommand() *cobra.Command {
 
 // renderSuccinctDiagnostics outputs diagnostics in a succinct, colorized format.
 func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	// Health status header
 	healthIcon, healthText, healthColor := getHealthDisplay(report.OverallHealth)
 	fmt.Fprintf(w, "%s %s\n",
@@ -124,8 +128,8 @@ func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
 	// Statistics summary if available
 	if report.Statistics.TotalLinks > 0 {
 		fmt.Fprintf(w, "  %s %s\n",
-			dim("•"),
-			dim(fmt.Sprintf("%d total links (%d managed, %d broken, %d orphaned)",
+			c.Dim("•"),
+			c.Dim(fmt.Sprintf("%d total links (%d managed, %d broken, %d orphaned)",
 				report.Statistics.TotalLinks,
 				report.Statistics.ManagedLinks,
 				report.Statistics.BrokenLinks,
@@ -139,37 +143,40 @@ func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
 	infos := filterIssuesBySeverity(report.Issues, dot.SeverityInfo)
 
 	if len(errors) > 0 {
-		fmt.Fprintf(w, "\n%s %s\n", errorText("✗"), errorText(fmt.Sprintf("%d errors:", len(errors))))
-		renderIssueList(w, errors, errorText)
+		fmt.Fprintf(w, "\n%s %s\n", c.Error("✗"), c.Error(fmt.Sprintf("%d errors:", len(errors))))
+		renderIssueList(w, errors, c.Error)
 	}
 
 	if len(warnings) > 0 {
-		fmt.Fprintf(w, "\n%s %s\n", warning("⚠"), warning(fmt.Sprintf("%d warnings:", len(warnings))))
-		renderIssueList(w, warnings, warning)
+		fmt.Fprintf(w, "\n%s %s\n", c.Warning("⚠"), c.Warning(fmt.Sprintf("%d warnings:", len(warnings))))
+		renderIssueList(w, warnings, c.Warning)
 	}
 
 	if len(infos) > 0 {
-		fmt.Fprintf(w, "\n%s %s\n", info("ℹ"), info(fmt.Sprintf("%d info:", len(infos))))
-		renderIssueList(w, infos, dim)
+		fmt.Fprintf(w, "\n%s %s\n", c.Info("ℹ"), c.Info(fmt.Sprintf("%d info:", len(infos))))
+		renderIssueList(w, infos, c.Dim)
 	}
 
 	// Clean summary if no issues
 	if len(report.Issues) == 0 {
-		fmt.Fprintf(w, "  %s\n", success("No issues found"))
+		fmt.Fprintf(w, "  %s\n", c.Success("No issues found"))
 	}
 }
 
 // getHealthDisplay returns icon, text, and color for health status
 func getHealthDisplay(health dot.HealthStatus) (string, string, func(string) string) {
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	switch health {
 	case dot.HealthOK:
-		return success("✓"), "Healthy", success
+		return c.Success("✓"), "Healthy", c.Success
 	case dot.HealthWarnings:
-		return warning("⚠"), "Warnings detected", warning
+		return c.Warning("⚠"), "Warnings detected", c.Warning
 	case dot.HealthErrors:
-		return errorText("✗"), "Errors detected", errorText
+		return c.Error("✗"), "Errors detected", c.Error
 	default:
-		return dim("?"), "Unknown status", dim
+		return c.Dim("?"), "Unknown status", c.Dim
 	}
 }
 
@@ -186,15 +193,18 @@ func filterIssuesBySeverity(issues []dot.Issue, severity dot.IssueSeverity) []do
 
 // renderIssueList renders a list of issues succinctly
 func renderIssueList(w io.Writer, issues []dot.Issue, colorFunc func(string) string) {
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	for _, issue := range issues {
 		fmt.Fprintf(w, "  %s %s",
-			dim("•"),
-			bold(issue.Path),
+			c.Dim("•"),
+			c.Bold(issue.Path),
 		)
 		if issue.Message != "" {
 			fmt.Fprintf(w, " %s %s",
-				dim("—"),
-				dim(issue.Message),
+				c.Dim("—"),
+				c.Dim(issue.Message),
 			)
 		}
 		fmt.Fprintln(w)

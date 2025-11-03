@@ -28,9 +28,10 @@ type ColorScheme struct {
 	Error   string
 	Info    string
 	Muted   string
+	Accent  string
 }
 
-// DefaultColorScheme returns the default color scheme.
+// DefaultColorScheme returns the default muted professional color scheme.
 // Colors are disabled if NO_COLOR environment variable is set.
 func DefaultColorScheme() ColorScheme {
 	if os.Getenv("NO_COLOR") != "" {
@@ -38,11 +39,12 @@ func DefaultColorScheme() ColorScheme {
 	}
 
 	return ColorScheme{
-		Success: "\033[32m", // Green
-		Warning: "\033[33m", // Yellow
-		Error:   "\033[31m", // Red
-		Info:    "\033[36m", // Cyan
-		Muted:   "\033[90m", // Gray
+		Success: "\033[38;5;71m",  // Muted green
+		Warning: "\033[38;5;179m", // Muted gold
+		Error:   "\033[38;5;167m", // Muted red
+		Info:    "\033[38;5;110m", // Muted blue
+		Muted:   "\033[38;5;245m", // Muted gray
+		Accent:  "\033[38;5;104m", // Dark blue/purple
 	}
 }
 

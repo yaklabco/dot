@@ -121,7 +121,7 @@ func TestWithColor_Disabled(t *testing.T) {
 
 func TestStyle_Chaining(t *testing.T) {
 	// Test that chaining methods works correctly
-	style := NewStyle(colorRed).Bold().Underline()
+	style := NewStyle(colorMutedRed).Bold().Underline()
 	result := style.Apply("chained")
 
 	assert.Contains(t, result, "chained")

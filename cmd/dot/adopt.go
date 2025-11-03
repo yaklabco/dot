@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jamesainslie/dot/internal/cli/output"
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
@@ -85,8 +87,26 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	}
 
 	if !cfg.DryRun {
-		fmt.Fprintf(cmd.OutOrStdout(), "Adopted %s into %s\n", formatCount(len(files), "file", "files"), pkg)
-		fmt.Fprintln(cmd.OutOrStdout()) // Blank line for terminal spacing
+		// Determine colorization from global flag
+		colorize := shouldUseColor()
+
+		// Create formatter for consistent output
+		formatter := output.NewFormatter(cmd.OutOrStdout(), colorize)
+		colorizer := render.NewColorizer(colorize)
+
+		// Print success message
+		if len(files) == 1 {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Adopted %s into %s\n",
+				colorizer.Success("✓"),
+				files[0],
+				colorizer.Accent(pkg))
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Adopted %d files into %s\n",
+				colorizer.Success("✓"),
+				len(files),
+				colorizer.Accent(pkg))
+		}
+		formatter.BlankLine()
 	}
 
 	return nil
