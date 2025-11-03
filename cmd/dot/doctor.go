@@ -34,6 +34,7 @@ func newDoctorCommand() *cobra.Command {
 		color, _ := cmd.Flags().GetString("color")
 		scanMode, _ := cmd.Flags().GetString("scan-mode")
 		maxDepth, _ := cmd.Flags().GetInt("max-depth")
+		triage, _ := cmd.Flags().GetBool("triage")
 
 		// Create client
 		client, err := dot.NewClient(cfg)
@@ -57,6 +58,11 @@ func newDoctorCommand() *cobra.Command {
 			scanCfg = dot.DeepScanConfig(maxDepth)
 		default:
 			return fmt.Errorf("invalid scan-mode: %s (must be off, scoped, or deep)", scanMode)
+		}
+
+		// Run triage if requested
+		if triage {
+			return runTriage(cmd, client, scanCfg)
 		}
 
 		// Run diagnostics
@@ -211,6 +217,75 @@ func renderIssueList(w io.Writer, issues []dot.Issue, colorFunc func(string) str
 	}
 }
 
+// runTriage executes interactive triage mode.
+func runTriage(cmd *cobra.Command, client *dot.Client, scanCfg dot.ScanConfig) error {
+	triageOpts := dot.TriageOptions{
+		AutoIgnoreHighConfidence: false,
+	}
+
+	result, err := client.Triage(cmd.Context(), scanCfg, triageOpts)
+	if err != nil {
+		return formatError(err)
+	}
+
+	// Display results
+	renderTriageResults(cmd.OutOrStdout(), result)
+
+	return nil
+}
+
+// renderTriageResults displays the triage operation results.
+func renderTriageResults(w io.Writer, result dot.TriageResult) {
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, c.Success("Triage Complete"))
+	fmt.Fprintln(w)
+
+	if len(result.Ignored) > 0 {
+		fmt.Fprintf(w, "%s %d links ignored:\n", c.Info("•"), len(result.Ignored))
+		for _, link := range result.Ignored {
+			fmt.Fprintf(w, "  %s\n", c.Dim(link))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(result.Patterns) > 0 {
+		fmt.Fprintf(w, "%s %d patterns added:\n", c.Info("•"), len(result.Patterns))
+		for _, pattern := range result.Patterns {
+			fmt.Fprintf(w, "  %s\n", c.Dim(pattern))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(result.Adopted) > 0 {
+		fmt.Fprintf(w, "%s %d links marked for adoption:\n", c.Info("•"), len(result.Adopted))
+		for link, pkg := range result.Adopted {
+			fmt.Fprintf(w, "  %s %s %s\n", c.Dim(link), c.Dim("→"), c.Bold(pkg))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(result.Skipped) > 0 {
+		fmt.Fprintf(w, "%s %d links skipped\n", c.Dim("•"), len(result.Skipped))
+		fmt.Fprintln(w)
+	}
+
+	if len(result.Errors) > 0 {
+		fmt.Fprintf(w, "%s %d errors:\n", c.Error("✗"), len(result.Errors))
+		for link, err := range result.Errors {
+			fmt.Fprintf(w, "  %s %s %s\n", c.Bold(link), c.Dim("—"), c.Error(err.Error()))
+		}
+		fmt.Fprintln(w)
+	}
+
+	totalProcessed := len(result.Ignored) + len(result.Adopted) + len(result.Skipped)
+	if totalProcessed == 0 && len(result.Errors) == 0 {
+		fmt.Fprintln(w, c.Dim("No orphaned links found to triage"))
+	}
+}
+
 // NewDoctorCommand creates the doctor command.
 func NewDoctorCommand(cfg *dot.Config) *cobra.Command {
 	var format string
@@ -236,6 +311,12 @@ Orphan Detection:
   Use --scan-mode=off to disable orphan detection for faster checks.
   Use --scan-mode=deep for thorough scanning of entire target directory.
 
+Triage Mode:
+  Use --triage to interactively process orphaned symlinks. Triage mode groups
+  orphaned links by category and allows you to ignore, adopt, or handle them
+  individually. This is useful for cleaning up after uninstalling packages or
+  managing symlinks created by other tools.
+
 Exit codes:
   0 - Healthy (no issues found)
   1 - Warnings detected (e.g., orphaned links)
@@ -248,6 +329,9 @@ Exit codes:
 
   # Run thorough scan of entire home directory
   dot doctor --scan-mode=deep
+
+  # Interactive triage mode for orphaned symlinks
+  dot doctor --triage
 
   # Run health check with JSON output
   dot doctor --format=json
@@ -264,6 +348,7 @@ Exit codes:
 	cmd.Flags().StringVar(&color, "color", "auto", "Colorize output (auto, always, never)")
 	cmd.Flags().String("scan-mode", "scoped", "Orphan detection mode (off, scoped, deep)")
 	cmd.Flags().Int("max-depth", 10, "Maximum recursion depth for deep scan")
+	cmd.Flags().Bool("triage", false, "Interactive triage mode for orphaned symlinks")
 
 	return cmd
 }

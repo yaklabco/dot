@@ -207,6 +207,11 @@ func (c *Client) DoctorWithScan(ctx context.Context, scanCfg ScanConfig) (Diagno
 	return c.doctorSvc.DoctorWithScan(ctx, scanCfg)
 }
 
+// Triage performs interactive triage of orphaned symlinks.
+func (c *Client) Triage(ctx context.Context, scanCfg ScanConfig, opts TriageOptions) (TriageResult, error) {
+	return c.doctorSvc.Triage(ctx, scanCfg, opts)
+}
+
 // Clone clones a dotfiles repository and installs packages.
 //
 // Workflow:
