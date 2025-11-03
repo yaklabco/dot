@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jamesainslie/dot/internal/cli/output"
 	"github.com/jamesainslie/dot/internal/cli/renderer"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
@@ -84,8 +85,13 @@ func runManage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Managed %s\n", formatCount(len(packages), "package", "packages"))
-	fmt.Fprintln(cmd.OutOrStdout()) // Blank line for terminal spacing
+	// Determine colorization from global flag
+	colorize := shouldUseColor()
+
+	// Create formatter and print success message
+	formatter := output.NewFormatter(cmd.OutOrStdout(), colorize)
+	formatter.Success("managed", len(packages), "package", "packages")
+	formatter.BlankLine()
 
 	return nil
 }

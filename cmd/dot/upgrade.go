@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/jamesainslie/dot/internal/cli/output"
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/config"
 	"github.com/jamesainslie/dot/internal/updater"
 	"github.com/spf13/cobra"
@@ -66,9 +68,12 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 		return fmt.Errorf("check for updates: %w", err)
 	}
 
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	if !hasUpdate {
 		fmt.Printf("%s You are already running the latest version (%s)\n",
-			success("✓"), currentVersion)
+			c.Success("✓"), currentVersion)
 		return nil
 	}
 
@@ -76,7 +81,7 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 	displayUpdateInfo(currentVersion, latestRelease)
 
 	if checkOnly {
-		fmt.Printf("Run %s to upgrade.\n", accent("dot upgrade"))
+		fmt.Printf("Run %s to upgrade.\n", c.Accent("dot upgrade"))
 		return nil
 	}
 
@@ -99,8 +104,8 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 
 	// Show upgrade command
 	cmd := pkgMgr.UpgradeCommand()
-	fmt.Printf("Package manager: %s\n", accent(pkgMgr.Name()))
-	fmt.Printf("Upgrade command: %s\n\n", dim(strings.Join(cmd, " ")))
+	fmt.Printf("Package manager: %s\n", c.Accent(pkgMgr.Name()))
+	fmt.Printf("Upgrade command: %s\n\n", c.Dim(strings.Join(cmd, " ")))
 
 	// Confirm upgrade
 	if !yes && !confirmUpgrade() {
@@ -109,14 +114,19 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 	}
 
 	// Execute upgrade
-	fmt.Printf("\n%s Upgrading...\n\n", info("→"))
+	fmt.Printf("\n%s Upgrading...\n\n", c.Info("→"))
 	if err := executeUpgradeCommand(cmd); err != nil {
 		return err
 	}
 
-	fmt.Printf("\nUpgrade completed\n")
-	fmt.Printf("Run %s to verify the new version.\n", accent("dot --version"))
-	fmt.Println() // Blank line for terminal spacing
+	// Create formatter for output
+	formatter := output.NewFormatter(os.Stdout, colorize)
+	colorizer := render.NewColorizer(colorize)
+
+	fmt.Fprintln(os.Stdout)
+	formatter.SuccessSimple("Upgrade completed")
+	fmt.Fprintf(os.Stdout, "Run %s to verify the new version.\n", colorizer.Accent("dot --version"))
+	formatter.BlankLine()
 
 	return nil
 }
@@ -130,26 +140,29 @@ func loadConfig() (*config.ExtendedConfig, error) {
 
 // displayUpdateInfo shows update information and release notes.
 func displayUpdateInfo(currentVersion string, release *updater.GitHubRelease) {
-	fmt.Printf("\n%s A new version is available!\n\n", info("ⓘ"))
-	fmt.Printf("  Current version:  %s\n", accent(currentVersion))
-	fmt.Printf("  Latest version:   %s\n", accent(release.TagName))
-	fmt.Printf("  Release URL:      %s\n\n", dim(release.HTMLURL))
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
+	fmt.Printf("\n%s A new version is available!\n\n", c.Info("ℹ"))
+	fmt.Printf("  Current version:  %s\n", c.Accent(currentVersion))
+	fmt.Printf("  Latest version:   %s\n", c.Accent(release.TagName))
+	fmt.Printf("  Release URL:      %s\n\n", c.Dim(release.HTMLURL))
 
 	if release.Body == "" {
 		return
 	}
 
-	fmt.Println(bold("Release Notes:"))
+	fmt.Println(c.Bold("Release Notes:"))
 	lines := strings.Split(release.Body, "\n")
 	maxLines := 10
 	if len(lines) > maxLines {
 		for i := 0; i < maxLines; i++ {
-			fmt.Printf("  %s\n", dim(lines[i]))
+			fmt.Printf("  %s\n", c.Dim(lines[i]))
 		}
-		fmt.Printf("  %s\n\n", dim("..."))
+		fmt.Printf("  %s\n\n", c.Dim("..."))
 	} else {
 		for _, line := range lines {
-			fmt.Printf("  %s\n", dim(line))
+			fmt.Printf("  %s\n", c.Dim(line))
 		}
 		fmt.Println()
 	}
@@ -157,9 +170,12 @@ func displayUpdateInfo(currentVersion string, release *updater.GitHubRelease) {
 
 // displayManualInstructions shows manual upgrade instructions.
 func displayManualInstructions(releaseURL string) {
-	fmt.Println(bold("Manual Upgrade Instructions:"))
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
+	fmt.Println(c.Bold("Manual Upgrade Instructions:"))
 	fmt.Printf("\n  Visit the release page to download the latest version:\n")
-	fmt.Printf("  %s\n\n", accent(releaseURL))
+	fmt.Printf("  %s\n\n", c.Accent(releaseURL))
 }
 
 // confirmUpgrade prompts the user for upgrade confirmation.

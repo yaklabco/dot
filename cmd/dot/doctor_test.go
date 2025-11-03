@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
 
@@ -188,8 +189,11 @@ func TestRenderIssueList(t *testing.T) {
 		{Path: "/another/path", Message: ""},
 	}
 
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	var buf bytes.Buffer
-	renderIssueList(&buf, issues, dim)
+	renderIssueList(&buf, issues, c.Dim)
 	output := buf.String()
 
 	assert.Contains(t, output, "/path/to/file")

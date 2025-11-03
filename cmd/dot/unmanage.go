@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/jamesainslie/dot/internal/cli/output"
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
 
@@ -119,20 +121,37 @@ func runUnmanage(cmd *cobra.Command, args []string, purge, noRestore, cleanup, a
 	}
 
 	if !cfg.DryRun {
+		// Determine colorization from global flag
+		colorize := shouldUseColor()
+		formatter := output.NewFormatter(cmd.OutOrStdout(), colorize)
+		colorizer := render.NewColorizer(colorize)
+
 		if cleanup {
 			if len(packages) > 0 {
-				fmt.Printf("Cleaned up %s from manifest\n", formatCount(len(packages), "orphaned package", "orphaned packages"))
+				fmt.Fprintf(cmd.OutOrStdout(), "%s Cleaned up %d %s from manifest\n",
+					colorizer.Success("✓"),
+					len(packages),
+					pluralize(len(packages), "orphaned package", "orphaned packages"))
 			} else {
-				fmt.Println("No orphaned packages found in manifest")
+				fmt.Fprintln(cmd.OutOrStdout(), "No orphaned packages found in manifest")
 			}
 		} else if purge {
-			fmt.Printf("Unmanaged and purged %s\n", formatCount(len(packages), "package", "packages"))
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Unmanaged and purged %d %s\n",
+				colorizer.Success("✓"),
+				len(packages),
+				pluralize(len(packages), "package", "packages"))
 		} else if opts.Restore {
-			fmt.Printf("Unmanaged and restored %s\n", formatCount(len(packages), "package", "packages"))
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Unmanaged and restored %d %s\n",
+				colorizer.Success("✓"),
+				len(packages),
+				pluralize(len(packages), "package", "packages"))
 		} else {
-			fmt.Printf("Unmanaged %s\n", formatCount(len(packages), "package", "packages"))
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Unmanaged %d %s\n",
+				colorizer.Success("✓"),
+				len(packages),
+				pluralize(len(packages), "package", "packages"))
 		}
-		fmt.Println() // Blank line for terminal spacing
+		formatter.BlankLine()
 	}
 
 	return nil
@@ -181,7 +200,10 @@ func runUnmanageAll(cmd *cobra.Command, cfg dot.Config, client *dot.Client, ctx 
 
 // displayUnmanageAllSummary shows what will be unmanaged.
 func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOptions, packageDir string) {
-	fmt.Printf("This will unmanage %s:\n", accent(fmt.Sprintf("%d package(s)", len(packages))))
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
+	fmt.Printf("This will unmanage %s:\n", c.Accent(fmt.Sprintf("%d package(s)", len(packages))))
 	for _, pkg := range packages {
 		operation := getUnmanageOperation(pkg, opts)
 		operationColor := getOperationColor(operation)
@@ -189,12 +211,12 @@ func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOpti
 		linkList := formatLinkList(pkg.Links)
 		pkgPath := filepath.Join(packageDir, pkg.Name)
 		fmt.Printf("  %s %s %s %s %s %s\n",
-			dim("•"),
-			bold(pkg.Name),
-			dim("("),
+			c.Dim("•"),
+			c.Bold(pkg.Name),
+			c.Dim("("),
 			operationColor(operation),
-			dim(fmt.Sprintf("%d links:", len(pkg.Links))),
-			dim(linkList+" | "+pkgPath+")"),
+			c.Dim(fmt.Sprintf("%d links:", len(pkg.Links))),
+			c.Dim(linkList+" | "+pkgPath+")"),
 		)
 	}
 	fmt.Println()
@@ -202,13 +224,16 @@ func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOpti
 
 // getOperationColor returns the appropriate color function for an operation
 func getOperationColor(operation string) func(string) string {
+	colorize := shouldUseColor()
+	c := render.NewColorizer(colorize)
+
 	switch operation {
 	case "purge":
-		return errorText
+		return c.Error
 	case "restore":
-		return info
+		return c.Info
 	default:
-		return accent
+		return c.Accent
 	}
 }
 
@@ -236,6 +261,9 @@ func getUnmanageOperation(pkg dot.PackageInfo, opts dot.UnmanageOptions) string 
 
 // reportUnmanageAllResults displays the final results.
 func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool) {
+	colorize := shouldUseColor()
+	colorizer := render.NewColorizer(colorize)
+
 	operation := "unmanage"
 	if opts.Purge {
 		operation = "unmanage and purge"
@@ -243,18 +271,19 @@ func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool) 
 		operation = "unmanage and restore"
 	}
 
-	packageText := formatCount(count, "package", "packages")
+	packageText := fmt.Sprintf("%d %s", count, pluralize(count, "package", "packages"))
 
 	if dryRun {
 		fmt.Printf("%s %s %s\n",
-			dim("Would"),
+			colorizer.Dim("Would"),
 			operation,
-			accent(packageText),
+			colorizer.Accent(packageText),
 		)
 	} else {
-		fmt.Printf("%s %s\n",
-			operation,
-			accent(packageText),
+		fmt.Printf("%s %s %s\n",
+			colorizer.Success("✓"),
+			strings.Title(operation),
+			packageText,
 		)
 	}
 }

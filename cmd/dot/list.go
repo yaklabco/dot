@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/cli/renderer"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
@@ -136,12 +137,16 @@ fields and displayed in multiple output formats.`,
 	return cmd
 }
 
-// renderCleanList renders a clean, minimalist package list.
+// renderCleanList renders a clean, minimalist package list with subtle colorization.
 func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string) {
 	if len(packages) == 0 {
 		fmt.Fprintf(w, "No packages installed\n")
 		return
 	}
+
+	// Determine if we should use colors
+	colorize := shouldUseColor()
+	colorizer := render.NewColorizer(colorize)
 
 	// Header
 	pluralS := ""
@@ -167,7 +172,7 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string)
 		}
 	}
 
-	// List packages with aligned columns
+	// List packages with aligned columns and subtle colorization
 	for _, pkg := range packages {
 		linkText := fmt.Sprintf("(%d link", pkg.LinkCount)
 		if pkg.LinkCount != 1 {
@@ -176,10 +181,18 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string)
 		linkText += ")"
 
 		timeAgo := formatTimeAgo(pkg.InstalledAt)
-		fmt.Fprintf(w, "%-*s  %-*s  installed %s\n",
-			maxNameWidth, pkg.Name,
-			maxLinkTextWidth, linkText,
-			timeAgo)
+
+		// Package name in accent color (dark blue/purple)
+		fmt.Fprintf(w, "%s  ",
+			colorizer.Accent(fmt.Sprintf("%-*s", maxNameWidth, pkg.Name)))
+
+		// Link count in dim color
+		fmt.Fprintf(w, "%s  ",
+			colorizer.Dim(fmt.Sprintf("%-*s", maxLinkTextWidth, linkText)))
+
+		// Time in dim color
+		fmt.Fprintf(w, "%s\n",
+			colorizer.Dim("installed "+timeAgo))
 	}
 }
 

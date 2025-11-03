@@ -303,6 +303,22 @@ func argsWithUsage(validator cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
+// shouldUseColor determines if color should be enabled based on global flags and terminal detection.
+func shouldUseColor() bool {
+	// Check --no-color flag first (highest precedence)
+	if globalCfg.noColor {
+		return false
+	}
+
+	// Respect NO_COLOR environment variable (https://no-color.org/)
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+
+	// Check if stdout is a terminal
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 // shouldColorize determines if output should be colorized based on the color flag.
 // Precedence: --no-color flag > NO_COLOR env > --color flag > auto
 func shouldColorize(color string) bool {

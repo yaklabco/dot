@@ -55,22 +55,22 @@ func (s Style) Apply(text string) string {
 var (
 	// ErrorStyle for error messages
 	ErrorStyle = func(text string) string {
-		return NewStyle(colorRed).Bold().Apply(text)
+		return NewStyle(colorMutedRed).Bold().Apply(text)
 	}
 
 	// WarningStyle for warning messages
 	WarningStyle = func(text string) string {
-		return NewStyle(colorYellow).Apply(text)
+		return NewStyle(colorMutedGold).Apply(text)
 	}
 
 	// SuccessStyle for success messages
 	SuccessStyle = func(text string) string {
-		return NewStyle(colorGreen).Apply(text)
+		return NewStyle(colorMutedGreen).Apply(text)
 	}
 
 	// InfoStyle for informational messages
 	InfoStyle = func(text string) string {
-		return NewStyle(colorBlue).Apply(text)
+		return NewStyle(colorMutedBlue).Apply(text)
 	}
 
 	// EmphasisStyle for emphasized text
@@ -80,7 +80,7 @@ var (
 
 	// DimStyle for secondary text
 	DimStyle = func(text string) string {
-		return NewStyle(colorGray).Apply(text)
+		return NewStyle(colorMutedGray).Apply(text)
 	}
 
 	// CodeStyle for code/paths
@@ -90,7 +90,12 @@ var (
 
 	// PathStyle for file paths
 	PathStyle = func(text string) string {
-		return NewStyle(colorBlue).Apply(text)
+		return NewStyle(colorMutedBlue).Apply(text)
+	}
+
+	// AccentStyle for accent text
+	AccentStyle = func(text string) string {
+		return NewStyle(colorMutedPurple).Apply(text)
 	}
 )
 
