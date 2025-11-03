@@ -75,7 +75,7 @@ git commit -m "feat(scanner): add package scanning functionality"
 
 ### Testing Requirements
 
-- **Minimum 80% coverage** for new code
+- **Minimum 75% coverage** for new code
 - **Unit tests** for all functions
 - **Integration tests** for complete workflows
 - **Property-based tests** for core algorithms
@@ -290,7 +290,7 @@ make check  # All tests and linters pass
 
 3. **Write tests**:
 - New functionality has tests
-- Tests achieve ≥80% coverage
+- Tests achieve ≥75% coverage
 - All tests pass
 
 ### Submitting
@@ -582,7 +582,7 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 Key points:
 1. **TDD required**: Write tests first
-2. **80% coverage**: Maintain threshold
+2. **75% coverage**: Maintain threshold
 3. **Atomic commits**: One logical change per commit
 4. **Conventional Commits**: Follow specification
 5. **Quality gates**: `make check` must pass

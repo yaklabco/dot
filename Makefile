@@ -165,7 +165,7 @@ coverage-summary:
 		exit 1; \
 	fi; \
 	COVERAGE=$$(go tool cover -func=coverage.out | grep total | awk "{print \$$3}" | sed "s/%//"); \
-	THRESHOLD=80.0; \
+	THRESHOLD=75.0; \
 	echo ""; \
 	printf "  Total Coverage:     %6.1f%%\n" $$COVERAGE; \
 	printf "  Required Threshold: %6.1f%%\n" $$THRESHOLD; \

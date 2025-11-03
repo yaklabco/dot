@@ -619,7 +619,7 @@ Contributions are welcome. All contributions must follow project standards:
 ### Requirements
 
 - Test-driven development: write tests before implementation
-- Minimum 80% test coverage for new code
+- Minimum 75% test coverage for new code
 - All linters must pass without warnings
 - Conventional Commits specification for commit messages
 - Atomic commits: one logical change per commit
@@ -646,7 +646,7 @@ This project adheres to strict development standards:
 
 - **Language**: Go 1.25
 - **Development**: Test-Driven Development (TDD) mandatory
-- **Testing**: Minimum 80% coverage, property-based tests for core logic
+- **Testing**: Minimum 75% coverage, property-based tests for core logic
 - **Commits**: Atomic commits with Conventional Commits format
 - **Code Style**: golangci-lint v2 with comprehensive linter set
 - **Documentation**: Academic style, factual, technically precise
