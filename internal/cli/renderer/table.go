@@ -31,6 +31,17 @@ func (r *TableRenderer) RenderStatus(w io.Writer, status dot.Status) error {
 		return status.Packages[i].Name < status.Packages[j].Name
 	})
 
+	// Calculate statistics
+	healthyCount := 0
+	unhealthyCount := 0
+	for _, pkg := range status.Packages {
+		if pkg.IsHealthy {
+			healthyCount++
+		} else {
+			unhealthyCount++
+		}
+	}
+
 	// Use legacy simple rendering if configured
 	if r.tableStyle == "simple" {
 		return r.renderStatusSimple(w, status)
@@ -44,11 +55,16 @@ func (r *TableRenderer) RenderStatus(w io.Writer, status dot.Status) error {
 	})
 
 	// Set header
-	table.SetHeader("Package", "Links", "Installed")
+	table.SetHeader("Health", "Package", "Links", "Installed")
 
 	// Add rows
 	for _, pkg := range status.Packages {
+		healthSymbol := "✓"
+		if !pkg.IsHealthy {
+			healthSymbol = "✗ " + pkg.IssueType
+		}
 		table.AppendRow(
+			healthSymbol,
 			pkg.Name,
 			fmt.Sprintf("%d", pkg.LinkCount),
 			formatDuration(pkg.InstalledAt),
@@ -57,16 +73,37 @@ func (r *TableRenderer) RenderStatus(w io.Writer, status dot.Status) error {
 
 	// Render
 	table.Render(w)
+
+	// Print statistics summary
+	fmt.Fprintln(w)
+	if unhealthyCount == 0 {
+		fmt.Fprintf(w, "%d healthy\n", healthyCount)
+	} else {
+		fmt.Fprintf(w, "%d healthy, %d unhealthy\n", healthyCount, unhealthyCount)
+	}
+
 	return nil
 }
 
 // renderStatusSimple renders status using legacy plain text format.
 func (r *TableRenderer) renderStatusSimple(w io.Writer, status dot.Status) error {
-	headers := []string{"Package", "Links", "Installed"}
+	headers := []string{"Health", "Package", "Links", "Installed"}
 	rows := make([][]string, 0, len(status.Packages))
 
+	healthyCount := 0
+	unhealthyCount := 0
+
 	for _, pkg := range status.Packages {
+		healthSymbol := "✓"
+		if !pkg.IsHealthy {
+			healthSymbol = "✗ " + pkg.IssueType
+			unhealthyCount++
+		} else {
+			healthyCount++
+		}
+
 		row := []string{
+			healthSymbol,
 			pkg.Name,
 			fmt.Sprintf("%d", pkg.LinkCount),
 			formatDuration(pkg.InstalledAt),
@@ -74,7 +111,19 @@ func (r *TableRenderer) renderStatusSimple(w io.Writer, status dot.Status) error
 		rows = append(rows, row)
 	}
 
-	return r.renderTableSimple(w, headers, rows)
+	if err := r.renderTableSimple(w, headers, rows); err != nil {
+		return err
+	}
+
+	// Print statistics summary
+	fmt.Fprintln(w)
+	if unhealthyCount == 0 {
+		fmt.Fprintf(w, "  %d healthy\n", healthyCount)
+	} else {
+		fmt.Fprintf(w, "  %d healthy, %d unhealthy\n", healthyCount, unhealthyCount)
+	}
+
+	return nil
 }
 
 func (r *TableRenderer) resetColor() string {
