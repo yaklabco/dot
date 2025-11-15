@@ -13,6 +13,8 @@ import (
 // TriageOptions configures triage behavior.
 type TriageOptions struct {
 	AutoIgnoreHighConfidence bool // Automatically ignore high confidence categories
+	DryRun                   bool // Show what would change without modifying
+	AutoConfirm              bool // Skip confirmation prompts (--yes flag)
 }
 
 // TriageResult contains the results of a triage operation.
@@ -60,6 +62,10 @@ func (s *DoctorService) Triage(ctx context.Context, scanCfg ScanConfig, opts Tri
 
 	// Filter for orphaned links only
 	orphanedIssues := filterIssuesByType(report.Issues, IssueOrphanedLink)
+
+	// Filter out already-ignored items
+	orphanedIssues = s.filterAlreadyIgnored(orphanedIssues, &m)
+
 	if len(orphanedIssues) == 0 {
 		return result, nil
 	}
@@ -74,21 +80,116 @@ func (s *DoctorService) Triage(ctx context.Context, scanCfg ScanConfig, opts Tri
 	case "c": // Process by category
 		s.processTriageByCategory(ctx, &m, groups, opts, &result)
 	case "l": // Process linearly
-		s.processTriageLinearly(ctx, &m, orphanedIssues, groups, &result)
+		s.processTriageLinearly(ctx, &m, orphanedIssues, groups, opts, &result)
 	case "a": // Auto-ignore high confidence
 		s.autoIgnoreHighConfidence(ctx, &m, groups, &result)
 	case "q": // Quit
 		return result, nil
 	}
 
-	// Save manifest if changes made
-	if len(result.Ignored) > 0 || len(result.Patterns) > 0 || len(result.Adopted) > 0 {
-		if err := s.manifestSvc.Save(ctx, targetPath, m); err != nil {
-			return result, fmt.Errorf("failed to save manifest: %w", err)
-		}
+	// Save changes
+	if err := s.saveTriageResults(ctx, targetPath, m, opts, result); err != nil {
+		return result, err
 	}
 
 	return result, nil
+}
+
+// saveTriageResults saves the manifest if changes were made.
+func (s *DoctorService) saveTriageResults(ctx context.Context, targetPath TargetPath, m manifest.Manifest, opts TriageOptions, result TriageResult) error {
+	hasChanges := len(result.Ignored) > 0 || len(result.Patterns) > 0 || len(result.Adopted) > 0
+	if !hasChanges {
+		return nil
+	}
+
+	if opts.DryRun {
+		fmt.Println("\n[DRY RUN] No changes were made")
+		return nil
+	}
+
+	if !opts.AutoConfirm && !s.confirmTriageChanges(result) {
+		fmt.Println("\nChanges cancelled")
+		return nil
+	}
+
+	if err := s.manifestSvc.Save(ctx, targetPath, m); err != nil {
+		return fmt.Errorf("failed to save manifest: %w", err)
+	}
+
+	fmt.Println("\nChanges saved successfully")
+	return nil
+}
+
+// addIgnorePatternIfNew adds a pattern to the manifest if it doesn't already exist.
+// Returns true if the pattern was added, false if it already existed.
+func (s *DoctorService) addIgnorePatternIfNew(m *manifest.Manifest, pattern string, result *TriageResult) bool {
+	if m.Doctor == nil {
+		m.Doctor = &manifest.DoctorState{
+			IgnoredLinks:    make(map[string]manifest.IgnoredLink),
+			IgnoredPatterns: []string{},
+		}
+	}
+
+	// Check if pattern already exists
+	for _, existing := range m.Doctor.IgnoredPatterns {
+		if existing == pattern {
+			return false
+		}
+	}
+
+	m.AddIgnoredPattern(pattern)
+	result.Patterns = append(result.Patterns, pattern)
+	return true
+}
+
+// confirmTriageChanges shows a summary and asks for confirmation before saving.
+func (s *DoctorService) confirmTriageChanges(result TriageResult) bool {
+	fmt.Printf("\nSummary of changes:\n")
+	if len(result.Ignored) > 0 {
+		fmt.Printf("  • %d links to ignore\n", len(result.Ignored))
+	}
+	if len(result.Patterns) > 0 {
+		fmt.Printf("  • %d patterns to add\n", len(result.Patterns))
+	}
+	if len(result.Adopted) > 0 {
+		fmt.Printf("  • %d links to adopt\n", len(result.Adopted))
+	}
+	if len(result.Errors) > 0 {
+		fmt.Printf("  • %d errors occurred\n", len(result.Errors))
+	}
+
+	fmt.Printf("\nSave these changes? [Y/n]: ")
+	var response string
+	fmt.Scanln(&response)
+	response = strings.ToLower(strings.TrimSpace(response))
+
+	return response == "" || response == "y" || response == "yes"
+}
+
+// filterAlreadyIgnored filters out issues that are already ignored.
+func (s *DoctorService) filterAlreadyIgnored(issues []Issue, m *manifest.Manifest) []Issue {
+	if m.Doctor == nil {
+		return issues
+	}
+
+	ignoreSet := s.buildIgnoreSet(m)
+	filtered := []Issue{}
+
+	for _, issue := range issues {
+		// Check explicit ignores
+		if _, ignored := m.Doctor.IgnoredLinks[issue.Path]; ignored {
+			continue
+		}
+
+		// Check patterns
+		if ignoreSet.ShouldIgnore(issue.Path) {
+			continue
+		}
+
+		filtered = append(filtered, issue)
+	}
+
+	return filtered
 }
 
 // groupOrphansByCategory groups orphaned links by their category.
@@ -216,8 +317,14 @@ func (s *DoctorService) processTriageByCategory(ctx context.Context, m *manifest
 			fmt.Printf("  ... and %d more\n", len(group.Links)-5)
 		}
 
-		// Prompt for category action
-		action := s.promptCategoryAction(group)
+		// Prompt for category action (or use default if auto-confirm)
+		var action string
+		if opts.AutoConfirm {
+			action = "i" // Default action: ignore
+			fmt.Printf("\n[AUTO] Action: ignore this category\n")
+		} else {
+			action = s.promptCategoryAction(group)
+		}
 
 		switch action {
 		case "i": // Ignore this category
@@ -230,13 +337,15 @@ func (s *DoctorService) processTriageByCategory(ctx context.Context, m *manifest
 			}
 
 			if pattern != "" {
-				m.AddIgnoredPattern(pattern)
-				result.Patterns = append(result.Patterns, pattern)
-				fmt.Printf("Added ignore pattern: %s\n", pattern)
+				if s.addIgnorePatternIfNew(m, pattern, result) {
+					fmt.Printf("Added ignore pattern: %s\n", pattern)
+				} else {
+					fmt.Printf("Pattern already exists: %s\n", pattern)
+				}
 			}
 
 		case "r": // Review individually
-			s.processLinksIndividually(ctx, m, group.Links, result)
+			s.processLinksIndividually(ctx, m, group.Links, result, opts.DryRun)
 
 		case "s": // Skip
 			for _, link := range group.Links {
@@ -276,7 +385,7 @@ func (s *DoctorService) promptCategoryAction(group OrphanGroup) string {
 }
 
 // processTriageLinearly processes orphans one by one.
-func (s *DoctorService) processTriageLinearly(ctx context.Context, m *manifest.Manifest, issues []Issue, groups []OrphanGroup, result *TriageResult) {
+func (s *DoctorService) processTriageLinearly(ctx context.Context, m *manifest.Manifest, issues []Issue, groups []OrphanGroup, opts TriageOptions, result *TriageResult) {
 	// Create a map of issue path to category for quick lookup
 	categoryMap := make(map[string]*doctor.PatternCategory)
 	for _, group := range groups {
@@ -287,17 +396,17 @@ func (s *DoctorService) processTriageLinearly(ctx context.Context, m *manifest.M
 		}
 	}
 
-	s.processLinksIndividually(ctx, m, issues, result)
+	s.processLinksIndividually(ctx, m, issues, result, opts.DryRun)
 }
 
 // processLinksIndividually processes each link with individual prompts.
-func (s *DoctorService) processLinksIndividually(ctx context.Context, m *manifest.Manifest, issues []Issue, result *TriageResult) {
+func (s *DoctorService) processLinksIndividually(ctx context.Context, m *manifest.Manifest, issues []Issue, result *TriageResult, dryRun bool) {
 	applyToAll := false
 	applyToAllAction := ""
 
 	for i, issue := range issues {
 		if applyToAll {
-			s.applyTriageAction(ctx, m, issue, applyToAllAction, result)
+			s.applyTriageAction(ctx, m, issue, applyToAllAction, result, dryRun)
 			continue
 		}
 
@@ -307,7 +416,7 @@ func (s *DoctorService) processLinksIndividually(ctx context.Context, m *manifes
 			applyToAllAction = action
 		}
 
-		s.applyTriageAction(ctx, m, issue, action, result)
+		s.applyTriageAction(ctx, m, issue, action, result, dryRun)
 
 		if action == "q" {
 			break
@@ -355,80 +464,151 @@ func (s *DoctorService) promptLinkAction(ctx context.Context, issue Issue, curre
 
 	var choice string
 	fmt.Scanln(&choice)
-	choice = strings.ToLower(strings.TrimSpace(choice))
+	choice = strings.TrimSpace(choice)
+
+	// Check for "apply to all" BEFORE lowercasing
+	if choice == "A" {
+		return "a", true
+	}
+
+	choice = strings.ToLower(choice)
 
 	if choice == "" {
 		choice = "s"
 	}
 
-	// Check for "apply to all"
-	if choice == "a" && strings.Contains(choice, "A") {
-		return choice, true
-	}
-
 	return choice, false
 }
 
+// actionDescription returns a human-readable description of an action.
+func actionDescription(action string) string {
+	switch action {
+	case "i":
+		return "ignore link"
+	case "p", "P":
+		return "add ignore pattern"
+	case "c":
+		return "ignore category"
+	case "a":
+		return "adopt link"
+	case "s":
+		return "skip"
+	default:
+		return "unknown action"
+	}
+}
+
 // applyTriageAction applies the chosen action to a link.
-func (s *DoctorService) applyTriageAction(ctx context.Context, m *manifest.Manifest, issue Issue, action string, result *TriageResult) {
+func (s *DoctorService) applyTriageAction(ctx context.Context, m *manifest.Manifest, issue Issue, action string, result *TriageResult, dryRun bool) {
+	if dryRun {
+		fmt.Printf("[DRY RUN] Would %s: %s\n", actionDescription(action), issue.Path)
+		return
+	}
+
 	fullPath := filepath.Join(s.targetDir, issue.Path)
 	target, _ := s.fs.ReadLink(ctx, fullPath)
 
 	switch action {
 	case "i": // Ignore this link
-		m.AddIgnoredLink(issue.Path, target, "user triage")
-		result.Ignored = append(result.Ignored, issue.Path)
-
+		s.applyIgnoreLink(m, issue, target, result)
 	case "p": // Ignore with custom pattern
-		fmt.Printf("Enter ignore pattern: ")
-		var pattern string
-		fmt.Scanln(&pattern)
-		pattern = strings.TrimSpace(pattern)
-
-		if pattern != "" {
-			m.AddIgnoredPattern(pattern)
-			result.Patterns = append(result.Patterns, pattern)
-			fmt.Printf("Added ignore pattern: %s\n", pattern)
-		}
-
+		s.applyIgnoreCustomPattern(m, result)
 	case "P": // Auto-ignore pattern
-		categories := doctor.DefaultPatternCategories()
-		cat := doctor.CategorizeSymlink(target, categories)
-		if cat != nil {
-			pattern := s.generateIgnorePattern(cat, issue.Path)
-			m.AddIgnoredPattern(pattern)
-			result.Patterns = append(result.Patterns, pattern)
-			fmt.Printf("Added ignore pattern: %s\n", pattern)
-		}
-
+		s.applyAutoIgnorePattern(m, issue, target, result)
 	case "c": // Ignore all in category
-		categories := doctor.DefaultPatternCategories()
-		cat := doctor.CategorizeSymlink(target, categories)
-		if cat != nil {
-			// Add all patterns from this category
-			for _, pattern := range cat.Patterns {
-				m.AddIgnoredPattern(pattern)
-				result.Patterns = append(result.Patterns, pattern)
-			}
-			fmt.Printf("Added %d patterns for category %s\n", len(cat.Patterns), cat.Description)
-		}
-
+		s.applyIgnoreCategory(m, target, result)
 	case "a": // Adopt
-		pkgName := s.promptPackageName()
-		if pkgName != "" {
-			result.Adopted[issue.Path] = pkgName
-			fmt.Printf("Marked for adoption into package: %s\n", pkgName)
-			// Note: Actual adoption would need to be done in a separate phase
-			// For now, just track it
-		}
-
+		s.applyAdoptLink(ctx, m, issue, result)
 	case "s": // Skip
 		result.Skipped = append(result.Skipped, issue.Path)
-
 	case "q": // Quit
 		// Just return, caller will handle
 		return
 	}
+}
+
+func (s *DoctorService) applyIgnoreLink(m *manifest.Manifest, issue Issue, target string, result *TriageResult) {
+	m.AddIgnoredLink(issue.Path, target, "user triage")
+	result.Ignored = append(result.Ignored, issue.Path)
+}
+
+func (s *DoctorService) applyIgnoreCustomPattern(m *manifest.Manifest, result *TriageResult) {
+	fmt.Printf("Enter ignore pattern: ")
+	var pattern string
+	fmt.Scanln(&pattern)
+	pattern = strings.TrimSpace(pattern)
+
+	if pattern != "" {
+		if s.addIgnorePatternIfNew(m, pattern, result) {
+			fmt.Printf("Added ignore pattern: %s\n", pattern)
+		} else {
+			fmt.Printf("Pattern already exists: %s\n", pattern)
+		}
+	}
+}
+
+func (s *DoctorService) applyAutoIgnorePattern(m *manifest.Manifest, issue Issue, target string, result *TriageResult) {
+	categories := doctor.DefaultPatternCategories()
+	cat := doctor.CategorizeSymlink(target, categories)
+	if cat != nil {
+		pattern := s.generateIgnorePattern(cat, issue.Path)
+		if s.addIgnorePatternIfNew(m, pattern, result) {
+			fmt.Printf("Added ignore pattern: %s\n", pattern)
+		} else {
+			fmt.Printf("Pattern already exists: %s\n", pattern)
+		}
+	}
+}
+
+func (s *DoctorService) applyIgnoreCategory(m *manifest.Manifest, target string, result *TriageResult) {
+	categories := doctor.DefaultPatternCategories()
+	cat := doctor.CategorizeSymlink(target, categories)
+	if cat != nil {
+		addedCount := 0
+		for _, pattern := range cat.Patterns {
+			if s.addIgnorePatternIfNew(m, pattern, result) {
+				addedCount++
+			}
+		}
+		if addedCount > 0 {
+			fmt.Printf("Added %d patterns for category %s\n", addedCount, cat.Description)
+		} else {
+			fmt.Printf("All patterns for category %s already exist\n", cat.Description)
+		}
+	}
+}
+
+func (s *DoctorService) applyAdoptLink(ctx context.Context, m *manifest.Manifest, issue Issue, result *TriageResult) {
+	pkgName := s.promptPackageName()
+	if pkgName != "" {
+		if err := s.executeAdoption(ctx, issue.Path, pkgName); err != nil {
+			result.Errors[issue.Path] = err
+			fmt.Printf("Failed to adopt: %s\n", err)
+		} else {
+			result.Adopted[issue.Path] = pkgName
+			fmt.Printf("Successfully adopted into package: %s\n", pkgName)
+		}
+	}
+}
+
+// executeAdoption actually adopts a symlink into a package.
+func (s *DoctorService) executeAdoption(ctx context.Context, linkPath, pkgName string) error {
+	if s.adoptSvc == nil {
+		return fmt.Errorf("adoption not supported (adoptSvc not initialized)")
+	}
+
+	// Call the AdoptService to handle the adoption
+	// The AdoptService will:
+	// 1. Move the file/dir to the package directory
+	// 2. Create a symlink back to the original location
+	// 3. Update the manifest
+	err := s.adoptSvc.Adopt(ctx, []string{linkPath}, pkgName)
+	if err != nil {
+		return fmt.Errorf("adoption failed: %w", err)
+	}
+
+	s.logger.Info(ctx, "adopted_via_triage", "link", linkPath, "package", pkgName)
+	return nil
 }
 
 // promptPackageName prompts user for package name for adoption.
@@ -447,12 +627,16 @@ func (s *DoctorService) autoIgnoreHighConfidence(ctx context.Context, m *manifes
 		if group.Confidence == "high" && !group.IsUncategorized {
 			// Add all patterns for this category
 			if group.Category != nil {
+				addedCount := 0
 				for _, pattern := range group.Category.Patterns {
-					m.AddIgnoredPattern(pattern)
-					result.Patterns = append(result.Patterns, pattern)
+					if s.addIgnorePatternIfNew(m, pattern, result) {
+						addedCount++
+					}
 				}
-				fmt.Printf("  • Ignored %s (%d links, %d patterns)\n",
-					group.Category.Description, len(group.Links), len(group.Category.Patterns))
+				if addedCount > 0 {
+					fmt.Printf("  • Ignored %s (%d links, %d new patterns)\n",
+						group.Category.Description, len(group.Links), addedCount)
+				}
 			}
 		}
 	}

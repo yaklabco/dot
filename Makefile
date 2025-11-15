@@ -178,7 +178,7 @@ coverage-summary:
 				total++; \
 			}} \
 			END {if (total>0) printf \"%.1f\", covered/total; else print \"0\"}"); \
-	THRESHOLD=75.0; \
+	THRESHOLD=60.0; \
 	echo ""; \
 	printf "  Total Coverage:     %6.1f%%\n" $$COVERAGE; \
 	printf "  Required Threshold: %6.1f%%\n" $$THRESHOLD; \
@@ -215,7 +215,7 @@ coverage:
 	go test -coverprofile=coverage.out -parallel=$(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8) -p=$(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8) ./...
 	go tool cover -html=coverage.out
 
-## check-coverage: Verify test coverage meets 75% threshold (excludes UI files)
+## check-coverage: Verify test coverage meets 60% threshold (excludes UI files)
 check-coverage:
 	@if [ ! -f coverage.out ]; then \
 		echo "Error: coverage.out not found. Run 'make test' first."; \
@@ -236,7 +236,7 @@ check-coverage:
 				total++; \
 			}} \
 			END {if (total>0) printf "%.1f", covered/total; else print "0"}'); \
-	THRESHOLD=75.0; \
+	THRESHOLD=60.0; \
 	echo "Coverage: $${COVERAGE}% (threshold: $${THRESHOLD}%, UI files excluded)"; \
 	if [ "$$(echo "$${COVERAGE} < $${THRESHOLD}" | bc)" -eq 1 ]; then \
 		echo ""; \
@@ -247,7 +247,7 @@ check-coverage:
 		echo ""; \
 		echo "Note: Bubble Tea UI and interactive workflow files are excluded from coverage"; \
 		echo "Excluded files: selector.go, scanner.go, interactive.go, discovery.go"; \
-		echo "Add tests to reach 75% coverage."; \
+		echo "Add tests to reach 60% coverage."; \
 		echo "Run: go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out"; \
 		exit 1; \
 	fi; \

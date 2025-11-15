@@ -160,7 +160,7 @@ func TestClient_Doctor_OrphanedLinkBrokenTarget(t *testing.T) {
 	orphanedCount := 0
 	orphanedWithBrokenTarget := 0
 	orphanedWithValidTarget := 0
-	
+
 	for _, issue := range report.Issues {
 		if issue.Type == dot.IssueOrphanedLink {
 			orphanedCount++
