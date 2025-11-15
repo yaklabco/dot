@@ -119,7 +119,7 @@ func NewClient(cfg Config) (*Client, error) {
 	// Create specialized services (unmanageSvc first since manageSvc depends on it)
 	unmanageSvc := newUnmanageService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 	manageSvc := newManageService(cfg.FS, cfg.Logger, managePipe, exec, manifestSvc, unmanageSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
-	statusSvc := newStatusService(manifestSvc, cfg.TargetDir)
+	statusSvc := newStatusService(cfg.FS, cfg.Logger, manifestSvc, cfg.TargetDir)
 	doctorSvc := newDoctorService(cfg.FS, cfg.Logger, manifestSvc, cfg.PackageDir, cfg.TargetDir)
 	adoptSvc := newAdoptService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 

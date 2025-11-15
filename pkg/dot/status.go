@@ -16,4 +16,6 @@ type PackageInfo struct {
 	Links       []string  `json:"links" yaml:"links"`
 	TargetDir   string    `json:"target_dir,omitempty" yaml:"target_dir,omitempty"`
 	PackageDir  string    `json:"package_dir,omitempty" yaml:"package_dir,omitempty"`
+	IsHealthy   bool      `json:"is_healthy" yaml:"is_healthy"`
+	IssueType   string    `json:"issue_type,omitempty" yaml:"issue_type,omitempty"`
 }
