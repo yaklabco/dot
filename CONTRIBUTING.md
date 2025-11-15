@@ -504,7 +504,7 @@ Pre-release versions:
 The release workflow (`.github/workflows/release.yml`):
 
 1. Triggers on pushed tags matching `v*`
-2. Sets up Go 1.25.1 environment
+2. Sets up Go 1.25.4 environment
 3. Runs test suite (`make test`)
 4. Runs linters (`make lint`)
 5. Executes GoReleaser with clean build
