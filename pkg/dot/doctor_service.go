@@ -13,11 +13,13 @@ import (
 
 // DoctorService handles health check and diagnostic operations.
 type DoctorService struct {
-	fs          FS
-	logger      Logger
-	manifestSvc *ManifestService
-	packageDir  string
-	targetDir   string
+	fs            FS
+	logger        Logger
+	manifestSvc   *ManifestService
+	packageDir    string
+	targetDir     string
+	healthChecker *HealthChecker
+	adoptSvc      *AdoptService
 }
 
 // scanResult holds the results from scanning a single directory.
@@ -26,7 +28,7 @@ type scanResult struct {
 	stats  DiagnosticStats
 }
 
-// newDoctorService creates a new doctor service.
+// newDoctorService creates a new doctor service (for tests).
 func newDoctorService(
 	fs FS,
 	logger Logger,
@@ -35,11 +37,33 @@ func newDoctorService(
 	targetDir string,
 ) *DoctorService {
 	return &DoctorService{
-		fs:          fs,
-		logger:      logger,
-		manifestSvc: manifestSvc,
-		packageDir:  packageDir,
-		targetDir:   targetDir,
+		fs:            fs,
+		logger:        logger,
+		manifestSvc:   manifestSvc,
+		packageDir:    packageDir,
+		targetDir:     targetDir,
+		healthChecker: newHealthChecker(fs, targetDir),
+		adoptSvc:      nil, // Not needed for basic tests
+	}
+}
+
+// newDoctorServiceWithAdopt creates a new doctor service with adoption support.
+func newDoctorServiceWithAdopt(
+	fs FS,
+	logger Logger,
+	manifestSvc *ManifestService,
+	adoptSvc *AdoptService,
+	packageDir string,
+	targetDir string,
+) *DoctorService {
+	return &DoctorService{
+		fs:            fs,
+		logger:        logger,
+		manifestSvc:   manifestSvc,
+		packageDir:    packageDir,
+		targetDir:     targetDir,
+		healthChecker: newHealthChecker(fs, targetDir),
+		adoptSvc:      adoptSvc,
 	}
 }
 
@@ -122,7 +146,7 @@ func (s *DoctorService) checkManagedPackages(ctx context.Context, m *manifest.Ma
 		stats.ManagedLinks += pkgInfo.LinkCount
 		for _, linkPath := range pkgInfo.Links {
 			stats.TotalLinks++
-			s.checkLink(ctx, pkgName, linkPath, issues, stats)
+			s.checkLink(ctx, pkgName, linkPath, pkgInfo, issues, stats)
 		}
 	}
 }
@@ -142,94 +166,24 @@ func (s *DoctorService) determineOverallHealth(issues []Issue) HealthStatus {
 }
 
 // checkLink validates a single link from the manifest.
-func (s *DoctorService) checkLink(ctx context.Context, pkgName string, linkPath string, issues *[]Issue, stats *DiagnosticStats) {
-	fullPath := filepath.Join(s.targetDir, linkPath)
-	_, err := s.fs.Stat(ctx, fullPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+func (s *DoctorService) checkLink(ctx context.Context, pkgName string, linkPath string, pkgInfo manifest.PackageInfo, issues *[]Issue, stats *DiagnosticStats) {
+	// Use unified health checker
+	result := s.healthChecker.CheckLink(ctx, pkgName, linkPath, pkgInfo.PackageDir)
+
+	if !result.IsHealthy {
+		// Count broken links for statistics
+		if result.IssueType == IssueBrokenLink {
 			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssueBrokenLink,
-				Path:       linkPath,
-				Message:    "Link does not exist",
-				Suggestion: "Run 'dot remanage " + pkgName + "' to restore link",
-			})
-		} else {
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssuePermission,
-				Path:       linkPath,
-				Message:    "Cannot access link: " + err.Error(),
-				Suggestion: "Check filesystem permissions",
-			})
 		}
-		return
-	}
 
-	isLink, err := s.fs.IsSymlink(ctx, fullPath)
-	if err != nil {
+		// Add issue to list
 		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssuePermission,
+			Severity:   result.Severity,
+			Type:       result.IssueType,
 			Path:       linkPath,
-			Message:    "Cannot check if path is symlink: " + err.Error(),
-			Suggestion: "Check filesystem permissions",
+			Message:    result.Message,
+			Suggestion: result.Suggestion,
 		})
-		return
-	}
-	if !isLink {
-		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssueWrongTarget,
-			Path:       linkPath,
-			Message:    "Expected symlink but found regular file",
-			Suggestion: "Run 'dot unmanage " + pkgName + "' then 'dot manage " + pkgName + "'",
-		})
-		return
-	}
-
-	target, err := s.fs.ReadLink(ctx, fullPath)
-	if err != nil {
-		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssuePermission,
-			Path:       linkPath,
-			Message:    "Cannot read link target: " + err.Error(),
-			Suggestion: "Check filesystem permissions",
-		})
-		return
-	}
-
-	var absTarget string
-	if filepath.IsAbs(target) {
-		absTarget = target
-	} else {
-		absTarget = filepath.Join(filepath.Dir(fullPath), target)
-	}
-
-	_, err = s.fs.Stat(ctx, absTarget)
-	if err != nil {
-		if os.IsNotExist(err) {
-			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssueBrokenLink,
-				Path:       linkPath,
-				Message:    "Link target does not exist: " + target,
-				Suggestion: "Run 'dot remanage " + pkgName + "' to fix broken link",
-			})
-		} else {
-			// Permission or other filesystem errors
-			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssuePermission,
-				Path:       linkPath,
-				Message:    "Cannot access link target: " + err.Error(),
-				Suggestion: "Check file permissions for target path or run with appropriate permissions",
-			})
-		}
 	}
 }
 
@@ -568,11 +522,11 @@ func (s *DoctorService) checkForOrphanedLink(
 			_, err = s.fs.Stat(ctx, absTarget)
 			if err != nil {
 				if os.IsNotExist(err) {
-					// Orphaned and broken
+					// Orphaned and broken - still classify as orphaned since it's unmanaged
 					stats.BrokenLinks++
 					*issues = append(*issues, Issue{
 						Severity:   SeverityError,
-						Type:       IssueBrokenLink,
+						Type:       IssueOrphanedLink,
 						Path:       relPath,
 						Message:    "Unmanaged symlink with broken target: " + target,
 						Suggestion: "Remove manually or fix target, then use 'dot adopt' to manage",

@@ -155,23 +155,29 @@ func TestClient_Doctor_OrphanedLinkBrokenTarget(t *testing.T) {
 	assert.Equal(t, 1, report.Statistics.BrokenLinks, "Expected 1 broken link")
 
 	// Verify issue types
-	brokenCount := 0
+	// Both orphaned links should be classified as IssueOrphanedLink
+	// (even the one with a broken target, since they're both unmanaged)
 	orphanedCount := 0
+	orphanedWithBrokenTarget := 0
+	orphanedWithValidTarget := 0
+	
 	for _, issue := range report.Issues {
-		if issue.Type == dot.IssueBrokenLink {
-			brokenCount++
-			assert.Equal(t, dot.SeverityError, issue.Severity, "Broken link should be error")
-			assert.Contains(t, issue.Path, "orphaned-broken", "Broken issue should reference broken symlink")
-		}
 		if issue.Type == dot.IssueOrphanedLink {
 			orphanedCount++
-			assert.Equal(t, dot.SeverityWarning, issue.Severity, "Orphaned link should be warning")
-			assert.Contains(t, issue.Path, "orphaned-ok", "Orphaned issue should reference valid symlink")
+			if issue.Severity == dot.SeverityError {
+				orphanedWithBrokenTarget++
+				assert.Contains(t, issue.Path, "orphaned-broken", "Error orphaned issue should reference broken symlink")
+			} else {
+				orphanedWithValidTarget++
+				assert.Equal(t, dot.SeverityWarning, issue.Severity, "Orphaned link with valid target should be warning")
+				assert.Contains(t, issue.Path, "orphaned-ok", "Warning orphaned issue should reference valid symlink")
+			}
 		}
 	}
 
-	assert.Equal(t, 1, brokenCount, "Expected 1 broken link issue")
-	assert.Equal(t, 1, orphanedCount, "Expected 1 orphaned link issue")
+	assert.Equal(t, 2, orphanedCount, "Expected 2 orphaned link issues")
+	assert.Equal(t, 1, orphanedWithBrokenTarget, "Expected 1 orphaned link with broken target (error)")
+	assert.Equal(t, 1, orphanedWithValidTarget, "Expected 1 orphaned link with valid target (warning)")
 }
 
 func TestClient_Doctor_DefaultScanMode(t *testing.T) {

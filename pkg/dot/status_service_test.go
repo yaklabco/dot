@@ -39,8 +39,8 @@ func TestStatusService_checkPackageHealth_Healthy(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test - use relative path from targetDir
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.True(t, isHealthy)
 	assert.Empty(t, issueType)
@@ -69,8 +69,8 @@ func TestStatusService_checkPackageHealth_BrokenLinks(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test - use relative path from targetDir
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.False(t, isHealthy)
 	assert.Equal(t, "broken links", issueType)
@@ -104,8 +104,8 @@ func TestStatusService_checkPackageHealth_WrongTarget(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test - use relative path from targetDir
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.False(t, isHealthy)
 	assert.Equal(t, "wrong target", issueType)
@@ -129,9 +129,8 @@ func TestStatusService_checkPackageHealth_MissingLinks(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test with non-existent link
-	linkPath := filepath.Join(targetDir, ".vimrc")
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test with non-existent link - use relative path
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.False(t, isHealthy)
 	assert.Equal(t, "missing links", issueType)
@@ -153,8 +152,7 @@ func TestStatusService_checkPackageHealth_MultipleIssues(t *testing.T) {
 	target1 := filepath.Join(packageDir, "nonexistent")
 	require.NoError(t, fs.Symlink(ctx, target1, link1))
 
-	// Create one missing link
-	link2 := filepath.Join(targetDir, ".vim")
+	// Note: .vim link is missing (not created)
 
 	// Create manifest service
 	manifestStore := manifest.NewFSManifestStore(fs)
@@ -163,8 +161,8 @@ func TestStatusService_checkPackageHealth_MultipleIssues(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test - should report broken links (highest priority)
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{link1, link2}, packageDir)
+	// Test - should report broken links (highest priority) - use relative paths
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc", ".vim"}, packageDir)
 
 	assert.False(t, isHealthy)
 	assert.Equal(t, "broken links", issueType)
@@ -203,7 +201,7 @@ func TestStatusService_List_WithHealthStatus(t *testing.T) {
 		Source:      manifest.PackageSource("file:///test/packages/vim"),
 		InstalledAt: time.Now(),
 		LinkCount:   1,
-		Links:       []string{vimLink},
+		Links:       []string{".vimrc"}, // Use relative path from targetDir
 		PackageDir:  filepath.Join(packageDir, "vim"),
 	})
 	m.AddPackage(manifest.PackageInfo{
@@ -211,7 +209,7 @@ func TestStatusService_List_WithHealthStatus(t *testing.T) {
 		Source:      manifest.PackageSource("file:///test/packages/tmux"),
 		InstalledAt: time.Now(),
 		LinkCount:   1,
-		Links:       []string{tmuxLink},
+		Links:       []string{".tmux.conf"}, // Use relative path from targetDir
 		PackageDir:  filepath.Join(packageDir, "tmux"),
 	})
 
@@ -274,8 +272,8 @@ func TestStatusService_checkPackageHealth_RelativeSymlinks(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test - use relative path from targetDir
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.True(t, isHealthy)
 	assert.Empty(t, issueType)
@@ -303,8 +301,8 @@ func TestStatusService_checkPackageHealth_NotSymlink(t *testing.T) {
 	// Create status service
 	svc := newStatusService(fs, logger, manifestSvc, targetDir)
 
-	// Test
-	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{linkPath}, packageDir)
+	// Test - use relative path from targetDir
+	isHealthy, issueType := svc.checkPackageHealth(ctx, "vim", []string{".vimrc"}, packageDir)
 
 	assert.False(t, isHealthy)
 	assert.Equal(t, "wrong target", issueType)
