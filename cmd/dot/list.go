@@ -109,13 +109,19 @@ func NewListCommand(cfg *dot.Config) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all installed packages",
-		Long: `Display information about all installed packages.
+		Short: "List all installed packages with health status",
+		Long: `Display information about all installed packages with health indicators.
 
-Shows package name, link count, and installation timestamp for all
-packages currently managed by dot. The list can be sorted by various
-fields and displayed in multiple output formats.`,
-		Example: `  # List all packages
+Shows package name, health status, link count, and installation timestamp for all
+packages currently managed by dot. Each package is checked for health by verifying
+that all managed symlinks exist and point to their correct targets.
+
+Health indicators:
+  ✓ (green) - All symlinks are valid
+  ✗ (red)   - Package has issues (broken links, wrong target, or missing links)
+
+The list can be sorted by various fields and displayed in multiple output formats.`,
+		Example: `  # List all packages with health status
   dot list
 
   # List packages sorted by link count
@@ -124,7 +130,7 @@ fields and displayed in multiple output formats.`,
   # Show target directory
   dot list --show-target
 
-  # List packages in JSON format
+  # List packages in JSON format (includes health status)
   dot list --format=json
 
   # List packages without colors
@@ -143,6 +149,104 @@ fields and displayed in multiple output formats.`,
 	return cmd
 }
 
+// listColumnWidths holds calculated column widths for alignment.
+type listColumnWidths struct {
+	name      int
+	linkText  int
+	target    int
+	issueType int
+}
+
+// listHealthStats holds health statistics.
+type listHealthStats struct {
+	healthy   int
+	unhealthy int
+}
+
+// calculateListLayout computes column widths and health statistics.
+func calculateListLayout(packages []dot.PackageInfo, showTarget bool) (listColumnWidths, listHealthStats) {
+	widths := listColumnWidths{}
+	stats := listHealthStats{}
+
+	for _, pkg := range packages {
+		if len(pkg.Name) > widths.name {
+			widths.name = len(pkg.Name)
+		}
+
+		linkText := formatLinkText(pkg.LinkCount)
+		if len(linkText) > widths.linkText {
+			widths.linkText = len(linkText)
+		}
+
+		if showTarget && len(pkg.TargetDir) > widths.target {
+			widths.target = len(pkg.TargetDir)
+		}
+
+		if !pkg.IsHealthy && len(pkg.IssueType) > widths.issueType {
+			widths.issueType = len(pkg.IssueType)
+		}
+
+		if pkg.IsHealthy {
+			stats.healthy++
+		} else {
+			stats.unhealthy++
+		}
+	}
+
+	return widths, stats
+}
+
+// formatLinkText formats the link count text.
+func formatLinkText(count int) string {
+	linkText := fmt.Sprintf("(%d link", count)
+	if count != 1 {
+		linkText += "s"
+	}
+	return linkText + ")"
+}
+
+// renderPackageLine renders a single package line with health status.
+func renderPackageLine(w io.Writer, pkg dot.PackageInfo, widths listColumnWidths, showTarget bool, colorizer *render.Colorizer) {
+	// Health indicator
+	if pkg.IsHealthy {
+		fmt.Fprintf(w, "%s  ", colorizer.Success("✓"))
+	} else {
+		fmt.Fprintf(w, "%s  ", colorizer.Error("✗"))
+	}
+
+	// Package name
+	fmt.Fprintf(w, "%s  ",
+		colorizer.Accent(fmt.Sprintf("%-*s", widths.name, pkg.Name)))
+
+	// Link count
+	linkText := formatLinkText(pkg.LinkCount)
+	fmt.Fprintf(w, "%s  ",
+		colorizer.Dim(fmt.Sprintf("%-*s", widths.linkText, linkText)))
+
+	// Issue type if unhealthy
+	if !pkg.IsHealthy {
+		fmt.Fprintf(w, "%s  ",
+			colorizer.Dim(fmt.Sprintf("%-*s", widths.issueType, pkg.IssueType)))
+	} else if widths.issueType > 0 {
+		fmt.Fprintf(w, "%s  ", fmt.Sprintf("%-*s", widths.issueType, ""))
+	}
+
+	// Target directory if requested
+	if showTarget {
+		targetText := pkg.TargetDir
+		if targetText == "" {
+			targetText = "(default)"
+		}
+		fmt.Fprintf(w, "%s  ",
+			colorizer.Dim(fmt.Sprintf("→ %-*s", widths.target, targetText)))
+	}
+
+	// Installation time
+	timeAgo := formatTimeAgo(pkg.InstalledAt)
+	fmt.Fprintf(w, "%s\n",
+		colorizer.Dim("installed "+timeAgo))
+}
+
 // renderCleanList renders a clean, minimalist package list with subtle colorization.
 func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string, showTarget bool) {
 	if len(packages) == 0 {
@@ -150,9 +254,7 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string,
 		return
 	}
 
-	// Determine if we should use colors
-	colorize := shouldUseColor()
-	colorizer := render.NewColorizer(colorize)
+	colorizer := render.NewColorizer(shouldUseColor())
 
 	// Header
 	pluralS := ""
@@ -161,58 +263,20 @@ func renderCleanList(w io.Writer, packages []dot.PackageInfo, packageDir string,
 	}
 	fmt.Fprintf(w, "Packages: %d package%s in %s\n\n", len(packages), pluralS, packageDir)
 
-	// Calculate column widths for alignment
-	maxNameWidth := 0
-	maxLinkTextWidth := 0
-	maxTargetWidth := 0
+	// Calculate layout
+	widths, stats := calculateListLayout(packages, showTarget)
+
+	// Render each package
 	for _, pkg := range packages {
-		if len(pkg.Name) > maxNameWidth {
-			maxNameWidth = len(pkg.Name)
-		}
-		linkText := fmt.Sprintf("(%d link", pkg.LinkCount)
-		if pkg.LinkCount != 1 {
-			linkText += "s"
-		}
-		linkText += ")"
-		if len(linkText) > maxLinkTextWidth {
-			maxLinkTextWidth = len(linkText)
-		}
-		if showTarget && len(pkg.TargetDir) > maxTargetWidth {
-			maxTargetWidth = len(pkg.TargetDir)
-		}
+		renderPackageLine(w, pkg, widths, showTarget, colorizer)
 	}
 
-	// List packages with aligned columns and subtle colorization
-	for _, pkg := range packages {
-		linkText := fmt.Sprintf("(%d link", pkg.LinkCount)
-		if pkg.LinkCount != 1 {
-			linkText += "s"
-		}
-		linkText += ")"
-
-		timeAgo := formatTimeAgo(pkg.InstalledAt)
-
-		// Package name in accent color (dark blue/purple)
-		fmt.Fprintf(w, "%s  ",
-			colorizer.Accent(fmt.Sprintf("%-*s", maxNameWidth, pkg.Name)))
-
-		// Link count in dim color
-		fmt.Fprintf(w, "%s  ",
-			colorizer.Dim(fmt.Sprintf("%-*s", maxLinkTextWidth, linkText)))
-
-		// Show target directory if requested
-		if showTarget {
-			targetText := pkg.TargetDir
-			if targetText == "" {
-				targetText = "(default)"
-			}
-			fmt.Fprintf(w, "%s  ",
-				colorizer.Dim(fmt.Sprintf("→ %-*s", maxTargetWidth, targetText)))
-		}
-
-		// Time in dim color
-		fmt.Fprintf(w, "%s\n",
-			colorizer.Dim("installed "+timeAgo))
+	// Print statistics summary
+	fmt.Fprintln(w)
+	if stats.unhealthy == 0 {
+		fmt.Fprintf(w, "%d healthy\n", stats.healthy)
+	} else {
+		fmt.Fprintf(w, "%d healthy, %d unhealthy\n", stats.healthy, stats.unhealthy)
 	}
 }
 
