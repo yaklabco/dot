@@ -9,7 +9,7 @@ Available Commands:
   config      Manage dot configuration
   doctor      Perform health checks on the installation
   help        Help about any command
-  list        List all installed packages
+  list        List all installed packages with health status
   manage      Install packages by creating symlinks
   remanage    Reinstall packages with incremental updates
   status      Show installation status for packages
