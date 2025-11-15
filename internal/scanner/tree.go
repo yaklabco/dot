@@ -11,6 +11,105 @@ import (
 	"github.com/jamesainslie/dot/internal/domain"
 )
 
+// ErrFileTooLarge indicates a file exceeds the maximum allowed size.
+type ErrFileTooLarge struct {
+	Path  string
+	Size  int64
+	Limit int64
+}
+
+func (e ErrFileTooLarge) Error() string {
+	return fmt.Sprintf("file too large: %s (%s exceeds limit of %s)",
+		e.Path, formatSize(e.Size), formatSize(e.Limit))
+}
+
+// ScanTreeWithConfig recursively scans a filesystem tree with size filtering.
+// Returns a Node representing the tree structure.
+// Files exceeding maxSize are handled by the prompter (if provided).
+func ScanTreeWithConfig(ctx context.Context, fs domain.FS, path domain.FilePath, maxSize int64, prompter LargeFilePrompter) domain.Result[domain.Node] {
+	// Check for symlinks first (symlinks are always leaves)
+	isLink, err := fs.IsSymlink(ctx, path.String())
+	if err != nil {
+		return domain.Err[domain.Node](fmt.Errorf("check symlink %s: %w", path.String(), err))
+	}
+
+	if isLink {
+		return domain.Ok(domain.Node{
+			Path:     path,
+			Type:     domain.NodeSymlink,
+			Children: nil,
+		})
+	}
+
+	// Check if directory
+	isDir, err := fs.IsDir(ctx, path.String())
+	if err != nil {
+		return domain.Err[domain.Node](fmt.Errorf("check directory %s: %w", path.String(), err))
+	}
+
+	if !isDir {
+		// Regular file - check size if limit is set
+		if maxSize > 0 {
+			info, err := fs.Stat(ctx, path.String())
+			if err != nil {
+				return domain.Err[domain.Node](fmt.Errorf("stat file %s: %w", path.String(), err))
+			}
+
+			if info.Size() > maxSize {
+				// File exceeds limit
+				if prompter != nil && prompter.ShouldInclude(path.String(), info.Size(), maxSize) {
+					// User chose to include - continue normally
+				} else {
+					// Skip this file - return error that can be caught and logged
+					return domain.Err[domain.Node](ErrFileTooLarge{
+						Path:  path.String(),
+						Size:  info.Size(),
+						Limit: maxSize,
+					})
+				}
+			}
+		}
+
+		// Regular file within size limit
+		return domain.Ok(domain.Node{
+			Path:     path,
+			Type:     domain.NodeFile,
+			Children: nil,
+		})
+	}
+
+	// Directory - scan children
+	entries, err := fs.ReadDir(ctx, path.String())
+	if err != nil {
+		return domain.Err[domain.Node](fmt.Errorf("read directory %s: %w", path.String(), err))
+	}
+
+	// Recursively scan each child
+	children := make([]domain.Node, 0, len(entries))
+	for _, entry := range entries {
+		childPath := path.Join(entry.Name())
+
+		childResult := ScanTreeWithConfig(ctx, fs, childPath, maxSize, prompter)
+		if childResult.IsErr() {
+			// Check if it's a "file too large" error - if so, skip silently
+			if _, ok := childResult.UnwrapErr().(ErrFileTooLarge); ok {
+				// Skip this file silently (already handled by prompter)
+				continue
+			}
+			// Other errors are propagated
+			return domain.Err[domain.Node](childResult.UnwrapErr())
+		}
+
+		children = append(children, childResult.Unwrap())
+	}
+
+	return domain.Ok(domain.Node{
+		Path:     path,
+		Type:     domain.NodeDir,
+		Children: children,
+	})
+}
+
 // ScanTree recursively scans a filesystem tree starting at path.
 // Returns a Node representing the tree structure.
 //
