@@ -51,6 +51,30 @@ func (f *MemFS) Stat(ctx context.Context, name string) (domain.FileInfo, error) 
 	}, nil
 }
 
+func (f *MemFS) Lstat(ctx context.Context, name string) (domain.FileInfo, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	file, exists := f.files[name]
+	if !exists {
+		return nil, fs.ErrNotExist
+	}
+
+	// For Lstat, if it's a symlink, report it as such
+	mode := file.mode
+	if file.symlink != "" {
+		mode |= fs.ModeSymlink
+	}
+
+	return &memFileInfo{
+		name:    filepath.Base(name),
+		size:    int64(len(file.data)),
+		mode:    mode,
+		modTime: file.modTime,
+		isDir:   file.isDir,
+	}, nil
+}
+
 func (f *MemFS) ReadDir(ctx context.Context, name string) ([]domain.DirEntry, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()

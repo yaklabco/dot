@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"testing"
 
+	"github.com/jamesainslie/dot/internal/adapters"
 	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +19,14 @@ type MockFS struct {
 }
 
 func (m *MockFS) Stat(ctx context.Context, name string) (domain.FileInfo, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(domain.FileInfo), args.Error(1)
+}
+
+func (m *MockFS) Lstat(ctx context.Context, name string) (domain.FileInfo, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -331,4 +340,128 @@ func TestRelativePath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScanTreeWithConfig_WithPrompter(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+
+	// Create test directory with files
+	testDir := "/test/tree"
+	require.NoError(t, fs.Mkdir(ctx, testDir, 0755))
+	require.NoError(t, fs.WriteFile(ctx, testDir+"/small.txt", []byte("small"), 0644))
+	require.NoError(t, fs.WriteFile(ctx, testDir+"/large.bin", make([]byte, 2048), 0644))
+
+	path := domain.NewFilePath(testDir).Unwrap()
+	maxSize := int64(1024)
+	prompter := scanner.NewBatchPrompter()
+
+	result := scanner.ScanTreeWithConfig(ctx, fs, path, maxSize, prompter)
+
+	require.True(t, result.IsOk(), "scan should succeed")
+	tree := result.Unwrap()
+
+	// Verify small file is included, large file excluded in batch mode
+	hasSmallFile := false
+	hasLargeFile := false
+	for _, child := range tree.Children {
+		if child.Path.String() == testDir+"/small.txt" {
+			hasSmallFile = true
+		}
+		if child.Path.String() == testDir+"/large.bin" {
+			hasLargeFile = true
+		}
+	}
+
+	assert.True(t, hasSmallFile, "small file should be included")
+	assert.False(t, hasLargeFile, "large file should be excluded")
+}
+
+func TestScanTreeWithConfig_LargeFiles(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+
+	// Create directory with only large files
+	testDir := "/test/large"
+	require.NoError(t, fs.Mkdir(ctx, testDir, 0755))
+	require.NoError(t, fs.WriteFile(ctx, testDir+"/huge1.bin", make([]byte, 5000), 0644))
+	require.NoError(t, fs.WriteFile(ctx, testDir+"/huge2.bin", make([]byte, 6000), 0644))
+
+	path := domain.NewFilePath(testDir).Unwrap()
+	maxSize := int64(1024)
+	prompter := scanner.NewBatchPrompter()
+
+	result := scanner.ScanTreeWithConfig(ctx, fs, path, maxSize, prompter)
+
+	require.True(t, result.IsOk(), "scan should succeed")
+	tree := result.Unwrap()
+
+	// All files should be excluded
+	assert.Empty(t, tree.Children, "all large files should be excluded")
+}
+
+func TestScanTreeWithConfig_PrompterAccepts(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+
+	// Create test file
+	testDir := "/test/accept"
+	require.NoError(t, fs.Mkdir(ctx, testDir, 0755))
+	testFile := testDir + "/file.txt"
+	require.NoError(t, fs.WriteFile(ctx, testFile, []byte("test"), 0644))
+
+	path := domain.NewFilePath(testDir).Unwrap()
+
+	// Use nil prompter (no size limit)
+	result := scanner.ScanTreeWithConfig(ctx, fs, path, 0, nil)
+
+	require.True(t, result.IsOk(), "scan should succeed")
+	tree := result.Unwrap()
+
+	// File should be included when no size limit
+	hasFile := false
+	for _, child := range tree.Children {
+		if child.Path.String() == testFile {
+			hasFile = true
+		}
+	}
+	assert.True(t, hasFile, "file should be included without size limit")
+}
+
+func TestScanTreeWithConfig_PrompterRejects(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+
+	// Create directory with large file
+	testDir := "/test/reject"
+	require.NoError(t, fs.Mkdir(ctx, testDir, 0755))
+	require.NoError(t, fs.WriteFile(ctx, testDir+"/large.dat", make([]byte, 3000), 0644))
+
+	path := domain.NewFilePath(testDir).Unwrap()
+	maxSize := int64(512)
+	prompter := scanner.NewBatchPrompter() // Always rejects
+
+	result := scanner.ScanTreeWithConfig(ctx, fs, path, maxSize, prompter)
+
+	require.True(t, result.IsOk(), "scan should succeed")
+	tree := result.Unwrap()
+
+	// Large file should be rejected by batch prompter
+	assert.Empty(t, tree.Children, "large file should be rejected")
+}
+
+func TestErrFileTooLarge_Error(t *testing.T) {
+	// Test ErrFileTooLarge.Error() method
+	err := scanner.ErrFileTooLarge{
+		Path:  "/test/large.bin",
+		Size:  2048,
+		Limit: 1024,
+	}
+
+	errorMsg := err.Error()
+
+	assert.Contains(t, errorMsg, "file too large")
+	assert.Contains(t, errorMsg, "/test/large.bin")
+	assert.Contains(t, errorMsg, "2.0 KB")
+	assert.Contains(t, errorMsg, "1.0 KB")
 }

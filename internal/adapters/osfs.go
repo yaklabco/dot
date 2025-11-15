@@ -31,6 +31,20 @@ func (f *OSFilesystem) Stat(ctx context.Context, name string) (domain.FileInfo, 
 	return WrapFileInfo(info), nil
 }
 
+// Lstat returns file information without following symlinks.
+func (f *OSFilesystem) Lstat(ctx context.Context, name string) (domain.FileInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	info, err := os.Lstat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return WrapFileInfo(info), nil
+}
+
 // ReadDir lists directory contents.
 func (f *OSFilesystem) ReadDir(ctx context.Context, name string) ([]domain.DirEntry, error) {
 	if err := ctx.Err(); err != nil {
