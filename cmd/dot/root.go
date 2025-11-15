@@ -19,17 +19,22 @@ import (
 
 // Global configuration shared across commands
 type globalConfig struct {
-	packageDir string
-	targetDir  string
-	backupDir  string
-	dryRun     bool
-	verbose    int
-	quiet      bool
-	logJSON    bool
-	noColor    bool
-	cpuProfile string
-	memProfile string
-	pprofAddr  string
+	packageDir     string
+	targetDir      string
+	backupDir      string
+	dryRun         bool
+	verbose        int
+	quiet          bool
+	logJSON        bool
+	noColor        bool
+	cpuProfile     string
+	memProfile     string
+	pprofAddr      string
+	ignorePatterns []string
+	maxFileSize    string
+	noDefaults     bool
+	noDotignore    bool
+	batch          bool
 }
 
 var globalCfg globalConfig
@@ -95,8 +100,16 @@ comprehensive conflict detection, and incremental updates.`,
 		"Write memory profile to file (for diagnostics)")
 	rootCmd.PersistentFlags().StringVar(&globalCfg.pprofAddr, "pprof", "",
 		"Enable pprof HTTP server on address (e.g. :6060)")
-	rootCmd.PersistentFlags().Bool("batch", false,
-		"Batch mode for scripting (implies --quiet)")
+	rootCmd.PersistentFlags().BoolVar(&globalCfg.batch, "batch", false,
+		"Batch mode for scripting (implies --quiet and non-interactive prompts)")
+	rootCmd.PersistentFlags().StringSliceVar(&globalCfg.ignorePatterns, "ignore", []string{},
+		"Additional ignore patterns (glob format, supports !negation)")
+	rootCmd.PersistentFlags().StringVar(&globalCfg.maxFileSize, "max-file-size", "",
+		"Maximum file size to include (e.g. 100MB, 1GB). 0 or empty = no limit")
+	rootCmd.PersistentFlags().BoolVar(&globalCfg.noDefaults, "no-defaults", false,
+		"Disable default ignore patterns (.git, .DS_Store, etc.)")
+	rootCmd.PersistentFlags().BoolVar(&globalCfg.noDotignore, "no-dotignore", false,
+		"Disable reading per-package .dotignore files")
 
 	// Add subcommands
 	rootCmd.AddCommand(
@@ -119,6 +132,83 @@ comprehensive conflict detection, and incremental updates.`,
 // Precedence: flags (if set) > config file > defaults
 func buildConfig() (dot.Config, error) {
 	return buildConfigWithCmd(nil)
+}
+
+// buildIgnoreConfig builds the ignore configuration from extended config and flags.
+func buildIgnoreConfig(extCfg *config.ExtendedConfig) (bool, bool, bool, []string, int64, error) {
+	useDefaults := true
+	perPackageIgnore := true
+	interactiveLargeFiles := true
+	ignorePatterns := make([]string, 0)
+	maxFileSize := int64(0)
+
+	// Load from config file if available
+	if extCfg != nil {
+		useDefaults = extCfg.Ignore.UseDefaults
+		perPackageIgnore = extCfg.Ignore.PerPackageIgnore
+		interactiveLargeFiles = extCfg.Ignore.InteractiveLargeFiles
+		ignorePatterns = append(ignorePatterns, extCfg.Ignore.Patterns...)
+		maxFileSize = extCfg.Ignore.MaxFileSize
+	}
+
+	// Apply flag overrides (flags take precedence)
+	if globalCfg.noDefaults {
+		useDefaults = false
+	}
+	if globalCfg.noDotignore {
+		perPackageIgnore = false
+	}
+	if globalCfg.batch {
+		interactiveLargeFiles = false
+	}
+	if len(globalCfg.ignorePatterns) > 0 {
+		ignorePatterns = append(ignorePatterns, globalCfg.ignorePatterns...)
+	}
+	if globalCfg.maxFileSize != "" {
+		size, err := parseFileSize(globalCfg.maxFileSize)
+		if err != nil {
+			return false, false, false, nil, 0, fmt.Errorf("invalid max file size: %w", err)
+		}
+		maxFileSize = size
+	}
+
+	return useDefaults, perPackageIgnore, interactiveLargeFiles, ignorePatterns, maxFileSize, nil
+}
+
+// parseFileSize parses a human-readable file size string (e.g., "100MB", "1GB")
+// and returns the size in bytes. Returns 0 for empty string or "0".
+func parseFileSize(sizeStr string) (int64, error) {
+	if sizeStr == "" || sizeStr == "0" {
+		return 0, nil
+	}
+
+	var value float64
+	var unit string
+
+	// Parse the numeric value and unit
+	_, err := fmt.Sscanf(sizeStr, "%f%s", &value, &unit)
+	if err != nil {
+		return 0, fmt.Errorf("invalid file size format %q: expected format like 100MB or 1GB", sizeStr)
+	}
+
+	// Convert to bytes based on unit
+	multiplier := int64(1)
+	switch unit {
+	case "B", "b":
+		multiplier = 1
+	case "KB", "kb", "K", "k":
+		multiplier = 1024
+	case "MB", "mb", "M", "m":
+		multiplier = 1024 * 1024
+	case "GB", "gb", "G", "g":
+		multiplier = 1024 * 1024 * 1024
+	case "TB", "tb", "T", "t":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	default:
+		return 0, fmt.Errorf("unknown size unit %q: use B, KB, MB, GB, or TB", unit)
+	}
+
+	return int64(value * float64(multiplier)), nil
 }
 
 // buildConfigWithCmd creates config with flag precedence awareness.
@@ -184,18 +274,29 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 		return dot.Config{}, fmt.Errorf("invalid target directory: %w", err)
 	}
 
+	// Build ignore configuration
+	useDefaults, perPackageIgnore, interactiveLargeFiles, ignorePatterns, maxFileSize, err := buildIgnoreConfig(extCfg)
+	if err != nil {
+		return dot.Config{}, err
+	}
+
 	cfg := dot.Config{
-		PackageDir:         packageDir,
-		TargetDir:          targetDir,
-		BackupDir:          backupDir,
-		Backup:             backup,
-		Overwrite:          overwrite,
-		ManifestDir:        manifestDir,
-		DryRun:             globalCfg.dryRun,
-		Verbosity:          globalCfg.verbose,
-		PackageNameMapping: true, // Default: true (pre-1.0 breaking change)
-		FS:                 fs,
-		Logger:             logger,
+		PackageDir:               packageDir,
+		TargetDir:                targetDir,
+		BackupDir:                backupDir,
+		Backup:                   backup,
+		Overwrite:                overwrite,
+		ManifestDir:              manifestDir,
+		DryRun:                   globalCfg.dryRun,
+		Verbosity:                globalCfg.verbose,
+		PackageNameMapping:       true, // Default: true (pre-1.0 breaking change)
+		UseDefaultIgnorePatterns: useDefaults,
+		IgnorePatterns:           ignorePatterns,
+		PerPackageIgnore:         perPackageIgnore,
+		MaxFileSize:              maxFileSize,
+		InteractiveLargeFiles:    interactiveLargeFiles,
+		FS:                       fs,
+		Logger:                   logger,
 	}
 
 	return cfg.WithDefaults(), nil

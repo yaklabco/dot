@@ -5,18 +5,22 @@ Flags:
   -h, --help   help for manage
 
 Global Flags:
-      --backup-dir string    Directory for backup files (default: <target>/.dot-backup)
-      --batch                Batch mode for scripting (implies --quiet)
-      --cpu-profile string   Write CPU profile to file (for diagnostics)
-  -d, --dir string           Source directory containing packages (default ".")
-  -n, --dry-run              Show what would be done without applying changes
-      --log-json             Output logs in JSON format
-      --mem-profile string   Write memory profile to file (for diagnostics)
-      --no-color             Disable color output
-      --pprof string         Enable pprof HTTP server on address (e.g. :6060)
-  -q, --quiet                Suppress all non-error output
-  -t, --target string        Target directory for symlinks (default "<CWD>")
-  -v, --verbose count        Increase verbosity: -v (info), -vv (debug), -vvv (trace)
+      --backup-dir string      Directory for backup files (default: <target>/.dot-backup)
+      --batch                  Batch mode for scripting (implies --quiet and non-interactive prompts)
+      --cpu-profile string     Write CPU profile to file (for diagnostics)
+  -d, --dir string             Source directory containing packages (default ".")
+  -n, --dry-run                Show what would be done without applying changes
+      --ignore strings         Additional ignore patterns (glob format, supports !negation)
+      --log-json               Output logs in JSON format
+      --max-file-size string   Maximum file size to include (e.g. 100MB, 1GB). 0 or empty = no limit
+      --mem-profile string     Write memory profile to file (for diagnostics)
+      --no-color               Disable color output
+      --no-defaults            Disable default ignore patterns (.git, .DS_Store, etc.)
+      --no-dotignore           Disable reading per-package .dotignore files
+      --pprof string           Enable pprof HTTP server on address (e.g. :6060)
+  -q, --quiet                  Suppress all non-error output
+  -t, --target string          Target directory for symlinks (default "<CWD>")
+  -v, --verbose count          Increase verbosity: -v (info), -vv (debug), -vvv (trace)
 
 --- stderr ---
 Error: requires at least 1 arg(s), only received 0

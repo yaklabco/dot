@@ -308,6 +308,33 @@ func TestAdoptCommand_Golden(t *testing.T) {
 			},
 			expectError: false, // With new adopt logic, it auto-names from first file
 		},
+		{
+			name: "adopt_with_pwd_relative_path",
+			args: []string{"adopt", "ado-cli", "./ado-cli"},
+			setupFunc: func(t *testing.T) (string, string, func()) {
+				tmpDir := t.TempDir()
+				targetDir := filepath.Join(tmpDir, "target", ".config")
+				packageDir := filepath.Join(tmpDir, "packages")
+
+				os.MkdirAll(targetDir, 0755)
+				os.MkdirAll(packageDir, 0755)
+
+				// Create directory in .config directory
+				testFile := filepath.Join(targetDir, "ado-cli")
+				os.MkdirAll(testFile, 0755)
+				os.WriteFile(filepath.Join(testFile, "config.json"), []byte(`{"key": "value"}`), 0644)
+
+				os.Setenv("HOME", filepath.Join(tmpDir, "target"))
+				oldDir, _ := os.Getwd()
+				os.Chdir(targetDir) // Change to .config directory
+
+				return filepath.Join(tmpDir, "target"), packageDir, func() {
+					os.Unsetenv("HOME")
+					os.Chdir(oldDir)
+				}
+			},
+			expectError: false,
+		},
 	}
 
 	// Get current working directory
