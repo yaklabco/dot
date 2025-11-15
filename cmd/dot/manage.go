@@ -52,6 +52,15 @@ func runManage(cmd *cobra.Command, args []string) error {
 
 	packages := args
 
+	// Check for potential secrets in packages before managing
+	if warnings := checkPackagesForSecrets(ctx, client, packages); len(warnings) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "\nWarning: Potential secrets detected:\n")
+		for _, w := range warnings {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  - %s (%s)\n", w.Path, w.Reason)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "\nThese files are ignored by default. See 'dot help secrets' for details.\n\n")
+	}
+
 	// If dry-run mode, render the plan instead of executing
 	if cfg.DryRun {
 		plan, err := client.PlanManage(ctx, packages...)
