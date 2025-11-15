@@ -710,6 +710,34 @@ dot adopt vim .vimrc .vim/          # Package: vim
 dot adopt configs .config/ .local/  # Package: configs
 ```
 
+#### Path Resolution
+
+File paths are resolved based on the following rules:
+
+1. **Absolute paths** (`/etc/config`, `~/file`): Used as-is
+2. **Explicit relative paths** (`./file`, `../dir`): Resolved from current working directory
+3. **Bare paths** (`file`, `.config/nvim`): Resolved from target directory (default: `$HOME`)
+
+**Examples:**
+
+```bash
+# From ~/.config directory:
+cd ~/.config
+dot adopt ado-cli ./ado-cli        # Adopts ~/.config/ado-cli (from pwd)
+dot adopt fish .config/fish        # Adopts $HOME/.config/fish (from target)
+
+# Using explicit pwd paths:
+cd ~/.config
+dot adopt nvim ./nvim              # Adopts ~/.config/nvim
+dot adopt configs ./fish ./nvim    # Adopts multiple from pwd
+
+# Backward compatible - bare paths from target:
+cd /tmp
+dot adopt .vimrc                   # Adopts $HOME/.vimrc (not /tmp/.vimrc)
+```
+
+**Note:** The `./` prefix explicitly means "from current directory", while bare paths maintain backward compatibility by resolving from the target directory.
+
 **Directory Adoption**:
 
 When adopting a directory, `dot` creates a **flat structure** in the package with the directory contents at the package root:
@@ -1064,7 +1092,7 @@ dot --version
 **Example Output**:
 ```
 dot version v0.1.0
-Built with Go 1.25
+Built with Go 1.25.4
 Commit: abc1234
 Build date: 2025-10-07
 Platform: linux/amd64

@@ -325,7 +325,78 @@ tail -3 ~/.vim/vimrc
 # Output shows new lines added
 ```
 
-## Step 10: List Installed Packages
+## Step 10: Ignoring Files
+
+Sometimes packages contain files you do not want to symlink (temporary files, cache, etc.). Use the ignore system:
+
+### Using .dotignore Files
+
+Create a `.dotignore` file in your package:
+
+```bash
+# Add some cache files to vim package
+touch ~/dotfiles/dot-vim/.netrwhist
+touch ~/dotfiles/dot-vim/swap
+mkdir -p ~/dotfiles/dot-vim/undo
+
+# Create .dotignore to exclude them
+cat > ~/dotfiles/dot-vim/.dotignore << 'EOF'
+# Ignore vim cache files
+.netrwhist
+swap/
+undo/
+
+# Ignore backup files
+*.swp
+*~
+EOF
+
+# Remanage to apply ignore rules
+dot remanage dot-vim
+```
+
+The ignored files stay in your repository but are not symlinked.
+
+### Using Command-Line Flags
+
+Temporarily ignore patterns:
+
+```bash
+# Ignore specific files for this operation
+dot manage dot-vim --ignore "*.log" --ignore "cache/"
+```
+
+### Handling Large Files
+
+For packages with large files (like VM images), use size filtering:
+
+```bash
+# Skip files larger than 100MB
+dot manage dot-vim --max-file-size 100MB
+
+# In batch mode (auto-skip without prompting)
+dot manage dot-vim --batch --max-file-size 50MB
+```
+
+### Negation Patterns
+
+Un-ignore specific files:
+
+```bash
+# Create .dotignore with negation
+cat > ~/dotfiles/dot-vim/.dotignore << 'EOF'
+# Ignore all backup files
+*.bak
+
+# But keep important backups
+!vimrc.bak
+!important.bak
+EOF
+```
+
+For more details, see the [Ignore System Guide](ignore-system.md).
+
+## Step 11: List Installed Packages
 
 View package inventory:
 
@@ -351,7 +422,7 @@ dot list --sort links
 dot list --sort date
 ```
 
-## Step 11: Verify Installation Health
+## Step 12: Verify Installation Health
 
 Check for issues:
 
@@ -372,7 +443,7 @@ Running health checks...
 Health check passed: 0 issues found
 ```
 
-## Step 12: Unmanage Package
+## Step 13: Unmanage Package
 
 Remove a package:
 
@@ -401,7 +472,7 @@ ls ~/dotfiles/dot-git
 # Output: ls: ~/dotfiles/dot-git: No such file or directory
 ```
 
-## Step 13: Clean Up (Tutorial Completion)
+## Step 14: Clean Up (Tutorial Completion)
 
 Remove tutorial files:
 
