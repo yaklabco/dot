@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -358,4 +360,267 @@ func TestConfigSetCommand_Completion(t *testing.T) {
 	// Should return no completions for value
 	assert.Empty(t, completions)
 	assert.Equal(t, 4, int(directive)) // NoFileComp
+}
+
+func TestFormatBool(t *testing.T) {
+	c := render.NewColorizer(false)
+
+	// Test true
+	result := formatBool(true, c)
+	assert.Contains(t, result, "true")
+
+	// Test false
+	result = formatBool(false, c)
+	assert.Contains(t, result, "false")
+}
+
+func TestFormatSlice(t *testing.T) {
+	c := render.NewColorizer(false)
+
+	tests := []struct {
+		name     string
+		slice    []string
+		expected string
+	}{
+		{
+			name:     "empty slice",
+			slice:    []string{},
+			expected: "none",
+		},
+		{
+			name:     "single item",
+			slice:    []string{"item1"},
+			expected: "item1",
+		},
+		{
+			name:     "multiple items",
+			slice:    []string{"item1", "item2", "item3"},
+			expected: "item1, item2, item3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatSlice(tt.slice, c)
+			assert.Contains(t, result, tt.expected)
+		})
+	}
+}
+
+func TestRenderDirectoriesSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Directories: config.DirectoriesConfig{
+			Package:  "/home/user/.dotfiles",
+			Target:   "/home/user",
+			Manifest: "/home/user/.config/dot/manifest.json",
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderDirectoriesSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Directories")
+	assert.Contains(t, output, "/home/user/.dotfiles")
+	assert.Contains(t, output, "/home/user")
+	assert.Contains(t, output, "manifest.json")
+}
+
+func TestRenderLoggingSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Logging: config.LoggingConfig{
+			Level:       "INFO",
+			Format:      "text",
+			Destination: "stderr",
+			File:        "/tmp/dot.log",
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderLoggingSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Logging")
+	assert.Contains(t, output, "INFO")
+	assert.Contains(t, output, "text")
+	assert.Contains(t, output, "stderr")
+	assert.Contains(t, output, "/tmp/dot.log")
+}
+
+func TestRenderSymlinksSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Symlinks: config.SymlinksConfig{
+			Mode:         "flat",
+			Folding:      true,
+			Overwrite:    false,
+			Backup:       true,
+			BackupSuffix: ".bak",
+			BackupDir:    "/tmp/backups",
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderSymlinksSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Symlinks")
+	assert.Contains(t, output, "flat")
+	assert.Contains(t, output, "true")
+	assert.Contains(t, output, ".bak")
+	assert.Contains(t, output, "/tmp/backups")
+}
+
+func TestRenderIgnoreSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Ignore: config.IgnoreConfig{
+			UseDefaults: true,
+			Patterns:    []string{"*.log", "*.tmp"},
+			Overrides:   []string{"!important.log"},
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderIgnoreSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Ignore")
+	assert.Contains(t, output, "*.log")
+	assert.Contains(t, output, "*.tmp")
+	assert.Contains(t, output, "!important.log")
+}
+
+func TestRenderDotfileSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Dotfile: config.DotfileConfig{
+			Translate:          true,
+			Prefix:             "dot-",
+			PackageNameMapping: false,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderDotfileSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Dotfile")
+	assert.Contains(t, output, "dot-")
+	assert.Contains(t, output, "true")
+	assert.Contains(t, output, "false")
+}
+
+func TestRenderOutputSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Output: config.OutputConfig{
+			Format:    "text",
+			Color:     "auto",
+			Progress:  true,
+			Verbosity: 2,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderOutputSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Output")
+	assert.Contains(t, output, "text")
+	assert.Contains(t, output, "auto")
+	assert.Contains(t, output, "2")
+}
+
+func TestRenderOperationsSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Operations: config.OperationsConfig{
+			DryRun:      true,
+			Atomic:      false,
+			MaxParallel: 4,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderOperationsSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Operations")
+}
+
+func TestRenderPackagesSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Packages: config.PackagesConfig{
+			SortBy:        "name",
+			AutoDiscover:  true,
+			ValidateNames: false,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderPackagesSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Packages")
+}
+
+func TestRenderDoctorSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Doctor: config.DoctorConfig{
+			AutoFix:          true,
+			CheckManifest:    true,
+			CheckBrokenLinks: false,
+			CheckOrphaned:    true,
+			CheckPermissions: false,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderDoctorSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Doctor")
+}
+
+func TestRenderExperimentalSection(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Experimental: config.ExperimentalConfig{
+			Parallel:  true,
+			Profiling: false,
+		},
+	}
+	c := render.NewColorizer(false)
+	var buf bytes.Buffer
+
+	renderExperimentalSection(&buf, cfg, c)
+
+	output := buf.String()
+	assert.Contains(t, output, "Experimental")
+}
+
+func TestRunConfigListCmd(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	// Create a minimal config file
+	cfg := config.DefaultExtended()
+	writer := config.NewWriter(configPath)
+	err := writer.Write(cfg, config.WriteOptions{Format: "yaml"})
+	require.NoError(t, err)
+
+	// Set DOT_CONFIG to use temp directory
+	os.Setenv("DOT_CONFIG", configPath)
+	defer os.Unsetenv("DOT_CONFIG")
+
+	// Create command
+	cmd := newConfigListCommand()
+
+	// Test execution doesn't error
+	err = runConfigListCmd(cmd, []string{})
+	assert.NoError(t, err)
 }

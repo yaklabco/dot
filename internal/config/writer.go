@@ -458,6 +458,40 @@ func setExperimentalValue(cfg *ExperimentalConfig, field string, value interface
 	return nil
 }
 
+// WriteConfigWithHeader writes configuration with a custom header comment.
+func WriteConfigWithHeader(path string, cfg *ExtendedConfig, header string) error {
+	writer := NewWriter(path)
+
+	// Marshal config
+	opts := WriteOptions{
+		Format:          writer.DetectFormat(),
+		IncludeComments: false,
+		Indent:          2,
+	}
+
+	data, err := writer.marshal(cfg, opts)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+
+	// Prepend header
+	finalData := []byte(header)
+	finalData = append(finalData, data...)
+
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, domain.PermUserRWX); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	// Write to file with secure permissions
+	if err := os.WriteFile(path, finalData, domain.PermUserRW); err != nil {
+		return fmt.Errorf("write config file: %w", err)
+	}
+
+	return nil
+}
+
 // fileExists checks if a file exists.
 func fileExists(path string) bool {
 	_, err := os.Stat(path)

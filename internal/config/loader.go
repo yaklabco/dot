@@ -280,6 +280,9 @@ func (l *Loader) bindEnvKeys(v *viper.Viper) {
 	v.BindEnv("ignore.use_defaults")
 	v.BindEnv("ignore.patterns")
 	v.BindEnv("ignore.overrides")
+	v.BindEnv("ignore.per_package_ignore")
+	v.BindEnv("ignore.max_file_size")
+	v.BindEnv("ignore.interactive_large_files")
 
 	v.BindEnv("dotfile.translate")
 	v.BindEnv("dotfile.prefix")

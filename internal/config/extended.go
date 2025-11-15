@@ -75,14 +75,23 @@ type SymlinksConfig struct {
 
 // IgnoreConfig contains ignore pattern configuration.
 type IgnoreConfig struct {
-	// Use default ignore patterns
+	// Use default ignore patterns (.git, .DS_Store, etc.)
 	UseDefaults bool `mapstructure:"use_defaults" json:"use_defaults" yaml:"use_defaults" toml:"use_defaults"`
 
-	// Additional patterns to ignore (glob format)
+	// Additional patterns to ignore (glob format, supports !negation)
 	Patterns []string `mapstructure:"patterns" json:"patterns" yaml:"patterns" toml:"patterns"`
 
-	// Patterns to override (force include even if ignored)
+	// Patterns to override (DEPRECATED: use !pattern instead)
 	Overrides []string `mapstructure:"overrides" json:"overrides" yaml:"overrides" toml:"overrides"`
+
+	// Enable per-package .dotignore files
+	PerPackageIgnore bool `mapstructure:"per_package_ignore" json:"per_package_ignore" yaml:"per_package_ignore" toml:"per_package_ignore"`
+
+	// Maximum file size in bytes (0 = no limit)
+	MaxFileSize int64 `mapstructure:"max_file_size" json:"max_file_size" yaml:"max_file_size" toml:"max_file_size"`
+
+	// Interactive prompt for large files (TTY mode only)
+	InteractiveLargeFiles bool `mapstructure:"interactive_large_files" json:"interactive_large_files" yaml:"interactive_large_files" toml:"interactive_large_files"`
 }
 
 // DotfileConfig contains dotfile translation configuration.
@@ -237,9 +246,12 @@ func DefaultExtended() *ExtendedConfig {
 			BackupSuffix: ".bak",
 		},
 		Ignore: IgnoreConfig{
-			UseDefaults: true,
-			Patterns:    []string{},
-			Overrides:   []string{},
+			UseDefaults:           true,
+			Patterns:              []string{},
+			Overrides:             []string{},
+			PerPackageIgnore:      true,
+			MaxFileSize:           0, // No limit by default
+			InteractiveLargeFiles: true,
 		},
 		Dotfile: DotfileConfig{
 			Translate:          true,
@@ -405,7 +417,12 @@ func (c *ExtendedConfig) validateSymlinks() error {
 func (c *ExtendedConfig) validateIgnore() error {
 	// Validate ignore patterns are valid globs
 	for i, pattern := range c.Ignore.Patterns {
-		if _, err := filepath.Match(pattern, "test"); err != nil {
+		// Skip negation prefix for validation
+		testPattern := pattern
+		if strings.HasPrefix(pattern, "!") {
+			testPattern = pattern[1:]
+		}
+		if _, err := filepath.Match(testPattern, "test"); err != nil {
 			return fmt.Errorf("ignore.patterns[%d]: invalid glob pattern %q: %w", i, pattern, err)
 		}
 	}
@@ -415,6 +432,11 @@ func (c *ExtendedConfig) validateIgnore() error {
 		if _, err := filepath.Match(pattern, "test"); err != nil {
 			return fmt.Errorf("ignore.overrides[%d]: invalid glob pattern %q: %w", i, pattern, err)
 		}
+	}
+
+	// Validate max file size is non-negative
+	if c.Ignore.MaxFileSize < 0 {
+		return fmt.Errorf("ignore.max_file_size: must be non-negative (got %d)", c.Ignore.MaxFileSize)
 	}
 
 	return nil

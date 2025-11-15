@@ -52,6 +52,7 @@ files, and managing configuration across sources.`,
 		newConfigSetCommand(),
 		newConfigListCommand(),
 		newConfigPathCommand(),
+		newConfigUpgradeCommand(),
 	)
 
 	return cmd
@@ -528,6 +529,85 @@ func runConfigPath() error {
 	if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
 		fmt.Printf("  XDG_STATE_HOME: %s\n", xdgState)
 	}
+
+	return nil
+}
+
+// newConfigUpgradeCommand creates the upgrade subcommand.
+func newConfigUpgradeCommand() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade configuration to latest format",
+		Long: `Upgrade configuration file to latest format.
+
+Creates a timestamped backup before upgrading and merges your
+existing configuration with new defaults. Your customizations
+are preserved while new fields are added.
+
+Deprecated fields are automatically migrated to their new format.
+For example, ignore.overrides patterns are converted to negation
+patterns (with ! prefix) in ignore.patterns.
+
+Backups are stored in ~/.config/dot/backups/ and the last 5
+backups are automatically retained.`,
+		Example: `  # Upgrade config with confirmation prompt
+  dot config upgrade
+
+  # Skip confirmation prompt
+  dot config upgrade --force`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConfigUpgrade(cmd, force)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&force, "force", "f", false,
+		"Skip confirmation prompt")
+
+	return cmd
+}
+
+// runConfigUpgrade handles the upgrade subcommand.
+func runConfigUpgrade(cmd *cobra.Command, force bool) error {
+	configPath := getConfigFilePath()
+
+	// Check if config exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return fmt.Errorf("config file does not exist: %s\nRun 'dot config init' to create one", configPath)
+	}
+
+	// Show warning and get confirmation unless --force
+	if !force {
+		fmt.Println("This will upgrade your configuration file to the latest format.")
+		fmt.Println("A backup will be created before making any changes.")
+		fmt.Printf("\nConfig file: %s\n", configPath)
+		fmt.Print("\nContinue? [y/N] ")
+
+		var response string
+		if _, err := fmt.Scanln(&response); err != nil {
+			return fmt.Errorf("failed to read response: %w", err)
+		}
+
+		response = strings.ToLower(strings.TrimSpace(response))
+		if response != "y" && response != "yes" {
+			fmt.Println("Upgrade cancelled.")
+			return nil
+		}
+	}
+
+	// Perform upgrade
+	backupPath, err := config.UpgradeConfig(configPath, force)
+	if err != nil {
+		return fmt.Errorf("upgrade failed: %w", err)
+	}
+
+	// Success message
+	fmt.Println("\n✓ Configuration upgraded successfully!")
+	fmt.Printf("  Backup saved to: %s\n", backupPath)
+	fmt.Printf("  Config file: %s\n", configPath)
+	fmt.Println("\nYour customizations have been preserved and new fields have been added.")
+	fmt.Println("Deprecated fields have been automatically migrated.")
 
 	return nil
 }
