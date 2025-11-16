@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/jamesainslie/dot/internal/doctor"
@@ -233,7 +234,18 @@ func (s *DoctorService) groupOrphansByCategory(ctx context.Context, issues []Iss
 		groups = append(groups, *group)
 	}
 
-	// Add uncategorized if any
+	// Sort groups by category name for deterministic output
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].Category == nil {
+			return false
+		}
+		if groups[j].Category == nil {
+			return true
+		}
+		return groups[i].Category.Name < groups[j].Category.Name
+	})
+
+	// Add uncategorized if any (always last)
 	if len(uncategorized) > 0 {
 		groups = append(groups, OrphanGroup{
 			Links:           uncategorized,
@@ -299,62 +311,87 @@ func (s *DoctorService) promptTriageOverview(allIssues []Issue, groups []OrphanG
 // processTriageByCategory processes orphans grouped by category.
 func (s *DoctorService) processTriageByCategory(ctx context.Context, m *manifest.Manifest, groups []OrphanGroup, opts TriageOptions, result *TriageResult) {
 	for _, group := range groups {
-		if group.IsUncategorized {
-			fmt.Printf("\n=== Category: Other (%d links) ===\n", len(group.Links))
-		} else {
-			fmt.Printf("\n=== Category: %s (%d links) ===\n", group.Category.Description, len(group.Links))
-		}
-
-		// Show sample links (up to 5)
-		sampleCount := len(group.Links)
-		if sampleCount > 5 {
-			sampleCount = 5
-		}
-		for i := 0; i < sampleCount; i++ {
-			fmt.Printf("  • %s\n", group.Links[i].Path)
-		}
-		if len(group.Links) > 5 {
-			fmt.Printf("  ... and %d more\n", len(group.Links)-5)
-		}
-
-		// Prompt for category action (or use default if auto-confirm)
-		var action string
-		if opts.AutoConfirm {
-			action = "i" // Default action: ignore
-			fmt.Printf("\n[AUTO] Action: ignore this category\n")
-		} else {
-			action = s.promptCategoryAction(group)
-		}
-
-		switch action {
-		case "i": // Ignore this category
-			pattern := group.Pattern
-			if pattern == "" {
-				// Prompt for pattern
-				fmt.Printf("Enter ignore pattern: ")
-				fmt.Scanln(&pattern)
-				pattern = strings.TrimSpace(pattern)
-			}
-
-			if pattern != "" {
-				if s.addIgnorePatternIfNew(m, pattern, result) {
-					fmt.Printf("Added ignore pattern: %s\n", pattern)
-				} else {
-					fmt.Printf("Pattern already exists: %s\n", pattern)
-				}
-			}
-
-		case "r": // Review individually
-			s.processLinksIndividually(ctx, m, group.Links, result, opts.DryRun)
-
-		case "s": // Skip
-			for _, link := range group.Links {
-				result.Skipped = append(result.Skipped, link.Path)
-			}
-
-		case "q": // Quit
+		s.displayCategoryInfo(group)
+		action := s.getCategoryAction(group, opts)
+		if !s.handleCategoryAction(ctx, m, group, action, opts, result) {
 			return
 		}
+	}
+}
+
+// displayCategoryInfo displays category header and sample links.
+func (s *DoctorService) displayCategoryInfo(group OrphanGroup) {
+	if group.IsUncategorized {
+		fmt.Printf("\n=== Category: Other (%d links) ===\n", len(group.Links))
+	} else {
+		fmt.Printf("\n=== Category: %s (%d links) ===\n", group.Category.Description, len(group.Links))
+	}
+
+	sampleCount := len(group.Links)
+	if sampleCount > 5 {
+		sampleCount = 5
+	}
+	for i := 0; i < sampleCount; i++ {
+		fmt.Printf("  • %s\n", group.Links[i].Path)
+	}
+	if len(group.Links) > 5 {
+		fmt.Printf("  ... and %d more\n", len(group.Links)-5)
+	}
+}
+
+// getCategoryAction gets the action for a category (auto or prompted).
+func (s *DoctorService) getCategoryAction(group OrphanGroup, opts TriageOptions) string {
+	if opts.AutoConfirm {
+		fmt.Printf("\n[AUTO] Action: ignore this category\n")
+		return "i"
+	}
+	return s.promptCategoryAction(group)
+}
+
+// handleCategoryAction handles the action for a category. Returns false if user quit.
+func (s *DoctorService) handleCategoryAction(ctx context.Context, m *manifest.Manifest, group OrphanGroup, action string, opts TriageOptions, result *TriageResult) bool {
+	switch action {
+	case "i":
+		s.handleIgnoreCategory(m, group.Pattern, opts.DryRun, result)
+	case "r":
+		s.processLinksIndividually(ctx, m, group.Links, result, opts.DryRun)
+	case "s":
+		s.handleSkipCategory(group, result)
+	case "q":
+		return false
+	}
+	return true
+}
+
+// handleSkipCategory handles skipping a category.
+func (s *DoctorService) handleSkipCategory(group OrphanGroup, result *TriageResult) {
+	for _, link := range group.Links {
+		result.Skipped = append(result.Skipped, link.Path)
+	}
+}
+
+// handleIgnoreCategory handles the ignore action for a category with dry-run support.
+func (s *DoctorService) handleIgnoreCategory(m *manifest.Manifest, pattern string, dryRun bool, result *TriageResult) {
+	if pattern == "" {
+		// Prompt for pattern
+		fmt.Printf("Enter ignore pattern: ")
+		fmt.Scanln(&pattern)
+		pattern = strings.TrimSpace(pattern)
+	}
+
+	if pattern == "" {
+		return
+	}
+
+	if dryRun {
+		fmt.Printf("[DRY RUN] Would add ignore pattern: %s\n", pattern)
+		return
+	}
+
+	if s.addIgnorePatternIfNew(m, pattern, result) {
+		fmt.Printf("Added ignore pattern: %s\n", pattern)
+	} else {
+		fmt.Printf("Pattern already exists: %s\n", pattern)
 	}
 }
 
@@ -386,16 +423,6 @@ func (s *DoctorService) promptCategoryAction(group OrphanGroup) string {
 
 // processTriageLinearly processes orphans one by one.
 func (s *DoctorService) processTriageLinearly(ctx context.Context, m *manifest.Manifest, issues []Issue, groups []OrphanGroup, opts TriageOptions, result *TriageResult) {
-	// Create a map of issue path to category for quick lookup
-	categoryMap := make(map[string]*doctor.PatternCategory)
-	for _, group := range groups {
-		if !group.IsUncategorized {
-			for _, link := range group.Links {
-				categoryMap[link.Path] = group.Category
-			}
-		}
-	}
-
 	s.processLinksIndividually(ctx, m, issues, result, opts.DryRun)
 }
 
