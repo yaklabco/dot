@@ -180,6 +180,62 @@ Conflicts detected: 2
 
 No changes made (dry-run mode).
 
+Would you like to proceed? This will require conflict resolution.
+
+[p] proceed - Continue with manage operation
+[c] configure - Set conflict strategy and proceed
+[a] abort - Cancel operation
+
+Choice [a]: c
+
+Select conflict resolution strategy:
+  1. backup - Backup existing files and create symlinks
+  2. skip - Skip conflicting files, link others
+  3. adopt - Move existing files into package, then create symlinks
+  4. abort - Cancel operation
+
+Strategy [1]: 1
+
+Proceeding with strategy: backup
+
+Creating backups and installing symlinks...
+  ✓ Backed up ~/.vimrc → ~/.vimrc.bak
+  ✓ Backed up ~/.vim/ → ~/.vim.bak/
+  ✓ Created symlink ~/.vimrc → ~/dotfiles/vim/dot-vimrc
+  ✓ Created symlink ~/.vim/ → ~/dotfiles/vim/dot-vim/
+
+Package vim managed successfully.
+Backups created: 2 files
+
+Your existing files have been backed up. Would you like to adopt them into
+the package to preserve your customizations? This will:
+  • Replace package files with your backed-up versions
+  • Keep your existing configuration
+  • Bring your dotfiles under version control
+
+Adopt backed-up files into package vim? [y/N]: 
+```
+
+#### Pre-flight Check Without Interactive Prompt
+```bash
+# Non-interactive mode (for scripts/automation)
+$ dot manage vim --dry-run --non-interactive
+```
+
+```
+Dry-run: Analyzing package vim...
+
+Would create 3 symlinks:
+  ~/.vimrc → ~/dotfiles/vim/dot-vimrc
+  ~/.vim/ → ~/dotfiles/vim/dot-vim/
+  ~/.vim/colors/ → ~/dotfiles/vim/dot-vim/colors/
+
+Conflicts detected: 2
+  ✗ ~/.vimrc (regular file exists)
+  ✗ ~/.vim/ (directory exists)
+
+No changes made (dry-run mode).
+
 To proceed:
   dot manage vim --on-conflict backup
   dot manage vim --on-conflict adopt
