@@ -282,7 +282,7 @@ func renderTriageResults(w io.Writer, result dot.TriageResult) {
 	}
 
 	totalProcessed := len(result.Ignored) + len(result.Adopted) + len(result.Skipped)
-	if totalProcessed == 0 && len(result.Errors) == 0 {
+	if totalProcessed == 0 && len(result.Patterns) == 0 && len(result.Errors) == 0 {
 		fmt.Fprintln(w, c.Dim("No orphaned links found to triage"))
 	}
 }

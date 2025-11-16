@@ -336,7 +336,7 @@ Create a `.dotignore` file in your package:
 ```bash
 # Add some cache files to vim package
 touch ~/dotfiles/dot-vim/.netrwhist
-touch ~/dotfiles/dot-vim/swap
+mkdir -p ~/dotfiles/dot-vim/swap
 mkdir -p ~/dotfiles/dot-vim/undo
 
 # Create .dotignore to exclude them

@@ -175,6 +175,15 @@ func loadIgnoreFromEnv(v *viper.Viper, cfg *IgnoreConfig) {
 	if v.IsSet("ignore.overrides") {
 		cfg.Overrides = v.GetStringSlice("ignore.overrides")
 	}
+	if v.IsSet("ignore.per_package_ignore") {
+		cfg.PerPackageIgnore = v.GetBool("ignore.per_package_ignore")
+	}
+	if v.IsSet("ignore.max_file_size") {
+		cfg.MaxFileSize = v.GetInt64("ignore.max_file_size")
+	}
+	if v.IsSet("ignore.interactive_large_files") {
+		cfg.InteractiveLargeFiles = v.GetBool("ignore.interactive_large_files")
+	}
 }
 
 func loadDotfileFromEnv(v *viper.Viper, cfg *DotfileConfig) {

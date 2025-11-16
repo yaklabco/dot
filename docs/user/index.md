@@ -86,9 +86,9 @@ Comprehensive guide to using dot for dotfile and configuration management.
    - FAQ
 
 10. [Glossary](09-glossary.md)
-   - Technical terms
-   - Command terminology
-   - Concept definitions
+- Technical terms
+- Command terminology
+- Concept definitions
 
 11. [Updates and Version Management](10-updates.md)
    - Upgrade command

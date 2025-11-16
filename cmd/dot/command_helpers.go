@@ -195,6 +195,7 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 		// Get all files in package (recursively)
 		files, err := getPackageFiles(pkgDir)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to scan package %s: %v\n", pkgName, err)
 			continue
 		}
 

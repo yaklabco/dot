@@ -23,6 +23,11 @@ func AppendToGlobalDotignore(ctx context.Context, fs domain.FS, configDir, patte
 	// Construct path to global .dotignore
 	dotignorePath := filepath.Join(configDir, ".dotignore")
 
+	// Ensure config directory exists
+	if err := fs.MkdirAll(ctx, configDir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
 	// Check if file exists
 	exists := fs.Exists(ctx, dotignorePath)
 

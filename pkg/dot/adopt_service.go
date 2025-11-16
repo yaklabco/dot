@@ -431,7 +431,11 @@ func (s *AdoptService) validateAdoptSource(ctx context.Context, originalPath, re
 
 	if isSymlink {
 		// Check if it points to our package directory
-		if strings.HasPrefix(symlinkTarget, s.packageDir) {
+		// Normalize paths to avoid false positives with similar directory names
+		pkgRoot := filepath.Clean(s.packageDir)
+		target := filepath.Clean(symlinkTarget)
+
+		if target == pkgRoot || strings.HasPrefix(target, pkgRoot+string(os.PathSeparator)) {
 			return fmt.Errorf("cannot adopt %s: already managed by dot (symlink to %s)", originalPath, symlinkTarget)
 		}
 		// Warn if symlink to other location
