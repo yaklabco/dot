@@ -180,7 +180,7 @@ Conflicts detected: 2
 
 No changes made (dry-run mode).
 
-Would you like to proceed? This will require conflict resolution.
+Would you like to proceed now? This will require conflict resolution.
 
 [p] proceed - Continue with manage operation
 [c] configure - Set conflict strategy and proceed
