@@ -117,9 +117,44 @@ Creating backups and installing symlinks...
 Package vim managed successfully.
 Backups created: 2 files
 
+Your existing files have been backed up. Would you like to adopt them into
+the package to preserve your customizations? This will:
+  • Replace package files with your backed-up versions
+  • Keep your existing configuration
+  • Bring your dotfiles under version control
+
+Adopt backed-up files into package vim? [y/N]: y
+
+Adopting backed-up files...
+  ✓ Replaced ~/dotfiles/vim/dot-vimrc with ~/.vimrc.bak
+  ✓ Merged ~/.vim.bak/ into ~/dotfiles/vim/dot-vim/
+    • Preserved 3 custom files
+    • Kept 2 package files (no conflicts)
+  ✓ Updated symlinks
+
+Adoption complete!
+
+Your existing configuration is now managed by dot.
+
+Next steps:
+  • Review changes: cd ~/dotfiles/vim && git diff
+  • Commit to version control: git add -A && git commit -m "feat(vim): adopt existing configuration"
+  • Remove backups: rm -rf ~/.vimrc.bak ~/.vim.bak/
+
+Verify installation:
+  dot doctor --check vim
+```
+
+#### User declines adoption
+```
+Adopt backed-up files into package vim? [y/N]: n
+
+Backups retained for your review.
+
 Next steps:
   • Review backed up files: ls -la ~/*.bak
   • Compare configurations: diff ~/.vimrc.bak ~/.vimrc
+  • Manually merge if desired: cp ~/.vimrc.bak ~/dotfiles/vim/dot-vimrc
   • Remove backups when satisfied: rm -rf ~/*.bak
 
 Verify installation:
