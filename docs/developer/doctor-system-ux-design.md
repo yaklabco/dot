@@ -74,6 +74,10 @@ dot doctor undo                # Undo last doctor operation
 --sort <status|name|links>      # Sort order
 --limit <N>                     # Show only first N packages
 
+# Pagination
+--pager <auto|always|never>     # Control pagination (default: auto)
+--no-pager                      # Disable pagination (alias for --pager never)
+
 # CI/CD
 --exit-zero                     # Always exit 0 (for CI)
 --non-interactive               # No prompts (for scripts)
@@ -730,6 +734,126 @@ The system automatically chooses the best format based on context:
 - **16+ packages**: Compact table, use `--issues-only` or `-v` for details
 - **Terminal < 80 cols**: Automatically switches to list format
 - **Non-TTY output**: Plain list format (no tables)
+- **Output > terminal height**: Automatically paginated (see below)
+
+#### Automatic Pagination
+When output exceeds terminal height, `dot doctor` automatically enables pagination:
+
+```bash
+$ dot doctor  # 30 packages on 24-line terminal
+```
+
+```
+Analyzing dotfile health...
+
+Overall Health: Healthy ✓
+
+Package Summary (30 packages, 412 links, 1.4s):
+
+┌──────────────┬───────┬────────┐
+│ Package      │ Links │ Status │
+├──────────────┼───────┼────────┤
+│ vim          │    23 │ ✓      │
+│ zsh          │    18 │ ✓      │
+│ git          │     8 │ ✓      │
+│ tmux         │    12 │ ✓      │
+│ nvim         │    31 │ ✓      │
+│ alacritty    │     4 │ ✓      │
+│ kitty        │     6 │ ✓      │
+│ bash         │     5 │ ✓      │
+│ fish         │     8 │ ✓      │
+│ starship     │     2 │ ✓      │
+│ btop         │     3 │ ✓      │
+│ scripts      │    27 │ ✓      │
+│ i3           │    14 │ ✓      │
+│ polybar      │     9 │ ✓      │
+│ dunst        │     3 │ ✓      │
+│ rofi         │     5 │ ✓      │
+│ picom        │     2 │ ✓      │
+:                              (Press SPACE for more, q to quit)
+```
+
+**Pagination behavior:**
+- Automatically detects terminal height using `LINES` env or ioctl
+- Reserves 2 lines for status/navigation
+- Uses built-in pager (similar to git, systemctl)
+- Standard navigation: SPACE/f (forward), b (back), q (quit), / (search)
+- Respects `PAGER` environment variable (less, more, bat, etc.)
+- Disabled for non-TTY output (pipes, redirects)
+
+**Manual control:**
+```bash
+dot doctor --no-pager        # Disable pagination
+dot doctor --pager always    # Force pagination even for short output
+dot doctor | less            # Manual piping works as expected
+```
+
+#### Terminal Size Detection
+
+The system dynamically calculates terminal dimensions:
+
+```go
+// Pseudocode for implementation
+terminalWidth := detectWidth()   // Default 80, max 120 for tables
+terminalHeight := detectHeight() // Default 24
+
+// Detection methods (in order of preference):
+1. ioctl TIOCGWINSZ syscall (most accurate)
+2. COLUMNS/LINES environment variables
+3. tput cols/lines commands
+4. Fallback to 80x24
+
+// Responsive behavior:
+if terminalWidth < 80 {
+    useListFormat()  // Narrow terminal
+} else if terminalWidth >= 120 {
+    useWideTableFormat()  // Show more columns
+}
+
+if outputLines > (terminalHeight - 2) {
+    enablePagination()  // Auto-page long output
+}
+```
+
+**Configuration:**
+```yaml
+doctor:
+  # Pagination settings
+  auto_page: true              # Auto-paginate when output > terminal
+  page_threshold: 0            # 0 = auto-detect terminal height
+                               # N = paginate if output > N lines
+  pager: auto                  # auto | always | never
+  pager_command: ""            # Empty = use $PAGER or built-in
+                               # Set to "less -R" or "bat" if preferred
+  
+  # Table width adaptation
+  adaptive_width: true         # Adjust columns to terminal width
+  max_table_width: 120         # Maximum table width
+  min_table_width: 60          # Switch to list if narrower
+```
+
+#### Wide Terminal Support
+On wide terminals (≥120 columns), show additional columns:
+
+```
+┌──────────────┬───────┬────────┬─────────┬──────────┬──────────────┬─────────────┐
+│ Package      │ Links │ Status │ Broken  │ Warnings │ Last Changed │ Package Dir │
+├──────────────┼───────┼────────┼─────────┼──────────┼──────────────┼─────────────┤
+│ vim          │    23 │ ✓      │       0 │        0 │ 2 days ago   │ ~/dot/vim   │
+│ zsh          │    18 │ ✓      │       0 │        0 │ 1 week ago   │ ~/dot/zsh   │
+...
+```
+
+#### Narrow Terminal Handling
+On narrow terminals (<80 columns), automatically switch to list format:
+
+```
+Packages (12 total):
+  ✓ vim (23 links)
+  ✓ zsh (18 links)
+  ✓ git (8 links)
+  ...
+```
 
 #### Scripting Mode (CI/CD)
 ```bash
