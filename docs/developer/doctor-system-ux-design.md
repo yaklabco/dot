@@ -60,11 +60,23 @@ dot doctor undo                # Undo last doctor operation
 ### Global Flags
 
 ```bash
---format <text|json|table>     # Output format
---quiet                         # Minimal output
---verbose, -v                   # Detailed output (-vv, -vvv for more)
+# Output Format
+--format <text|json|table|list|compact>  # Output format
+--compact                       # Compact table (fewer columns)
+--issues-only                   # Show only packages with issues
 --no-color                      # Disable color output
+
+# Verbosity
+--quiet, -q                     # Minimal output (summary only)
+--verbose, -v                   # Detailed output (-vv, -vvv for more)
+
+# Sorting and Filtering
+--sort <status|name|links>      # Sort order
+--limit <N>                     # Show only first N packages
+
+# CI/CD
 --exit-zero                     # Always exit 0 (for CI)
+--non-interactive               # No prompts (for scripts)
 ```
 
 ---
@@ -353,13 +365,59 @@ Analyzing dotfile health...
 
 Overall Health: Healthy ✓
 
-Managed packages: 3 (vim, zsh, tmux)
-Total links: 35
-  ✓ 35 valid
-  ✗ 0 broken
-  ⚠ 0 orphaned
+Package Summary (3 packages, 35 links, 0.3s):
 
-All systems healthy.
+┌─────────┬───────┬────────┬─────────┬──────────┐
+│ Package │ Links │ Status │ Broken  │ Warnings │
+├─────────┼───────┼────────┼─────────┼──────────┤
+│ vim     │    15 │ ✓      │       0 │        0 │
+│ zsh     │    12 │ ✓      │       0 │        0 │
+│ tmux    │     8 │ ✓      │       0 │        0 │
+└─────────┴───────┴────────┴─────────┴──────────┘
+
+All systems healthy after migration.
+
+Migration complete: All Stow packages successfully adopted.
+```
+
+#### Post-Migration with Many Packages
+```bash
+$ dot doctor
+```
+
+```
+Analyzing dotfile health...
+
+Overall Health: Healthy ✓
+
+Package Summary (15 packages, 237 links, 1.2s):
+
+┌──────────────┬───────┬────────┐
+│ Package      │ Links │ Status │
+├──────────────┼───────┼────────┤
+│ vim          │    23 │ ✓      │
+│ zsh          │    18 │ ✓      │
+│ git          │     8 │ ✓      │
+│ tmux         │    12 │ ✓      │
+│ nvim         │    31 │ ✓      │
+│ alacritty    │     4 │ ✓      │
+│ kitty        │     6 │ ✓      │
+│ bash         │     5 │ ✓      │
+│ fish         │     8 │ ✓      │
+│ starship     │     2 │ ✓      │
+│ btop         │     3 │ ✓      │
+│ scripts      │    27 │ ✓      │
+│ i3           │    14 │ ✓      │
+│ polybar      │     9 │ ✓      │
+│ dunst        │     3 │ ✓      │
+└──────────────┴───────┴────────┘
+
+All 15 packages migrated successfully from Stow.
+
+Next steps:
+  • Commit migrated packages: cd ~/dotfiles && git add -A && git commit
+  • Clean up Stow: stow -D vim zsh tmux ... (all packages)
+  • Verify specific packages: dot doctor vim zsh
 ```
 
 ---
@@ -465,7 +523,7 @@ Next steps:
 
 **Scenario**: Quick morning health check as part of daily routine.
 
-#### Fast Mode (Default)
+#### Fast Mode (Default) - Healthy System
 ```bash
 $ dot doctor
 ```
@@ -475,18 +533,32 @@ Analyzing dotfile health...
 
 Overall Health: Healthy ✓
 
-Quick check (managed links only, 0.8s)
-  ✓ 12 packages
-  ✓ 147 links validated
-  ✗ 0 broken links
-  ⚠ 0 issues found
+Package Summary (12 packages, 147 links, 0.8s):
+
+┌──────────────┬───────┬────────┬─────────┬──────────┐
+│ Package      │ Links │ Status │ Broken  │ Warnings │
+├──────────────┼───────┼────────┼─────────┼──────────┤
+│ vim          │    23 │ ✓      │       0 │        0 │
+│ zsh          │    18 │ ✓      │       0 │        0 │
+│ git          │     8 │ ✓      │       0 │        0 │
+│ tmux         │    12 │ ✓      │       0 │        0 │
+│ nvim         │    31 │ ✓      │       0 │        0 │
+│ alacritty    │     4 │ ✓      │       0 │        0 │
+│ kitty        │     6 │ ✓      │       0 │        0 │
+│ bash         │     5 │ ✓      │       0 │        0 │
+│ fish         │     8 │ ✓      │       0 │        0 │
+│ starship     │     2 │ ✓      │       0 │        0 │
+│ btop         │     3 │ ✓      │       0 │        0 │
+│ scripts      │    27 │ ✓      │       0 │        0 │
+└──────────────┴───────┴────────┴─────────┴──────────┘
 
 All systems healthy.
 
 For comprehensive scan: dot doctor --deep
+For package details: dot doctor <package>
 ```
 
-#### With Issues
+#### Fast Mode - With Issues
 ```bash
 $ dot doctor
 ```
@@ -496,39 +568,168 @@ Analyzing dotfile health...
 
 Overall Health: Errors ✗
 
-Quick check (managed links only, 0.9s)
-  ✓ 12 packages
-  ✓ 145 links validated
-  ✗ 2 broken links
-  ⚠ 1 warning
+Package Summary (12 packages, 147 links, 0.9s):
 
-Issues found:
+┌──────────────┬───────┬────────┬─────────┬──────────┐
+│ Package      │ Links │ Status │ Broken  │ Warnings │
+├──────────────┼───────┼────────┼─────────┼──────────┤
+│ vim          │    23 │ ✗      │       2 │        0 │
+│ zsh          │    18 │ ⚠      │       0 │        1 │
+│ git          │     8 │ ✓      │       0 │        0 │
+│ tmux         │    12 │ ✓      │       0 │        0 │
+│ nvim         │    31 │ ✓      │       0 │        0 │
+│ alacritty    │     4 │ ✓      │       0 │        0 │
+│ kitty        │     6 │ ✓      │       0 │        0 │
+│ bash         │     5 │ ✓      │       0 │        0 │
+│ fish         │     8 │ ✓      │       0 │        0 │
+│ starship     │     2 │ ✓      │       0 │        0 │
+│ btop         │     3 │ ✓      │       0 │        0 │
+│ scripts      │    27 │ ✓      │       0 │        0 │
+└──────────────┴───────┴────────┴─────────┴──────────┘
 
-Errors (2):
-  ✗ ~/.config/nvim/init.vim
-    Broken symlink (target does not exist)
-    Target: ~/dotfiles/nvim/dot-config/nvim/init.vim
-    Package: nvim
-    
-  ✗ ~/.tmux.conf
-    Broken symlink (target does not exist)
-    Target: ~/dotfiles/tmux/dot-tmux.conf
-    Package: tmux
+Issues found in 2 packages:
 
-Warnings (1):
-  ⚠ ~/.bashrc
-    Points outside package directory
-    Target: /usr/local/share/bash/bashrc
-    Package: bash
-    Note: This may be intentional
+vim (2 errors):
+  ✗ ~/.vimrc → target does not exist
+  ✗ ~/.vim/colors/ → target does not exist
+
+zsh (1 warning):
+  ⚠ ~/.bashrc → points outside package directory
 
 Recommendations:
   • Fix broken links: dot doctor fix
-  • Verify package directories: ls -la ~/dotfiles/nvim ~/dotfiles/tmux
-  • Check if files were renamed or moved
+  • Review warnings: dot doctor zsh -v
+  • Check individual package: dot doctor vim
 
 Exit code: 2 (errors detected)
 ```
+
+#### Compact Mode (Many Packages)
+```bash
+$ dot doctor --compact
+```
+
+```
+Health: Errors ✗ (2 packages affected, 0.9s)
+
+┌──────────────┬───────┬────────┐
+│ Package      │ Links │ Status │
+├──────────────┼───────┼────────┤
+│ vim          │    23 │ ✗ (2)  │
+│ zsh          │    18 │ ⚠ (1)  │
+│ git          │     8 │ ✓      │
+│ tmux         │    12 │ ✓      │
+│ nvim         │    31 │ ✓      │
+│ alacritty    │     4 │ ✓      │
+│ kitty        │     6 │ ✓      │
+│ bash         │     5 │ ✓      │
+│ fish         │     8 │ ✓      │
+│ starship     │     2 │ ✓      │
+│ btop         │     3 │ ✓      │
+│ scripts      │    27 │ ✓      │
+└──────────────┴───────┴────────┘
+
+2 errors, 1 warning. Run 'dot doctor -v' for details.
+```
+
+#### List Format (Alternative)
+```bash
+$ dot doctor --format list
+```
+
+```
+Analyzing dotfile health...
+
+Overall Health: Errors ✗
+
+Packages (12 total, 147 links):
+  ✗ vim          23 links  (2 broken)
+  ⚠ zsh          18 links  (1 warning)
+  ✓ git           8 links
+  ✓ tmux         12 links
+  ✓ nvim         31 links
+  ✓ alacritty     4 links
+  ✓ kitty         6 links
+  ✓ bash          5 links
+  ✓ fish          8 links
+  ✓ starship      2 links
+  ✓ btop          3 links
+  ✓ scripts      27 links
+
+2 errors in vim, 1 warning in zsh
+
+Details: dot doctor vim zsh
+```
+
+#### Filtering Options
+```bash
+# Show only packages with issues
+$ dot doctor --issues-only
+```
+
+```
+Health: Errors ✗
+
+Packages with issues (2 of 12):
+
+┌─────────┬───────┬────────┬─────────┬──────────┐
+│ Package │ Links │ Status │ Broken  │ Warnings │
+├─────────┼───────┼────────┼─────────┼──────────┤
+│ vim     │    23 │ ✗      │       2 │        0 │
+│ zsh     │    18 │ ⚠      │       0 │        1 │
+└─────────┴───────┴────────┴─────────┴──────────┘
+
+vim (2 errors):
+  ✗ ~/.vimrc → target does not exist
+  ✗ ~/.vim/colors/ → target does not exist
+
+zsh (1 warning):
+  ⚠ ~/.bashrc → points outside package directory
+
+10 packages healthy (not shown)
+Show all: dot doctor
+```
+
+#### Sorting Options
+```bash
+# Sort by number of links (largest first)
+$ dot doctor --sort links
+
+# Sort by package name (alphabetical)
+$ dot doctor --sort name
+
+# Sort by status (errors first, then warnings, then healthy)
+$ dot doctor --sort status
+```
+
+#### Configuration for Default Display
+```yaml
+# ~/.config/dot/config.yaml
+doctor:
+  # Default output mode for multiple packages
+  output_mode: table  # table | list | compact
+  
+  # Auto-switch to compact mode when package count exceeds threshold
+  compact_threshold: 15
+  
+  # Show only packages with issues by default
+  issues_only: false
+  
+  # Default sort order
+  sort_by: status  # status | name | links
+  
+  # Maximum packages to show before pagination
+  max_display: 20
+```
+
+#### Adaptive Display (Recommended Default)
+The system automatically chooses the best format based on context:
+
+- **1-5 packages**: Detailed inline view with full issue descriptions
+- **6-15 packages**: Table view with summary, issues shown below
+- **16+ packages**: Compact table, use `--issues-only` or `-v` for details
+- **Terminal < 80 cols**: Automatically switches to list format
+- **Non-TTY output**: Plain list format (no tables)
 
 #### Scripting Mode (CI/CD)
 ```bash
