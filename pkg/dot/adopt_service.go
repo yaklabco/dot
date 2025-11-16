@@ -102,6 +102,8 @@ func (s *AdoptService) resolveAdoptPath(ctx context.Context, file string) (strin
 		if strings.HasPrefix(file, "~/") {
 			return filepath.Join(home, file[2:]), nil
 		}
+		// Reject malformed tilde paths like ~user/path or ~abc
+		return "", fmt.Errorf("unsupported tilde expansion: %s (only ~ and ~/ are supported)", file)
 	}
 
 	// Explicit relative path from pwd (starts with ./ or ../)

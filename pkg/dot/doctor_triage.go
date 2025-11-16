@@ -74,18 +74,23 @@ func (s *DoctorService) Triage(ctx context.Context, scanCfg ScanConfig, opts Tri
 	// Group by category
 	groups := s.groupOrphansByCategory(ctx, orphanedIssues)
 
-	// Present overview and get processing choice
-	choice := s.promptTriageOverview(orphanedIssues, groups)
-
-	switch choice {
-	case "c": // Process by category
-		s.processTriageByCategory(ctx, &m, groups, opts, &result)
-	case "l": // Process linearly
-		s.processTriageLinearly(ctx, &m, orphanedIssues, groups, opts, &result)
-	case "a": // Auto-ignore high confidence
+	// If auto-ignore flag is set, automatically ignore high confidence categories
+	if opts.AutoIgnoreHighConfidence {
 		s.autoIgnoreHighConfidence(ctx, &m, groups, &result)
-	case "q": // Quit
-		return result, nil
+	} else {
+		// Present overview and get processing choice
+		choice := s.promptTriageOverview(orphanedIssues, groups)
+
+		switch choice {
+		case "c": // Process by category
+			s.processTriageByCategory(ctx, &m, groups, opts, &result)
+		case "l": // Process linearly
+			s.processTriageLinearly(ctx, &m, orphanedIssues, groups, opts, &result)
+		case "a": // Auto-ignore high confidence
+			s.autoIgnoreHighConfidence(ctx, &m, groups, &result)
+		case "q": // Quit
+			return result, nil
+		}
 	}
 
 	// Save changes

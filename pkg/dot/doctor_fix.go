@@ -202,7 +202,10 @@ func (s *DoctorService) promptFixDecision(ctx context.Context, issue Issue, cate
 	fmt.Printf("\nChoice [y/n/a/x]: ")
 
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		// Handle EOF or input error by defaulting to skip
+		return false, false
+	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
 
