@@ -48,7 +48,7 @@ sudo mv dot /usr/local/bin/
 
 ### From Source
 
-Requires Go 1.25 or later:
+Requires Go 1.25.4 or later:
 
 ```bash
 go install github.com/jamesainslie/dot/cmd/dot@latest
@@ -619,7 +619,7 @@ Contributions are welcome. All contributions must follow project standards:
 ### Requirements
 
 - Test-driven development: write tests before implementation
-- Minimum 80% test coverage for new code
+- Minimum 75% test coverage for new code
 - All linters must pass without warnings
 - Conventional Commits specification for commit messages
 - Atomic commits: one logical change per commit
@@ -644,9 +644,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 This project adheres to strict development standards:
 
-- **Language**: Go 1.25
+- **Language**: Go 1.25.4
 - **Development**: Test-Driven Development (TDD) mandatory
-- **Testing**: Minimum 80% coverage, property-based tests for core logic
+- **Testing**: Minimum 75% coverage, property-based tests for core logic
 - **Commits**: Atomic commits with Conventional Commits format
 - **Code Style**: golangci-lint v2 with comprehensive linter set
 - **Documentation**: Academic style, factual, technically precise

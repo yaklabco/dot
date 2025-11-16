@@ -3,7 +3,9 @@ package dot
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jamesainslie/dot/internal/executor"
 	"github.com/jamesainslie/dot/internal/manifest"
@@ -40,6 +42,85 @@ func newAdoptService(
 		targetDir:   targetDir,
 		dryRun:      dryRun,
 	}
+}
+
+// GetManagedPaths returns a map of all paths currently managed by dot.
+// The map keys are absolute paths that are already symlinked.
+// This is useful for filtering out already-managed files during discovery.
+func (s *AdoptService) GetManagedPaths(ctx context.Context) (map[string]bool, error) {
+	// Load manifest
+	targetPath := NewTargetPath(s.targetDir)
+	if targetPath.IsErr() {
+		return nil, targetPath.UnwrapErr()
+	}
+
+	result := s.manifestSvc.Load(ctx, targetPath.Unwrap())
+	if result.IsErr() {
+		err := result.UnwrapErr()
+		// If manifest doesn't exist, return empty map
+		if os.IsNotExist(err) {
+			return make(map[string]bool), nil
+		}
+		return nil, fmt.Errorf("load manifest: %w", err)
+	}
+
+	m := result.Unwrap()
+
+	// Extract all managed paths
+	managedPaths := make(map[string]bool)
+	for _, pkg := range m.Packages {
+		for _, link := range pkg.Links {
+			// Convert relative link to absolute path
+			absPath := filepath.Join(s.targetDir, link)
+			managedPaths[absPath] = true
+		}
+	}
+
+	return managedPaths, nil
+}
+
+// resolveAdoptPath resolves a file path for adoption based on context.
+// Resolution rules:
+//   - Absolute paths (starting with / or ~): used as-is
+//   - Relative paths starting with ./: resolved from current working directory
+//   - Bare paths: resolved from target directory (default behavior)
+func (s *AdoptService) resolveAdoptPath(ctx context.Context, file string) (string, error) {
+	// Already absolute path
+	if filepath.IsAbs(file) {
+		return file, nil
+	}
+
+	// Tilde expansion
+	if strings.HasPrefix(file, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot expand ~: %w", err)
+		}
+		if file == "~" {
+			return home, nil
+		}
+		if strings.HasPrefix(file, "~/") {
+			return filepath.Join(home, file[2:]), nil
+		}
+		// Reject malformed tilde paths like ~user/path or ~abc
+		return "", fmt.Errorf("unsupported tilde expansion: %s (only ~ and ~/ are supported)", file)
+	}
+
+	// Explicit relative path from pwd (starts with ./ or ../)
+	if strings.HasPrefix(file, "./") || strings.HasPrefix(file, "../") {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("cannot get working directory: %w", err)
+		}
+		absPath, err := filepath.Abs(filepath.Join(cwd, file))
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve path: %w", err)
+		}
+		return absPath, nil
+	}
+
+	// Bare path: resolve from target directory (backward compatible default)
+	return filepath.Join(s.targetDir, file), nil
 }
 
 // Adopt moves existing files from target into package then creates symlinks.
@@ -101,9 +182,18 @@ func (s *AdoptService) PlanAdopt(ctx context.Context, files []string, pkg string
 	}
 
 	for _, file := range files {
-		sourceFile := filepath.Join(s.targetDir, file)
+		sourceFile, err := s.resolveAdoptPath(ctx, file)
+		if err != nil {
+			return Plan{}, fmt.Errorf("failed to resolve path %s: %w", file, err)
+		}
+
 		if !s.fs.Exists(ctx, sourceFile) {
 			return Plan{}, ErrSourceNotFound{Path: sourceFile}
+		}
+
+		// Validate the source file (symlink checks)
+		if err := s.validateAdoptSource(ctx, file, sourceFile); err != nil {
+			return Plan{}, err
 		}
 
 		// Check if source is a directory
@@ -330,4 +420,54 @@ func splitPath(path string) []string {
 		path = filepath.Clean(dir)
 	}
 	return components
+}
+
+// validateAdoptSource validates that the source file can be adopted.
+// Checks if it's a symlink and handles accordingly.
+func (s *AdoptService) validateAdoptSource(ctx context.Context, originalPath, resolvedPath string) error {
+	// Check if source is a symlink (after existence check to avoid lstat errors)
+	isSymlink, symlinkTarget, err := s.checkIfSymlink(ctx, resolvedPath)
+	if err != nil {
+		return fmt.Errorf("failed to check symlink status: %w", err)
+	}
+
+	if isSymlink {
+		// Check if it points to our package directory
+		// Normalize paths to avoid false positives with similar directory names
+		pkgRoot := filepath.Clean(s.packageDir)
+		target := filepath.Clean(symlinkTarget)
+
+		if target == pkgRoot || strings.HasPrefix(target, pkgRoot+string(os.PathSeparator)) {
+			return fmt.Errorf("cannot adopt %s: already managed by dot (symlink to %s)", originalPath, symlinkTarget)
+		}
+		// Warn if symlink to other location
+		s.logger.Warn(ctx, "adopting_symlink", "path", originalPath, "target", symlinkTarget)
+	}
+
+	return nil
+}
+
+// checkIfSymlink checks if path is a symlink and returns its target.
+// Returns (isSymlink, target, error).
+func (s *AdoptService) checkIfSymlink(ctx context.Context, path string) (bool, string, error) {
+	info, err := s.fs.Lstat(ctx, path)
+	if err != nil {
+		return false, "", err
+	}
+
+	if info.Mode()&os.ModeSymlink == 0 {
+		return false, "", nil
+	}
+
+	target, err := s.fs.ReadLink(ctx, path)
+	if err != nil {
+		return true, "", err
+	}
+
+	// Resolve relative paths
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(path), target)
+	}
+
+	return true, target, nil
 }

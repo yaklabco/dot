@@ -1,1 +1,1 @@
-Error: source does not exist: "<TMPDIR>
+Error: source does not exist: "<TMPDIR> (paths without ./ or ../ are resolved from target directory)

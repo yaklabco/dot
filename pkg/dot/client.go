@@ -13,6 +13,7 @@ import (
 	"github.com/jamesainslie/dot/internal/manifest"
 	"github.com/jamesainslie/dot/internal/pipeline"
 	"github.com/jamesainslie/dot/internal/planner"
+	"github.com/jamesainslie/dot/internal/scanner"
 )
 
 // Client provides the high-level API for dot operations.
@@ -49,8 +50,31 @@ func NewClient(cfg Config) (*Client, error) {
 	// Apply defaults
 	cfg = cfg.WithDefaults()
 
-	// Create default ignore set
-	ignoreSet := ignore.NewDefaultIgnoreSet()
+	// Build ignore set from configuration
+	ignoreSet := ignore.NewIgnoreSet()
+
+	// Add default patterns if enabled
+	if cfg.UseDefaultIgnorePatterns {
+		for _, pattern := range ignore.DefaultIgnorePatterns() {
+			if err := ignoreSet.Add(pattern); err != nil {
+				return nil, fmt.Errorf("add default pattern %q: %w", pattern, err)
+			}
+		}
+	}
+
+	// Add user-specified patterns
+	for _, pattern := range cfg.IgnorePatterns {
+		if err := ignoreSet.Add(pattern); err != nil {
+			return nil, fmt.Errorf("add ignore pattern %q: %w", pattern, err)
+		}
+	}
+
+	// Build scanner configuration
+	scanConfig := scanner.ScanConfig{
+		PerPackageIgnore: cfg.PerPackageIgnore,
+		MaxFileSize:      cfg.MaxFileSize,
+		Interactive:      cfg.InteractiveLargeFiles,
+	}
 
 	// Determine resolution policy from config
 	// Priority: Overwrite > Backup > Fail (safe default)
@@ -70,6 +94,7 @@ func NewClient(cfg Config) (*Client, error) {
 	managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
 		FS:                 cfg.FS,
 		IgnoreSet:          ignoreSet,
+		ScanConfig:         scanConfig,
 		Policies:           policies,
 		BackupDir:          cfg.BackupDir,
 		PackageNameMapping: cfg.PackageNameMapping,
@@ -94,9 +119,9 @@ func NewClient(cfg Config) (*Client, error) {
 	// Create specialized services (unmanageSvc first since manageSvc depends on it)
 	unmanageSvc := newUnmanageService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 	manageSvc := newManageService(cfg.FS, cfg.Logger, managePipe, exec, manifestSvc, unmanageSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
-	statusSvc := newStatusService(manifestSvc, cfg.TargetDir)
-	doctorSvc := newDoctorService(cfg.FS, cfg.Logger, manifestSvc, cfg.TargetDir)
+	statusSvc := newStatusService(cfg.FS, cfg.Logger, manifestSvc, cfg.TargetDir)
 	adoptSvc := newAdoptService(cfg.FS, cfg.Logger, exec, manifestSvc, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
+	doctorSvc := newDoctorServiceWithAdopt(cfg.FS, cfg.Logger, manifestSvc, adoptSvc, cfg.PackageDir, cfg.TargetDir)
 
 	// Create git cloner and package selector for clone service
 	gitCloner := adapters.NewGoGitCloner()
@@ -205,6 +230,11 @@ func (c *Client) Doctor(ctx context.Context) (DiagnosticReport, error) {
 // DoctorWithScan performs health checks with explicit scan configuration.
 func (c *Client) DoctorWithScan(ctx context.Context, scanCfg ScanConfig) (DiagnosticReport, error) {
 	return c.doctorSvc.DoctorWithScan(ctx, scanCfg)
+}
+
+// Triage performs interactive triage of orphaned symlinks.
+func (c *Client) Triage(ctx context.Context, scanCfg ScanConfig, opts TriageOptions) (TriageResult, error) {
+	return c.doctorSvc.Triage(ctx, scanCfg, opts)
 }
 
 // Clone clones a dotfiles repository and installs packages.

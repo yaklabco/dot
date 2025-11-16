@@ -96,6 +96,7 @@ type ScanInput struct {
 	TargetDir  domain.TargetPath
 	Packages   []string
 	IgnoreSet  *ignore.IgnoreSet
+	ScanConfig scanner.ScanConfig
 	FS         domain.FS
 }
 
@@ -128,8 +129,14 @@ func ScanStage() Pipeline[ScanInput, []domain.Package] {
 			}
 			pkgPath := pkgPathResult.Unwrap()
 
-			// scanner.ScanPackage already accepts context and should handle cancellation
-			pkgResult := scanner.ScanPackage(ctx, input.FS, pkgPath, pkgName, input.IgnoreSet)
+			// Use ScanPackageWithConfig if any advanced features are enabled
+			var pkgResult domain.Result[domain.Package]
+			if input.ScanConfig.PerPackageIgnore || input.ScanConfig.MaxFileSize > 0 {
+				pkgResult = scanner.ScanPackageWithConfig(ctx, input.FS, pkgPath, pkgName, input.IgnoreSet, input.ScanConfig)
+			} else {
+				// Use standard scan for backward compatibility
+				pkgResult = scanner.ScanPackage(ctx, input.FS, pkgPath, pkgName, input.IgnoreSet)
+			}
 
 			if pkgResult.IsErr() {
 				return domain.Err[[]domain.Package](pkgResult.UnwrapErr())

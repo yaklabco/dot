@@ -9,6 +9,7 @@ import (
 type FS interface {
 	// Read operations
 	Stat(ctx context.Context, path string) (FileInfo, error)
+	Lstat(ctx context.Context, path string) (FileInfo, error)
 	ReadDir(ctx context.Context, path string) ([]DirEntry, error)
 	ReadLink(ctx context.Context, path string) (string, error)
 	ReadFile(ctx context.Context, path string) ([]byte, error)

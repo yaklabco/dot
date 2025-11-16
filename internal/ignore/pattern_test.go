@@ -197,3 +197,86 @@ func TestPattern_String(t *testing.T) {
 	str := pattern.String()
 	assert.Contains(t, str, "*.txt")
 }
+
+func TestPattern_Negation(t *testing.T) {
+	tests := []struct {
+		name        string
+		pattern     string
+		wantNegated bool
+	}{
+		{
+			name:        "normal pattern",
+			pattern:     "*.txt",
+			wantNegated: false,
+		},
+		{
+			name:        "negation pattern",
+			pattern:     "!important.txt",
+			wantNegated: true,
+		},
+		{
+			name:        "negation with wildcard",
+			pattern:     "!*.keep",
+			wantNegated: true,
+		},
+		{
+			name:        "directory pattern",
+			pattern:     "node_modules/",
+			wantNegated: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ignore.NewPattern(tt.pattern)
+			require.True(t, result.IsOk())
+			pattern := result.Unwrap()
+
+			assert.Equal(t, tt.wantNegated, pattern.IsNegation())
+
+			// Verify the original pattern string is preserved
+			assert.Equal(t, tt.pattern, pattern.String())
+		})
+	}
+}
+
+func TestPattern_NegationMatching(t *testing.T) {
+	// Test that negation patterns match the same paths as normal patterns
+	// (just with different interpretation)
+	tests := []struct {
+		name        string
+		pattern     string
+		testPath    string
+		shouldMatch bool
+	}{
+		{
+			name:        "negation matches file",
+			pattern:     "!important.txt",
+			testPath:    "important.txt",
+			shouldMatch: true,
+		},
+		{
+			name:        "negation matches with wildcard",
+			pattern:     "!*.keep",
+			testPath:    "cache.keep",
+			shouldMatch: true,
+		},
+		{
+			name:        "negation doesn't match unrelated",
+			pattern:     "!*.keep",
+			testPath:    "file.txt",
+			shouldMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ignore.NewPattern(tt.pattern)
+			require.True(t, result.IsOk())
+			pattern := result.Unwrap()
+
+			matched := pattern.Match(tt.testPath) || pattern.MatchBasename(tt.testPath)
+			assert.Equal(t, tt.shouldMatch, matched)
+		})
+	}
+}

@@ -368,47 +368,9 @@ func (s *UnmanageService) createRestoreOperations(ctx context.Context, pkg strin
 		}
 
 		if isDir {
-			// Check if this is a directory adoption or single file in package directory
-			// For directory adoption: package root contains the adopted directory's contents
-			// For file adoption: package root contains a single file with translated name
-
-			linkBase := filepath.Base(link)
-			translatedName := scanner.UntranslateDotfile(linkBase)
-			fileInPackage := filepath.Join(pkgRootPath, translatedName)
-
-			if s.fs.Exists(ctx, fileInPackage) {
-				// Single file in package directory - restore just the file
-				s.logger.Info(ctx, "restoring_adopted_file", "package", pkg, "file", translatedName)
-
-				sourceResult := NewFilePath(fileInPackage)
-				if !sourceResult.IsOk() {
-					continue
-				}
-
-				destResult := NewFilePath(targetFilePath)
-				if !destResult.IsOk() {
-					continue
-				}
-
-				id := OperationID(fmt.Sprintf("restore-file-%s", link))
-				operations = append(operations, NewFileBackup(id, sourceResult.Unwrap(), destResult.Unwrap()))
-			} else {
-				// Directory adoption - package root IS the adopted directory
-				s.logger.Info(ctx, "restoring_adopted_directory", "package", pkg, "link", link)
-
-				sourceResult := NewFilePath(pkgRootPath)
-				if !sourceResult.IsOk() {
-					continue
-				}
-
-				destResult := NewFilePath(targetFilePath)
-				if !destResult.IsOk() {
-					continue
-				}
-
-				id := OperationID(fmt.Sprintf("restore-dir-%s", pkg))
-				operations = append(operations, NewDirCopy(id, sourceResult.Unwrap(), destResult.Unwrap()))
-			}
+			// Handle directory package restoration (including corrupted structures)
+			dirOps := s.createDirectoryRestoreOperations(ctx, pkg, link, pkgRootPath, targetFilePath)
+			operations = append(operations, dirOps...)
 		} else {
 			// Single file adoption - old behavior
 			// For files, the package structure is pkg/dot-filename
@@ -445,4 +407,77 @@ func (s *UnmanageService) createRestoreOperations(ctx context.Context, pkg strin
 	}
 
 	return operations, nil
+}
+
+// createDirectoryRestoreOperations handles restoration of directory packages.
+// Detects and handles corrupted nested structures.
+func (s *UnmanageService) createDirectoryRestoreOperations(ctx context.Context, pkg, link, pkgRootPath, targetFilePath string) []Operation {
+	// Improved detection: check what actually exists in package
+	linkBase := filepath.Base(link)
+	translatedName := scanner.UntranslateDotfile(linkBase)
+	fileInPackage := filepath.Join(pkgRootPath, translatedName)
+
+	// Check if fileInPackage exists AND is a file (not directory)
+	if s.fs.Exists(ctx, fileInPackage) {
+		fileInfo, err := s.fs.Stat(ctx, fileInPackage)
+		if err == nil && !fileInfo.IsDir() {
+			// Single file adoption - restore the file
+			s.logger.Info(ctx, "restoring_adopted_file", "package", pkg, "file", translatedName)
+
+			sourceResult := NewFilePath(fileInPackage)
+			if !sourceResult.IsOk() {
+				return nil
+			}
+
+			destResult := NewFilePath(targetFilePath)
+			if !destResult.IsOk() {
+				return nil
+			}
+
+			id := OperationID(fmt.Sprintf("restore-file-%s", link))
+			return []Operation{NewFileBackup(id, sourceResult.Unwrap(), destResult.Unwrap())}
+		}
+
+		// If fileInPackage is a directory, it's likely corruption
+		if err == nil && fileInfo.IsDir() {
+			s.logger.Warn(ctx, "detected_nested_structure", "package", pkg, "nested_dir", translatedName)
+			return s.createCorruptedStructureRepair(ctx, pkg, fileInPackage, targetFilePath)
+		}
+	}
+
+	// Standard directory adoption - package root IS the adopted directory
+	s.logger.Info(ctx, "restoring_adopted_directory", "package", pkg, "link", link)
+
+	sourceResult := NewFilePath(pkgRootPath)
+	if !sourceResult.IsOk() {
+		return nil
+	}
+
+	destResult := NewFilePath(targetFilePath)
+	if !destResult.IsOk() {
+		return nil
+	}
+
+	id := OperationID(fmt.Sprintf("restore-dir-%s", pkg))
+	return []Operation{NewDirCopy(id, sourceResult.Unwrap(), destResult.Unwrap())}
+}
+
+// createCorruptedStructureRepair attempts to repair a nested directory structure.
+// This handles the case where a package has a corrupted nested structure like dot-ssh/dot-ssh/files.
+func (s *UnmanageService) createCorruptedStructureRepair(ctx context.Context, pkg, nestedPath, targetPath string) []Operation {
+	// Copy from the nested incorrect location
+	sourceResult := NewFilePath(nestedPath)
+	if !sourceResult.IsOk() {
+		return nil
+	}
+
+	destResult := NewFilePath(targetPath)
+	if !destResult.IsOk() {
+		return nil
+	}
+
+	s.logger.Info(ctx, "repairing_corrupted_structure", "package", pkg, "nested", nestedPath)
+
+	id := OperationID(fmt.Sprintf("repair-nested-%s", pkg))
+	return []Operation{NewDirCopy(id, sourceResult.Unwrap(), destResult.Unwrap())}
 }

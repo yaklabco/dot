@@ -1,6 +1,6 @@
 // Package dot provides a modern, type-safe symlink manager for dotfiles.
 //
-// dot is a modern dotfile manager written in Go 1.25.1, following strict
+// dot is a modern dotfile manager written in Go 1.25.4, following strict
 // constitutional principles: test-driven development, atomic operations,
 // functional programming, and comprehensive error handling.
 //

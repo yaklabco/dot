@@ -104,7 +104,7 @@ dot --version
 
 ### From Source
 
-Requires Go 1.25 or later.
+Requires Go 1.25.4 or later.
 
 #### Quick Install
 
@@ -331,7 +331,7 @@ dot status
 Expected output:
 ```
 dot version v0.1.0
-Built with Go 1.25
+Built with Go 1.25.4
 Platform: linux/amd64
 ```
 

@@ -1,23 +1,5 @@
-Usage:
-  dot adopt [PACKAGE] FILE [FILE...] [flags]
+Error: interactive mode requires a terminal (TTY)
 
-Flags:
-  -h, --help   help for adopt
-
-Global Flags:
-      --backup-dir string    Directory for backup files (default: <target>/.dot-backup)
-      --batch                Batch mode for scripting (implies --quiet)
-      --cpu-profile string   Write CPU profile to file (for diagnostics)
-  -d, --dir string           Source directory containing packages (default ".")
-  -n, --dry-run              Show what would be done without applying changes
-      --log-json             Output logs in JSON format
-      --mem-profile string   Write memory profile to file (for diagnostics)
-      --no-color             Disable color output
-      --pprof string         Enable pprof HTTP server on address (e.g. :6060)
-  -q, --quiet                Suppress all non-error output
-  -t, --target string        Target directory for symlinks (default "<CWD>")
-  -v, --verbose count        Increase verbosity: -v (info), -vv (debug), -vvv (trace)
-
---- stderr ---
-Error: requires at least 1 arg(s), only received 0
-
+To adopt files in non-interactive mode:
+  dot adopt FILE                    # Auto-name package from file
+  dot adopt PACKAGE FILE [FILE...]  # Specify package name

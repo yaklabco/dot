@@ -710,6 +710,34 @@ dot adopt vim .vimrc .vim/          # Package: vim
 dot adopt configs .config/ .local/  # Package: configs
 ```
 
+#### Path Resolution
+
+File paths are resolved based on the following rules:
+
+1. **Absolute paths** (`/etc/config`, `~/file`): Used as-is
+2. **Explicit relative paths** (`./file`, `../dir`): Resolved from current working directory
+3. **Bare paths** (`file`, `.config/nvim`): Resolved from target directory (default: `$HOME`)
+
+**Examples:**
+
+```bash
+# From ~/.config directory:
+cd ~/.config
+dot adopt ado-cli ./ado-cli        # Adopts ~/.config/ado-cli (from pwd)
+dot adopt fish .config/fish        # Adopts $HOME/.config/fish (from target)
+
+# Using explicit pwd paths:
+cd ~/.config
+dot adopt nvim ./nvim              # Adopts ~/.config/nvim
+dot adopt configs ./fish ./nvim    # Adopts multiple from pwd
+
+# Backward compatible - bare paths from target:
+cd /tmp
+dot adopt .vimrc                   # Adopts $HOME/.vimrc (not /tmp/.vimrc)
+```
+
+**Note:** The `./` prefix explicitly means "from current directory", while bare paths maintain backward compatibility by resolving from the target directory.
+
 **Directory Adoption**:
 
 When adopting a directory, `dot` creates a **flat structure** in the package with the directory contents at the package root:
@@ -966,7 +994,7 @@ Health check failed: 3 issues found
 
 ### list
 
-Show installed package inventory.
+Show installed package inventory with health status indicators.
 
 **Synopsis**:
 ```bash
@@ -978,9 +1006,18 @@ dot list [options]
 - `-s, --sort FIELD`: Sort by field (`name`, `links`, `date`)
 - All global options
 
+**Health Status**:
+
+Each package is automatically checked for health when listing. A package is considered healthy if all its managed symlinks exist and point to their correct targets. Health indicators:
+
+- `✓` (green checkmark): All symlinks are valid
+- `✗` (red X): Package has issues with specific type indicated (e.g., "broken links", "wrong target", "missing links")
+
+The health check is fast and only validates symlink existence and targets, without the full diagnostic scan that `doctor` performs.
+
 **Examples**:
 ```bash
-# List all packages
+# List all packages with health status
 dot list
 
 # Sort by link count
@@ -989,10 +1026,10 @@ dot list --sort links
 # Sort by installation date
 dot list --sort date
 
-# JSON output
+# JSON output (includes health status)
 dot list --format json
 
-# Table format
+# Table format with health column
 dot list --format table
 
 # Combine sorting and format
@@ -1001,17 +1038,23 @@ dot list --sort links --format table
 
 **Example Output (text)**:
 ```
-vim    (3 links) installed 2025-10-07 10:30:00
-zsh    (2 links) installed 2025-10-07 10:31:00
-tmux   (1 link)  installed 2025-10-07 10:32:00
+Packages: 3 packages in /home/user/dotfiles
+
+✓  vim    (3 links)  installed 2 hours ago
+✗  zsh    (2 links)  broken links  installed 1 day ago
+✓  tmux   (1 link)   installed 3 days ago
+
+2 healthy, 1 unhealthy
 ```
 
 **Example Output (table)**:
 ```
-NAME   LINKS  INSTALLED
-vim    3      2025-10-07 10:30:00
-zsh    2      2025-10-07 10:31:00
-tmux   1      2025-10-07 10:32:00
+Health          Package  Links  Installed
+✓               vim      3      2 hours ago
+✗ broken links  zsh      2      1 day ago
+✓               tmux     1      3 days ago
+
+2 healthy, 1 unhealthy
 ```
 
 **Example Output (JSON)**:
@@ -1020,15 +1063,24 @@ tmux   1      2025-10-07 10:32:00
   {
     "name": "vim",
     "link_count": 3,
-    "installed_at": "2025-10-07T10:30:00Z"
+    "installed_at": "2025-10-07T10:30:00Z",
+    "is_healthy": true,
+    "issue_type": ""
   },
   {
     "name": "zsh",
     "link_count": 2,
-    "installed_at": "2025-10-07T10:31:00Z"
+    "installed_at": "2025-10-07T10:31:00Z",
+    "is_healthy": false,
+    "issue_type": "broken links"
   }
 ]
 ```
+
+**Issue Types**:
+- `broken links`: Symlinks point to non-existent targets
+- `wrong target`: Symlinks point to unexpected locations outside the package directory
+- `missing links`: Expected symlinks do not exist
 
 **Exit Codes**:
 - `0`: Success
@@ -1064,7 +1116,7 @@ dot --version
 **Example Output**:
 ```
 dot version v0.1.0
-Built with Go 1.25
+Built with Go 1.25.4
 Commit: abc1234
 Build date: 2025-10-07
 Platform: linux/amd64

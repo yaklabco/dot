@@ -7,12 +7,14 @@ import (
 	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/jamesainslie/dot/internal/ignore"
 	"github.com/jamesainslie/dot/internal/planner"
+	"github.com/jamesainslie/dot/internal/scanner"
 )
 
 // ManagePipelineOpts contains options for the Manage pipeline
 type ManagePipelineOpts struct {
 	FS                 domain.FS
 	IgnoreSet          *ignore.IgnoreSet
+	ScanConfig         scanner.ScanConfig
 	Policies           planner.ResolutionPolicies
 	BackupDir          string
 	PackageNameMapping bool
@@ -47,6 +49,7 @@ func (p *ManagePipeline) Execute(ctx context.Context, input ManageInput) domain.
 		TargetDir:  input.TargetDir,
 		Packages:   input.Packages,
 		IgnoreSet:  p.opts.IgnoreSet,
+		ScanConfig: p.opts.ScanConfig,
 		FS:         p.opts.FS,
 	}
 

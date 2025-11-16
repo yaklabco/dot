@@ -10,24 +10,46 @@ import (
 	"github.com/jamesainslie/dot/internal/domain"
 )
 
+// PatternType identifies whether a pattern includes or excludes files.
+type PatternType int
+
+const (
+	// PatternInclude represents a normal ignore pattern.
+	PatternInclude PatternType = iota
+	// PatternExclude represents a negation pattern that un-ignores files.
+	PatternExclude
+)
+
 // Pattern represents a compiled pattern for matching paths.
 type Pattern struct {
 	original string
 	regex    *regexp.Regexp
+	typ      PatternType
 }
 
 // NewPattern creates a pattern from a glob pattern.
 // Converts glob syntax to regex for matching.
+// Patterns starting with ! are negation patterns that un-ignore files.
 func NewPattern(glob string) domain.Result[*Pattern] {
+	typ := PatternInclude
+	originalGlob := glob
+
+	// Detect negation pattern
+	if strings.HasPrefix(glob, "!") {
+		typ = PatternExclude
+		glob = glob[1:] // Remove ! prefix for regex conversion
+	}
+
 	regex := GlobToRegex(glob)
 	compiled, err := regexp.Compile(regex)
 	if err != nil {
-		return domain.Err[*Pattern](fmt.Errorf("compile pattern %q: %w", glob, err))
+		return domain.Err[*Pattern](fmt.Errorf("compile pattern %q: %w", originalGlob, err))
 	}
 
 	return domain.Ok(&Pattern{
-		original: glob, // Store original glob, not regex
+		original: originalGlob, // Store original glob with ! if present
 		regex:    compiled,
+		typ:      typ,
 	})
 }
 
@@ -41,6 +63,7 @@ func NewPatternFromRegex(regex string) domain.Result[*Pattern] {
 	return domain.Ok(&Pattern{
 		original: regex,
 		regex:    compiled,
+		typ:      PatternInclude, // Regex patterns are always include type
 	})
 }
 
@@ -59,6 +82,16 @@ func (p *Pattern) MatchBasename(path string) bool {
 // String returns the original pattern string.
 func (p *Pattern) String() string {
 	return p.original
+}
+
+// IsNegation returns true if this is a negation pattern.
+func (p *Pattern) IsNegation() bool {
+	return p.typ == PatternExclude
+}
+
+// Type returns the pattern type.
+func (p *Pattern) Type() PatternType {
+	return p.typ
 }
 
 // GlobToRegex converts a glob pattern to a regex pattern.

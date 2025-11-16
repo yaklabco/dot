@@ -115,6 +115,10 @@ type ErrSourceNotFound struct {
 }
 
 func (e ErrSourceNotFound) Error() string {
+	// Detect if path looks like it was resolved from target vs pwd
+	if strings.Contains(e.Path, "/") {
+		return fmt.Sprintf("source does not exist: %q (paths without ./ or ../ are resolved from target directory)", e.Path)
+	}
 	return fmt.Sprintf("source does not exist: %q", e.Path)
 }
 

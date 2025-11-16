@@ -6,7 +6,7 @@ import "github.com/jamesainslie/dot/internal/domain"
 // These use proper type aliases (=) and include all methods from domain types.
 //
 // Note: The generic Path[K PathKind] type is NOT re-exported to avoid
-// Go 1.25.1 generic type alias limitations. Users should use the concrete
+// Go 1.25.4 generic type alias limitations. Users should use the concrete
 // types (PackagePath, TargetPath, FilePath) which work perfectly as aliases.
 
 // PackagePath is a path to a package directory.

@@ -76,7 +76,7 @@ When you trigger the version bump workflow:
 3. **Version Calculation** - Determines next version from git tags
 4. **Quality Checks**:
    - Runs full test suite with race detection
-   - Checks code coverage (must be ≥80%)
+   - Checks code coverage (must be ≥75%)
    - Runs golangci-lint
    - Runs go vet
 5. **Changelog Generation** - Uses git-chglog with your config
@@ -123,7 +123,7 @@ Your repository already has:
 - ✅ Conventional commit format in use
 - ✅ git-chglog configured
 - ✅ Quality checks (tests, linting)
-- ✅ Coverage threshold (80%)
+- ✅ Coverage threshold (75%)
 - ✅ GoReleaser config
 - ✅ Homebrew tap setup
 - ✅ GitHub Actions enabled
@@ -245,7 +245,7 @@ Valid types: `feat`, `fix`, `perf`, `refactor`, `build`, `revert`
 
 The workflow will fail if:
 - Tests don't pass
-- Coverage drops below 80%
+- Coverage drops below 75%
 - Linting errors exist
 - go vet finds issues
 

@@ -1,1 +1,1 @@
-Error: source does not exist: "<CWD>/mypackage"
+Error: source does not exist: "<CWD>/mypackage" (paths without ./ or ../ are resolved from target directory)

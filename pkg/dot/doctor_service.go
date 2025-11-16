@@ -7,15 +7,19 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/jamesainslie/dot/internal/ignore"
 	"github.com/jamesainslie/dot/internal/manifest"
 )
 
 // DoctorService handles health check and diagnostic operations.
 type DoctorService struct {
-	fs          FS
-	logger      Logger
-	manifestSvc *ManifestService
-	targetDir   string
+	fs            FS
+	logger        Logger
+	manifestSvc   *ManifestService
+	packageDir    string
+	targetDir     string
+	healthChecker *HealthChecker
+	adoptSvc      *AdoptService
 }
 
 // scanResult holds the results from scanning a single directory.
@@ -24,18 +28,42 @@ type scanResult struct {
 	stats  DiagnosticStats
 }
 
-// newDoctorService creates a new doctor service.
+// newDoctorService creates a new doctor service (for tests).
 func newDoctorService(
 	fs FS,
 	logger Logger,
 	manifestSvc *ManifestService,
+	packageDir string,
 	targetDir string,
 ) *DoctorService {
 	return &DoctorService{
-		fs:          fs,
-		logger:      logger,
-		manifestSvc: manifestSvc,
-		targetDir:   targetDir,
+		fs:            fs,
+		logger:        logger,
+		manifestSvc:   manifestSvc,
+		packageDir:    packageDir,
+		targetDir:     targetDir,
+		healthChecker: newHealthChecker(fs, targetDir),
+		adoptSvc:      nil, // Not needed for basic tests
+	}
+}
+
+// newDoctorServiceWithAdopt creates a new doctor service with adoption support.
+func newDoctorServiceWithAdopt(
+	fs FS,
+	logger Logger,
+	manifestSvc *ManifestService,
+	adoptSvc *AdoptService,
+	packageDir string,
+	targetDir string,
+) *DoctorService {
+	return &DoctorService{
+		fs:            fs,
+		logger:        logger,
+		manifestSvc:   manifestSvc,
+		packageDir:    packageDir,
+		targetDir:     targetDir,
+		healthChecker: newHealthChecker(fs, targetDir),
+		adoptSvc:      adoptSvc,
 	}
 }
 
@@ -118,7 +146,7 @@ func (s *DoctorService) checkManagedPackages(ctx context.Context, m *manifest.Ma
 		stats.ManagedLinks += pkgInfo.LinkCount
 		for _, linkPath := range pkgInfo.Links {
 			stats.TotalLinks++
-			s.checkLink(ctx, pkgName, linkPath, issues, stats)
+			s.checkLink(ctx, pkgName, linkPath, pkgInfo, issues, stats)
 		}
 	}
 }
@@ -138,94 +166,24 @@ func (s *DoctorService) determineOverallHealth(issues []Issue) HealthStatus {
 }
 
 // checkLink validates a single link from the manifest.
-func (s *DoctorService) checkLink(ctx context.Context, pkgName string, linkPath string, issues *[]Issue, stats *DiagnosticStats) {
-	fullPath := filepath.Join(s.targetDir, linkPath)
-	_, err := s.fs.Stat(ctx, fullPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+func (s *DoctorService) checkLink(ctx context.Context, pkgName string, linkPath string, pkgInfo manifest.PackageInfo, issues *[]Issue, stats *DiagnosticStats) {
+	// Use unified health checker
+	result := s.healthChecker.CheckLink(ctx, pkgName, linkPath, pkgInfo.PackageDir)
+
+	if !result.IsHealthy {
+		// Count broken links for statistics
+		if result.IssueType == IssueBrokenLink {
 			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssueBrokenLink,
-				Path:       linkPath,
-				Message:    "Link does not exist",
-				Suggestion: "Run 'dot remanage " + pkgName + "' to restore link",
-			})
-		} else {
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssuePermission,
-				Path:       linkPath,
-				Message:    "Cannot access link: " + err.Error(),
-				Suggestion: "Check filesystem permissions",
-			})
 		}
-		return
-	}
 
-	isLink, err := s.fs.IsSymlink(ctx, fullPath)
-	if err != nil {
+		// Add issue to list
 		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssuePermission,
+			Severity:   result.Severity,
+			Type:       result.IssueType,
 			Path:       linkPath,
-			Message:    "Cannot check if path is symlink: " + err.Error(),
-			Suggestion: "Check filesystem permissions",
+			Message:    result.Message,
+			Suggestion: result.Suggestion,
 		})
-		return
-	}
-	if !isLink {
-		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssueWrongTarget,
-			Path:       linkPath,
-			Message:    "Expected symlink but found regular file",
-			Suggestion: "Run 'dot unmanage " + pkgName + "' then 'dot manage " + pkgName + "'",
-		})
-		return
-	}
-
-	target, err := s.fs.ReadLink(ctx, fullPath)
-	if err != nil {
-		*issues = append(*issues, Issue{
-			Severity:   SeverityError,
-			Type:       IssuePermission,
-			Path:       linkPath,
-			Message:    "Cannot read link target: " + err.Error(),
-			Suggestion: "Check filesystem permissions",
-		})
-		return
-	}
-
-	var absTarget string
-	if filepath.IsAbs(target) {
-		absTarget = target
-	} else {
-		absTarget = filepath.Join(filepath.Dir(fullPath), target)
-	}
-
-	_, err = s.fs.Stat(ctx, absTarget)
-	if err != nil {
-		if os.IsNotExist(err) {
-			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssueBrokenLink,
-				Path:       linkPath,
-				Message:    "Link target does not exist: " + target,
-				Suggestion: "Run 'dot remanage " + pkgName + "' to fix broken link",
-			})
-		} else {
-			// Permission or other filesystem errors
-			stats.BrokenLinks++
-			*issues = append(*issues, Issue{
-				Severity:   SeverityError,
-				Type:       IssuePermission,
-				Path:       linkPath,
-				Message:    "Cannot access link target: " + err.Error(),
-				Suggestion: "Check file permissions for target path or run with appropriate permissions",
-			})
-		}
 	}
 }
 
@@ -241,6 +199,7 @@ func (s *DoctorService) performOrphanScan(
 	scanDirs := s.determineScanDirectories(m, scanCfg)
 	rootDirs := s.normalizeAndDeduplicateDirs(scanDirs, scanCfg.Mode)
 	linkSet := buildManagedLinkSet(m)
+	ignoreSet := s.buildIgnoreSet(m)
 
 	// Determine worker count
 	workers := scanCfg.MaxWorkers
@@ -254,7 +213,7 @@ func (s *DoctorService) performOrphanScan(
 			if s.shouldStopScan(scanCfg, issues) {
 				break
 			}
-			s.scanDirectory(ctx, dir, m, linkSet, scanCfg, issues, stats)
+			s.scanDirectory(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
 		}
 		return
 	}
@@ -271,7 +230,7 @@ func (s *DoctorService) performOrphanScan(
 	// Start workers
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go s.scanWorker(workerCtx, &wg, dirChan, resultChan, m, linkSet, scanCfg)
+		go s.scanWorker(workerCtx, &wg, dirChan, resultChan, m, linkSet, ignoreSet, scanCfg)
 	}
 
 	// Feed directories to workers with cancellation support
@@ -309,6 +268,7 @@ func (s *DoctorService) scanWorker(
 	resultChan chan scanResult,
 	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	scanCfg ScanConfig,
 ) {
 	defer wg.Done()
@@ -319,7 +279,7 @@ func (s *DoctorService) scanWorker(
 
 		localIssues := []Issue{}
 		localStats := DiagnosticStats{}
-		s.scanDirectory(ctx, dir, m, linkSet, scanCfg, &localIssues, &localStats)
+		s.scanDirectory(ctx, dir, m, linkSet, ignoreSet, scanCfg, &localIssues, &localStats)
 
 		// Only send result if context not cancelled
 		select {
@@ -405,11 +365,12 @@ func (s *DoctorService) scanDirectory(
 	dir string,
 	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	scanCfg ScanConfig,
 	issues *[]Issue,
 	stats *DiagnosticStats,
 ) {
-	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, scanCfg, issues, stats)
+	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
 	if err != nil {
 		// Log but continue - orphan detection is best-effort
 		s.logger.Warn(ctx, "scan_directory_failed", "dir", dir, "error", err)
@@ -422,6 +383,7 @@ func (s *DoctorService) scanForOrphanedLinksWithLimits(
 	dir string,
 	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	scanCfg ScanConfig,
 	issues *[]Issue,
 	stats *DiagnosticStats,
@@ -439,7 +401,7 @@ func (s *DoctorService) scanForOrphanedLinksWithLimits(
 		return nil
 	}
 
-	return s.scanForOrphanedLinks(ctx, dir, m, linkSet, scanCfg, issues, stats)
+	return s.scanForOrphanedLinks(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
 }
 
 // scanForOrphanedLinks recursively scans for symlinks not in the manifest.
@@ -449,6 +411,7 @@ func (s *DoctorService) scanForOrphanedLinks(
 	dir string,
 	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	scanCfg ScanConfig,
 	issues *[]Issue,
 	stats *DiagnosticStats,
@@ -475,10 +438,10 @@ func (s *DoctorService) scanForOrphanedLinks(
 
 		if entryType&os.ModeSymlink != 0 {
 			// It's a symlink - check if orphaned
-			s.checkForOrphanedLink(ctx, fullPath, linkSet, issues, stats)
+			s.checkForOrphanedLink(ctx, fullPath, m, linkSet, ignoreSet, issues, stats)
 		} else if entry.IsDir() {
 			// It's a directory - recurse
-			s.scanDirectoryRecursive(ctx, fullPath, m, linkSet, scanCfg, issues, stats)
+			s.scanDirectoryRecursive(ctx, fullPath, m, linkSet, ignoreSet, scanCfg, issues, stats)
 		}
 		// Regular files are ignored (no need to check)
 	}
@@ -496,11 +459,12 @@ func (s *DoctorService) scanDirectoryRecursive(
 	dir string,
 	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	scanCfg ScanConfig,
 	issues *[]Issue,
 	stats *DiagnosticStats,
 ) {
-	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, scanCfg, issues, stats)
+	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
 	if err != nil {
 		// Continue on error - best effort scanning
 		s.logger.Warn(ctx, "recursive_scan_failed", "dir", dir, "error", err)
@@ -512,7 +476,9 @@ func (s *DoctorService) scanDirectoryRecursive(
 func (s *DoctorService) checkForOrphanedLink(
 	ctx context.Context,
 	fullPath string,
+	m *manifest.Manifest,
 	linkSet map[string]bool,
+	ignoreSet *ignore.IgnoreSet,
 	issues *[]Issue,
 	stats *DiagnosticStats,
 ) {
@@ -526,6 +492,18 @@ func (s *DoctorService) checkForOrphanedLink(
 	managed := linkSet[normalizedRel] || linkSet[normalizedFull]
 
 	if !managed {
+		// Check if this link is explicitly ignored
+		if m.Doctor != nil {
+			if _, ignored := m.Doctor.IgnoredLinks[relPath]; ignored {
+				return // Skip ignored link
+			}
+		}
+
+		// Check if this link matches an ignore pattern
+		if ignoreSet != nil && ignoreSet.ShouldIgnore(relPath) {
+			return // Skip link matching ignore pattern
+		}
+
 		stats.TotalLinks++
 		stats.OrphanedLinks++
 
@@ -544,11 +522,11 @@ func (s *DoctorService) checkForOrphanedLink(
 			_, err = s.fs.Stat(ctx, absTarget)
 			if err != nil {
 				if os.IsNotExist(err) {
-					// Orphaned and broken
+					// Orphaned and broken - still classify as orphaned since it's unmanaged
 					stats.BrokenLinks++
 					*issues = append(*issues, Issue{
 						Severity:   SeverityError,
-						Type:       IssueBrokenLink,
+						Type:       IssueOrphanedLink,
 						Path:       relPath,
 						Message:    "Unmanaged symlink with broken target: " + target,
 						Suggestion: "Remove manually or fix target, then use 'dot adopt' to manage",
@@ -628,6 +606,23 @@ func buildManagedLinkSet(m *manifest.Manifest) map[string]bool {
 		}
 	}
 	return linkSet
+}
+
+// buildIgnoreSet creates an ignore set from manifest doctor state.
+func (s *DoctorService) buildIgnoreSet(m *manifest.Manifest) *ignore.IgnoreSet {
+	ignoreSet := ignore.NewIgnoreSet()
+
+	if m.Doctor == nil {
+		return ignoreSet
+	}
+
+	// Add patterns from manifest
+	for _, pattern := range m.Doctor.IgnoredPatterns {
+		// Ignore errors - best effort matching
+		_ = ignoreSet.Add(pattern)
+	}
+
+	return ignoreSet
 }
 
 // calculateDepth returns the directory depth relative to target directory.

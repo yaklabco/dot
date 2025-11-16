@@ -117,9 +117,27 @@ func TestShouldUseColor(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "empty TERM",
+			noColor:  "",
+			term:     "",
+			expected: false,
+		},
+		{
 			name:     "xterm terminal",
 			noColor:  "",
 			term:     "xterm-256color",
+			expected: true,
+		},
+		{
+			name:     "color terminal",
+			noColor:  "",
+			term:     "screen-256color",
+			expected: true,
+		},
+		{
+			name:     "basic xterm",
+			noColor:  "",
+			term:     "xterm",
 			expected: true,
 		},
 	}
@@ -137,9 +155,12 @@ func TestShouldUseColor(t *testing.T) {
 			os.Setenv("NO_COLOR", tt.noColor)
 			os.Setenv("TERM", tt.term)
 
-			// Note: ShouldUseColor also checks if stdout is a terminal,
-			// which will be false in tests, so we can't test the true case directly
-			_ = ShouldUseColor()
+			result := ShouldUseColor()
+			// Note: Will be false in tests since stdout is not a terminal
+			// but we can still verify the NO_COLOR and TERM env vars work
+			if tt.noColor != "" || tt.term == "dumb" || tt.term == "" {
+				assert.False(t, result, "should return false for NO_COLOR or dumb TERM")
+			}
 		})
 	}
 }

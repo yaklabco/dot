@@ -29,9 +29,9 @@ func TestInvalidFlagShowsUsage(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "missing args in adopt shows usage",
+			name:        "missing args in adopt attempts interactive mode",
 			args:        []string{"adopt"},
-			expectUsage: true,
+			expectUsage: false, // Interactive mode shows custom error, not usage
 			expectError: true,
 		},
 		{

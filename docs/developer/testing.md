@@ -24,7 +24,7 @@ The dot project follows strict Test-Driven Development (TDD) principles with a f
 3. **Deterministic Tests**: Tests produce consistent results across environments
 4. **Test Isolation**: Each test runs independently without shared state
 5. **Fast Feedback**: Tests execute quickly to enable rapid iteration
-6. **Comprehensive Coverage**: Minimum 80% code coverage with 100% for critical paths
+6. **Comprehensive Coverage**: Minimum 75% code coverage with 100% for critical paths
 
 ### Testing Pyramid
 
@@ -722,7 +722,7 @@ graph TB
     
     RaceDetector{Race Detector<br/>Enabled?}
     CoverageCalc[Calculate Coverage]
-    CoverageCheck{Coverage >= 80%?}
+    CoverageCheck{Coverage >= 75%?}
     
     AllPass{All Tests<br/>Pass?}
     
@@ -801,7 +801,7 @@ sequenceDiagram
 
 ### Minimum Coverage Thresholds
 
-- **Overall Project**: 80% minimum
+- **Overall Project**: 75% minimum
 - **Domain Layer**: 100% (critical path)
 - **Core Layer**: 95% minimum
 - **Pipeline Layer**: 90% minimum

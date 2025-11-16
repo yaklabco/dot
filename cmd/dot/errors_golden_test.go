@@ -384,7 +384,7 @@ func TestErrorMessages_Format(t *testing.T) {
 			name: "error_actionable",
 			args: []string{"adopt"},
 			expectPatterns: []string{
-				"Usage:", // Should show usage on error
+				"interactive mode requires a terminal", // Interactive mode error
 			},
 		},
 	}

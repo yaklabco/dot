@@ -53,6 +53,158 @@ dot accepts configuration in multiple formats (detected by extension):
 
 All examples below use YAML format.
 
+## Configuration Management
+
+### Creating Configuration
+
+Create a new configuration file with defaults:
+
+```bash
+dot config init
+```
+
+This creates `~/.config/dot/config.yaml` with default values and documentation comments.
+
+Options:
+- `--force`: Overwrite existing configuration
+- `--format`: Specify format (yaml, json, toml)
+
+### Upgrading Configuration
+
+When upgrading dot to a new version, configuration files may need updating to include new fields or migrate deprecated options.
+
+#### Automatic Upgrade
+
+Upgrade your configuration safely:
+
+```bash
+dot config upgrade
+```
+
+The upgrade process:
+
+1. **Creates backup**: Timestamped backup saved to `~/.config/dot/backups/`
+2. **Merges configuration**: Preserves your customizations while adding new fields
+3. **Migrates deprecated fields**: Converts old patterns to new syntax
+4. **Validates result**: Ensures upgraded config is valid before saving
+5. **Cleans old backups**: Keeps last 5 backups automatically
+
+#### Force Upgrade
+
+Skip the confirmation prompt:
+
+```bash
+dot config upgrade --force
+```
+
+#### What Gets Preserved
+
+During upgrade, your customizations are preserved:
+
+- Directory paths
+- Logging settings
+- Symlink modes and options
+- Custom ignore patterns
+- All user-modified values
+
+#### What Gets Added
+
+New configuration fields from the latest version are added with their defaults:
+
+- New feature flags
+- Additional configuration options
+- Performance tuning parameters
+
+#### Deprecated Field Migration
+
+Some fields may be deprecated in favor of better alternatives. The upgrade command automatically migrates these:
+
+**Example**: `ignore.overrides` → `ignore.patterns` with negation (`!`)
+
+```yaml
+# Before upgrade
+ignore:
+  patterns:
+    - "*.log"
+  overrides:
+    - "important.conf"
+
+# After upgrade
+ignore:
+  patterns:
+    - "*.log"
+    - "!important.conf"  # Migrated from overrides
+  overrides:  # Preserved for safety but deprecated
+    - "important.conf"
+```
+
+#### Backup Management
+
+Backups are stored in `~/.config/dot/backups/` with format:
+
+```
+YYYYMMDD-HHMMSS-config.bak
+```
+
+Example: `20241110-153045-config.bak`
+
+The last 5 backups are automatically retained. Older backups are cleaned up after each successful upgrade.
+
+#### Manual Rollback
+
+If needed, restore from a backup:
+
+```bash
+cp ~/.config/dot/backups/20241110-153045-config.bak ~/.config/dot/config.yaml
+```
+
+#### Upgrade Header
+
+Upgraded configuration files include a header with upgrade information:
+
+```yaml
+# Dot Configuration
+# Upgraded on 2024-11-10 15:30:45
+# Backup saved to: /home/user/.config/dot/backups/20241110-153045-config.bak
+# 
+# Deprecated fields migrated:
+#   - ignore.overrides → ignore.patterns (with ! prefix for negation)
+#
+# See https://github.com/jamesainslie/dot for documentation
+
+directories:
+  package: "."
+  # ... rest of configuration
+```
+
+### Viewing Configuration
+
+View current configuration:
+
+```bash
+dot config list
+```
+
+Get a specific value:
+
+```bash
+dot config get directories.package
+```
+
+Show configuration file path:
+
+```bash
+dot config path
+```
+
+### Modifying Configuration
+
+Set a specific value:
+
+```bash
+dot config set directories.package ~/dotfiles
+```
+
 ## Configuration Options
 
 ### Directory Options
@@ -206,12 +358,13 @@ ignore:
   - "#*#"
 ```
 
-#### override
+#### override (DEPRECATED)
 
 Patterns to force include despite ignore rules.
 
 **Type**: array of strings  
 **Default**: `[]`  
+**Deprecated**: Use negation patterns (`!pattern`) instead  
 **Example**:
 ```yaml
 override:
@@ -220,6 +373,60 @@ override:
 ```
 
 Override patterns have higher priority than ignore patterns.
+
+**Note**: This field is deprecated. Use negation patterns in the `patterns` array instead:
+```yaml
+patterns:
+  - ".*"           # Ignore all dotfiles
+  - "!.gitignore"  # Except .gitignore
+  - "!.gitconfig"  # And .gitconfig
+```
+
+#### per_package_ignore
+
+Enable per-package `.dotignore` files.
+
+**Type**: boolean  
+**Default**: `true`  
+**Example**:
+```yaml
+per_package_ignore: true
+```
+
+When enabled, dot reads `.dotignore` files from package directories. These files use the same syntax as patterns but are scoped to the package.
+
+#### max_file_size
+
+Maximum file size to include when scanning packages (in bytes).
+
+**Type**: integer  
+**Default**: `0` (no limit)  
+**Example**:
+```yaml
+max_file_size: 104857600  # 100 MB
+```
+
+Files exceeding this limit are either prompted for (interactive mode) or skipped automatically (batch mode). Use `0` to disable size filtering.
+
+**Human-readable format**: Use command-line flags with human-readable sizes:
+```bash
+dot manage mypackage --max-file-size 100MB
+```
+
+#### interactive_large_files
+
+Prompt for large files in interactive mode.
+
+**Type**: boolean  
+**Default**: `true`  
+**Example**:
+```yaml
+interactive_large_files: true
+```
+
+When `true` and running in a TTY, prompts user whether to include files exceeding `max_file_size`. When `false` or in batch mode, large files are automatically skipped.
+
+**See also**: [Ignore System Guide](ignore-system.md) for complete documentation on ignore patterns, negation, and size filtering.
 
 ### Conflict Resolution
 

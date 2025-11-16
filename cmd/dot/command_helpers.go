@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jamesainslie/dot/internal/doctor"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
 
@@ -172,4 +173,88 @@ func pluralize(count int, singular, plural string) string {
 //	formatCount(0, "file", "files") -> "0 files"
 func formatCount(count int, singular, plural string) string {
 	return fmt.Sprintf("%d %s", count, pluralize(count, singular, plural))
+}
+
+// secretWarning represents a warning about a potential secret file.
+type secretWarning struct {
+	Path   string
+	Reason string
+}
+
+// checkPackagesForSecrets scans packages for potential secrets before managing them.
+// Returns a list of warnings for files that might contain sensitive information.
+func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages []string) []secretWarning {
+	warnings := make([]secretWarning, 0)
+	patterns := doctor.DefaultSensitivePatterns()
+
+	// For each package, scan its files for potential secrets
+	for _, pkgName := range packages {
+		// Get package directory
+		pkgDir := filepath.Join(globalCfg.packageDir, pkgName)
+
+		// Get all files in package (recursively)
+		files, err := getPackageFiles(pkgDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to scan package %s: %v\n", pkgName, err)
+			continue
+		}
+
+		// Detect secrets in the file list
+		detections := doctor.DetectSecrets(files, patterns)
+
+		// Convert detections to warnings
+		for _, detection := range detections {
+			warnings = append(warnings, secretWarning{
+				Path:   detection.Path,
+				Reason: detection.Pattern.Description,
+			})
+		}
+	}
+
+	return warnings
+}
+
+// checkFilesForSecrets scans individual files for potential secrets.
+// Used by the adopt command to warn before adopting sensitive files.
+func checkFilesForSecrets(files []string) []secretWarning {
+	warnings := make([]secretWarning, 0)
+	patterns := doctor.DefaultSensitivePatterns()
+
+	// Detect secrets in the file list
+	detections := doctor.DetectSecrets(files, patterns)
+
+	// Convert detections to warnings
+	for _, detection := range detections {
+		warnings = append(warnings, secretWarning{
+			Path:   detection.Path,
+			Reason: detection.Pattern.Description,
+		})
+	}
+
+	return warnings
+}
+
+// getPackageFiles returns all files in a package directory recursively.
+func getPackageFiles(dir string) ([]string, error) {
+	files := make([]string, 0)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		files = append(files, path)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
 }

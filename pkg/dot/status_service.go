@@ -6,15 +6,21 @@ import (
 
 // StatusService handles status and listing operations.
 type StatusService struct {
-	manifestSvc *ManifestService
-	targetDir   string
+	fs            FS
+	logger        Logger
+	manifestSvc   *ManifestService
+	targetDir     string
+	healthChecker *HealthChecker
 }
 
 // newStatusService creates a new status service.
-func newStatusService(manifestSvc *ManifestService, targetDir string) *StatusService {
+func newStatusService(fs FS, logger Logger, manifestSvc *ManifestService, targetDir string) *StatusService {
 	return &StatusService{
-		manifestSvc: manifestSvc,
-		targetDir:   targetDir,
+		fs:            fs,
+		logger:        logger,
+		manifestSvc:   manifestSvc,
+		targetDir:     targetDir,
+		healthChecker: newHealthChecker(fs, targetDir),
 	}
 }
 
@@ -44,24 +50,34 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 	if len(packages) == 0 {
 		// Return all packages
 		for _, info := range m.Packages {
+			isHealthy, issueType := s.checkPackageHealth(ctx, info.Name, info.Links, info.PackageDir)
 			pkgInfos = append(pkgInfos, PackageInfo{
 				Name:        info.Name,
 				Source:      string(info.Source),
 				InstalledAt: info.InstalledAt,
 				LinkCount:   info.LinkCount,
 				Links:       info.Links,
+				TargetDir:   info.TargetDir,
+				PackageDir:  info.PackageDir,
+				IsHealthy:   isHealthy,
+				IssueType:   issueType,
 			})
 		}
 	} else {
 		// Return only specified packages
 		for _, pkg := range packages {
 			if info, exists := m.GetPackage(pkg); exists {
+				isHealthy, issueType := s.checkPackageHealth(ctx, info.Name, info.Links, info.PackageDir)
 				pkgInfos = append(pkgInfos, PackageInfo{
 					Name:        info.Name,
 					Source:      string(info.Source),
 					InstalledAt: info.InstalledAt,
 					LinkCount:   info.LinkCount,
 					Links:       info.Links,
+					TargetDir:   info.TargetDir,
+					PackageDir:  info.PackageDir,
+					IsHealthy:   isHealthy,
+					IssueType:   issueType,
 				})
 			}
 		}
@@ -78,4 +94,10 @@ func (s *StatusService) List(ctx context.Context) ([]PackageInfo, error) {
 		return nil, err
 	}
 	return status.Packages, nil
+}
+
+// checkPackageHealth validates all symlinks for a package.
+// Returns healthy status and issue type if problems are found.
+func (s *StatusService) checkPackageHealth(ctx context.Context, pkgName string, links []string, packageDir string) (bool, string) {
+	return s.healthChecker.CheckPackage(ctx, pkgName, links, packageDir)
 }

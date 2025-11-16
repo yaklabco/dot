@@ -55,6 +55,25 @@ type Config struct {
 	// Default: true (project is pre-1.0, breaking change acceptable)
 	PackageNameMapping bool
 
+	// IgnorePatterns contains additional ignore patterns beyond defaults.
+	// Supports glob patterns and negation with ! prefix.
+	IgnorePatterns []string
+
+	// UseDefaultIgnorePatterns controls whether default patterns are applied.
+	// Default: true (.git, .DS_Store, etc.)
+	UseDefaultIgnorePatterns bool
+
+	// PerPackageIgnore enables reading .dotignore files from packages.
+	// Default: true
+	PerPackageIgnore bool
+
+	// MaxFileSize is the maximum file size to include in bytes (0 = no limit).
+	MaxFileSize int64
+
+	// InteractiveLargeFiles enables prompting for large files in TTY mode.
+	// Default: true
+	InteractiveLargeFiles bool
+
 	// Infrastructure dependencies (required)
 	FS      FS
 	Logger  Logger
@@ -126,6 +145,11 @@ func (c Config) WithDefaults() Config {
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = runtime.NumCPU()
 	}
+
+	// Ignore configuration defaults
+	// Note: UseDefaultIgnorePatterns zero value is false, but we want true as default
+	// Since we can't distinguish between unset and explicitly set to false in the struct,
+	// the caller should set this explicitly. For WithDefaults, we don't override.
 
 	return cfg
 }

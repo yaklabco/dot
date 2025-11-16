@@ -70,7 +70,14 @@ Comprehensive guide to using dot for dotfile and configuration management.
    - Parallel execution
    - Performance tuning
 
-8. [Troubleshooting Guide](08-troubleshooting.md)
+8. [Secrets Management](secrets-management.md)
+   - Managing sensitive files
+   - Integration with pass
+   - GPG encryption patterns
+   - Bootstrap considerations
+   - Security best practices
+
+9. [Troubleshooting Guide](08-troubleshooting.md)
    - Common issues
    - Error messages
    - Diagnostic procedures
@@ -78,12 +85,12 @@ Comprehensive guide to using dot for dotfile and configuration management.
    - Platform-specific issues
    - FAQ
 
-9. [Glossary](09-glossary.md)
-   - Technical terms
-   - Command terminology
-   - Concept definitions
+10. [Glossary](09-glossary.md)
+- Technical terms
+- Command terminology
+- Concept definitions
 
-10. [Updates and Version Management](10-updates.md)
+11. [Updates and Version Management](10-updates.md)
    - Upgrade command
    - Package manager configuration
    - Startup version checking
@@ -106,7 +113,9 @@ Comprehensive guide to using dot for dotfile and configuration management.
 ### Reference
 
 - [Bootstrap Configuration Specification](bootstrap-config-spec.md)
+- [Ignore System](ignore-system.md)
 - [Migration from GNU Stow](migration-from-stow.md)
+- [Secrets Management](secrets-management.md)
 - [Homebrew Installation](installation-homebrew.md)
 
 ## Getting Help
