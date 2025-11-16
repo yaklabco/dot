@@ -35,6 +35,7 @@ func newDoctorCommand() *cobra.Command {
 		scanMode, _ := cmd.Flags().GetString("scan-mode")
 		maxDepth, _ := cmd.Flags().GetInt("max-depth")
 		triage, _ := cmd.Flags().GetBool("triage")
+		autoIgnore, _ := cmd.Flags().GetBool("auto-ignore")
 
 		// Create client
 		client, err := dot.NewClient(cfg)
@@ -62,7 +63,7 @@ func newDoctorCommand() *cobra.Command {
 
 		// Run triage if requested
 		if triage {
-			return runTriage(cmd, client, scanCfg)
+			return runTriage(cmd, client, scanCfg, autoIgnore)
 		}
 
 		// Run diagnostics
@@ -218,9 +219,9 @@ func renderIssueList(w io.Writer, issues []dot.Issue, colorFunc func(string) str
 }
 
 // runTriage executes interactive triage mode.
-func runTriage(cmd *cobra.Command, client *dot.Client, scanCfg dot.ScanConfig) error {
+func runTriage(cmd *cobra.Command, client *dot.Client, scanCfg dot.ScanConfig, autoIgnore bool) error {
 	triageOpts := dot.TriageOptions{
-		AutoIgnoreHighConfidence: false,
+		AutoIgnoreHighConfidence: autoIgnore,
 	}
 
 	result, err := client.Triage(cmd.Context(), scanCfg, triageOpts)
@@ -349,6 +350,7 @@ Exit codes:
 	cmd.Flags().String("scan-mode", "scoped", "Orphan detection mode (off, scoped, deep)")
 	cmd.Flags().Int("max-depth", 10, "Maximum recursion depth for deep scan")
 	cmd.Flags().Bool("triage", false, "Interactive triage mode for orphaned symlinks")
+	cmd.Flags().Bool("auto-ignore", false, "Automatically ignore high-confidence categories in triage mode")
 
 	return cmd
 }

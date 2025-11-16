@@ -161,7 +161,10 @@ func (s *DoctorService) confirmTriageChanges(result TriageResult) bool {
 
 	fmt.Printf("\nSave these changes? [Y/n]: ")
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		// Handle EOF or input error - default to yes
+		return true
+	}
 	response = strings.ToLower(strings.TrimSpace(response))
 
 	return response == "" || response == "y" || response == "yes"
@@ -298,7 +301,10 @@ func (s *DoctorService) promptTriageOverview(allIssues []Issue, groups []OrphanG
 	fmt.Printf("\nChoice [c]: ")
 
 	var choice string
-	fmt.Scanln(&choice)
+	if _, err := fmt.Scanln(&choice); err != nil {
+		// Handle EOF or input error
+		choice = "q"
+	}
 	choice = strings.ToLower(strings.TrimSpace(choice))
 
 	if choice == "" {
@@ -375,11 +381,20 @@ func (s *DoctorService) handleIgnoreCategory(m *manifest.Manifest, pattern strin
 	if pattern == "" {
 		// Prompt for pattern
 		fmt.Printf("Enter ignore pattern: ")
-		fmt.Scanln(&pattern)
+		if _, err := fmt.Scanln(&pattern); err != nil {
+			fmt.Printf("\nInput cancelled\n")
+			return
+		}
 		pattern = strings.TrimSpace(pattern)
 	}
 
 	if pattern == "" {
+		return
+	}
+
+	// Validate pattern is a valid glob
+	if _, err := filepath.Match(pattern, "test"); err != nil {
+		fmt.Printf("Invalid pattern: %s\n", err)
 		return
 	}
 
@@ -411,7 +426,10 @@ func (s *DoctorService) promptCategoryAction(group OrphanGroup) string {
 	fmt.Printf("\nChoice [i]: ")
 
 	var choice string
-	fmt.Scanln(&choice)
+	if _, err := fmt.Scanln(&choice); err != nil {
+		// Handle EOF or input error
+		choice = "q"
+	}
 	choice = strings.ToLower(strings.TrimSpace(choice))
 
 	if choice == "" {
@@ -490,7 +508,10 @@ func (s *DoctorService) promptLinkAction(ctx context.Context, issue Issue, curre
 	fmt.Printf("\nChoice [s]: ")
 
 	var choice string
-	fmt.Scanln(&choice)
+	if _, err := fmt.Scanln(&choice); err != nil {
+		// Handle EOF or input error
+		choice = "q"
+	}
 	choice = strings.TrimSpace(choice)
 
 	// Check for "apply to all" BEFORE lowercasing
@@ -562,15 +583,26 @@ func (s *DoctorService) applyIgnoreLink(m *manifest.Manifest, issue Issue, targe
 func (s *DoctorService) applyIgnoreCustomPattern(m *manifest.Manifest, result *TriageResult) {
 	fmt.Printf("Enter ignore pattern: ")
 	var pattern string
-	fmt.Scanln(&pattern)
+	if _, err := fmt.Scanln(&pattern); err != nil {
+		fmt.Printf("\nInput cancelled\n")
+		return
+	}
 	pattern = strings.TrimSpace(pattern)
 
-	if pattern != "" {
-		if s.addIgnorePatternIfNew(m, pattern, result) {
-			fmt.Printf("Added ignore pattern: %s\n", pattern)
-		} else {
-			fmt.Printf("Pattern already exists: %s\n", pattern)
-		}
+	if pattern == "" {
+		return
+	}
+
+	// Validate pattern is a valid glob
+	if _, err := filepath.Match(pattern, "test"); err != nil {
+		fmt.Printf("Invalid pattern: %s\n", err)
+		return
+	}
+
+	if s.addIgnorePatternIfNew(m, pattern, result) {
+		fmt.Printf("Added ignore pattern: %s\n", pattern)
+	} else {
+		fmt.Printf("Pattern already exists: %s\n", pattern)
 	}
 }
 
@@ -642,7 +674,10 @@ func (s *DoctorService) executeAdoption(ctx context.Context, linkPath, pkgName s
 func (s *DoctorService) promptPackageName() string {
 	fmt.Printf("Enter package name (or press Enter to cancel): ")
 	var pkgName string
-	fmt.Scanln(&pkgName)
+	if _, err := fmt.Scanln(&pkgName); err != nil {
+		// Handle EOF or input error
+		return ""
+	}
 	return strings.TrimSpace(pkgName)
 }
 

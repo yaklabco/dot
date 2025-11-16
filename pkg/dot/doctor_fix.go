@@ -150,23 +150,22 @@ func (s *DoctorService) processFixGroup(ctx context.Context, m *manifest.Manifes
 			continue
 		}
 
-		// Interactive prompt
-		if opts.Interactive {
-			decision, all := s.promptFixDecision(ctx, issue, group.Category, m)
-			if all {
-				applyToAll = true
-				applyToAllDecision = decision
-			}
+		// Interactive prompt (default behavior when Interactive=true or both flags are false)
+		// Default to interactive mode to prevent silently dropping issues
+		decision, all := s.promptFixDecision(ctx, issue, group.Category, m)
+		if all {
+			applyToAll = true
+			applyToAllDecision = decision
+		}
 
-			if decision {
-				if err := s.fixIssue(ctx, issue, m, opts); err != nil {
-					result.Errors[issue.Path] = err
-				} else {
-					result.Fixed = append(result.Fixed, issue.Path)
-				}
+		if decision {
+			if err := s.fixIssue(ctx, issue, m, opts); err != nil {
+				result.Errors[issue.Path] = err
 			} else {
-				result.Skipped = append(result.Skipped, issue.Path)
+				result.Fixed = append(result.Fixed, issue.Path)
 			}
+		} else {
+			result.Skipped = append(result.Skipped, issue.Path)
 		}
 	}
 }
