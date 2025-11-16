@@ -33,11 +33,14 @@ The design prioritizes clarity, safety, and actionability while supporting multi
 
 ```bash
 # Diagnostic Commands (Read-Only)
-dot doctor                      # Smart health check (fast by default)
-dot doctor --deep              # Comprehensive scan
-dot doctor --check <package>   # Check specific package
-dot doctor check manifest      # Validate manifest only
-dot doctor check security      # Security audit mode
+dot doctor                      # Smart health check (all packages, fast)
+dot doctor --deep              # Comprehensive scan with orphan detection
+dot doctor vim                 # Check specific package
+dot doctor vim zsh git         # Check multiple packages
+dot doctor manifest            # Validate manifest integrity
+dot doctor structure           # Check repository structure compliance
+dot doctor security            # Security audit (secrets, permissions)
+dot doctor platform            # Platform compatibility analysis
 
 # Repair Commands (Write Operations)
 dot doctor fix                 # Interactive repair workflow
@@ -142,7 +145,7 @@ Next steps:
   • Remove backups: rm -rf ~/.vimrc.bak ~/.vim.bak/
 
 Verify installation:
-  dot doctor --check vim
+  dot doctor vim
 ```
 
 #### User declines adoption
@@ -158,7 +161,7 @@ Next steps:
   • Remove backups when satisfied: rm -rf ~/*.bak
 
 Verify installation:
-  dot doctor --check vim
+  dot doctor vim
 ```
 
 #### Pre-flight Check Mode
@@ -244,7 +247,7 @@ To proceed:
 
 #### After Installation - Verification
 ```bash
-$ dot doctor --check vim
+$ dot doctor vim
 ```
 
 ```
@@ -767,10 +770,10 @@ Adoption complete: 2 directories, 18 files total
 Next steps:
   • Review package structure: ls -la ~/dotfiles/neovim/
   • Commit to version control: cd ~/dotfiles && git add neovim/ && git commit
-  • Verify links: dot doctor --check neovim
+  • Verify links: dot doctor neovim
 
 Verify adoption:
-  dot doctor --check neovim
+  dot doctor neovim
 ```
 
 ---
@@ -1460,7 +1463,7 @@ Undoing operation...
 Undo complete: Package vim restored
 
 Verify restoration:
-  dot doctor --check vim
+  dot doctor vim
 ```
 
 ---
@@ -1471,7 +1474,7 @@ Verify restoration:
 
 #### Detection
 ```bash
-$ dot doctor --check vim
+$ dot doctor vim
 ```
 
 ```
@@ -1546,7 +1549,7 @@ Applying changes...
 Remanage complete: Package vim now consistent
 
 Verify:
-  dot doctor --check vim
+  dot doctor vim
 ```
 
 ---
@@ -2290,14 +2293,14 @@ doctor:
 ```bash
 # Daily use (fast)
 dot doctor                              # Quick health check
-dot doctor --check <package>            # Check specific package
+dot doctor <package> [package...]       # Check specific package(s)
 
 # Comprehensive analysis
 dot doctor --deep                       # Deep scan
-dot doctor check manifest               # Validate manifest
-dot doctor check structure              # Check repo structure
-dot doctor check security               # Security audit
-dot doctor check platform               # Platform compatibility
+dot doctor manifest                     # Validate manifest
+dot doctor structure                    # Check repo structure
+dot doctor security                     # Security audit
+dot doctor platform                     # Platform compatibility
 
 # Repair operations
 dot doctor fix                          # Interactive repair
