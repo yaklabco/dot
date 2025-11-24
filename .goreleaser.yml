@@ -108,7 +108,7 @@ brews:
     
     directory: Formula
     
-    homepage: "https://github.com/jamesainslie/dot"
+    homepage: "https://github.com/yaklabco/dot"
     description: "Type-safe symbolic link manager for dotfiles"
     license: "MIT"
     
@@ -131,7 +131,7 @@ brews:
         dot status             # Show package status
         dot unmanage <package>  # Remove package
       
-      Documentation: https://github.com/jamesainslie/dot
+      Documentation: https://github.com/yaklabco/dot
 
 release:
   draft: false
@@ -142,13 +142,13 @@ release:
     
     **Release Date**: {{.Date}}
     
-    For detailed changes, see the [CHANGELOG](https://github.com/jamesainslie/dot/blob/main/CHANGELOG.md).
+    For detailed changes, see the [CHANGELOG](https://github.com/yaklabco/dot/blob/main/CHANGELOG.md).
   footer: |
     ## Installation
     
     ### Homebrew
     ```bash
-    brew tap jamesainslie/dot
+    brew tap yaklabco/dot
     brew install dot
     ```
     
@@ -157,7 +157,7 @@ release:
     
     ### Go Install
     ```bash
-    go install github.com/jamesainslie/dot/cmd/dot@{{.Tag}}
+    go install github.com/yaklabco/dot/cmd/dot@{{.Tag}}
     ```
   name_template: "{{.ProjectName}} {{.Version}}"
 
