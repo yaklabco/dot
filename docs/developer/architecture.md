@@ -1040,6 +1040,114 @@ err := client.Manage(ctx, packages...)
 - Memory-based filesystem adapter
 - Golden file testing for outputs
 
+## Recent Architectural Improvements
+
+### CLI State Management (2025-01)
+
+**Problem**: The CLI layer used a global `globalCfg` variable to store parsed command-line flags, creating implicit dependencies and making testing difficult.
+
+**Solution**: Refactored to use explicit `CLIFlags` struct passed as parameters:
+- Eliminated global state from `cmd/dot/root.go`
+- All functions accept `*CLIFlags` parameter explicitly
+- Configuration flows explicitly through call chains
+- Improved testability through dependency injection
+
+**Impact**:
+- Clearer data flow and dependencies
+- Easier to test individual functions
+- No hidden global state
+- Aligns with functional programming principles
+
+### Result[T] Usage Guidelines (2025-01)
+
+**Problem**: The `Result[T]` monad's `Unwrap()` and `UnwrapErr()` methods panic if called on the wrong variant, creating potential runtime failures.
+
+**Solution**: Established comprehensive usage guidelines in `internal/domain/doc.go`:
+- Use `Result[T]` for functional core composition
+- Prefer `(T, error)` for leaf functions and public APIs
+- Always guard `Unwrap()` calls with `IsOk()`/`IsErr()` checks
+- Use `UnwrapOr()` for safe access with defaults
+- Avoid redundant path validation reconstruction
+
+**Audit Findings**:
+- All production `Unwrap()` calls are properly guarded
+- Error propagation paths check before unwrapping
+- No unsafe patterns found in codebase
+- A few redundant but safe reconstructions identified
+
+**Impact**:
+- Safer error handling patterns
+- Clear guidelines for contributors
+- Reduced panic risk in production
+- Better alignment with Go idioms at boundaries
+
+### Executor Context Cancellation (2025-01)
+
+**Problem**: Executor loops did not check for context cancellation, preventing graceful shutdown and proper resource cleanup.
+
+**Solution**: Added explicit `ctx.Err()` checks at key points:
+- Prepare phase: Check before validating each operation
+- Sequential execution: Check before executing each operation
+- Parallel execution: Check before executing each batch
+- Rollback: Log cancellation but continue for consistency
+
+**New Error Type**:
+```go
+type ErrExecutionCancelled struct {
+    Executed int
+    Skipped  int
+}
+```
+
+**Cancellation Behavior**:
+- Operations already executed are rolled back
+- Remaining operations are skipped and counted
+- Cancellation error returned with accurate metrics
+- Rollback continues despite cancelled context
+
+**Impact**:
+- Graceful shutdown support
+- Proper resource cleanup
+- Better user experience for long operations
+- System consistency maintained during cancellation
+
+### Set Type Optimization (2025-01)
+
+**Problem**: Many `map[string]bool` types were used as sets, wasting memory (1 byte per entry) and obscuring intent.
+
+**Solution**: Replaced with `map[string]struct{}` where only key presence matters:
+- `struct{}` has zero size vs `bool` (1 byte)
+- Changed membership checks to comma-ok idiom
+- Updated 15 files across internal packages
+
+**Before**:
+```go
+set := make(map[string]bool)
+set[key] = true
+if set[key] { ... }
+```
+
+**After**:
+```go
+set := make(map[string]struct{})
+set[key] = struct{}{}
+if _, exists := set[key]; exists { ... }
+```
+
+**Affected Areas**:
+- Executor: pending operations tracking
+- Planner: current state directory tracking
+- Pipeline: path checking during state scan
+- Ignore system: visited path tracking
+- Doctor: managed link and directory sets
+- CLI: managed paths and excluded directories
+
+**Impact**:
+- Reduced memory overhead for large sets
+- Clearer intent (set vs boolean map)
+- More idiomatic Go code
+- No behavior changes
+
 ## Dependency Rules
 
 ### Inward Dependencies

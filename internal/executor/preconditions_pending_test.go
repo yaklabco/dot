@@ -25,8 +25,8 @@ func TestCheckLinkCreatePreconditions_WithPendingFileMove(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(ctx, "/dest", 0755))
 
 	// Track that a file will be moved to /dest/file.txt
-	pendingFiles := map[string]bool{
-		"/dest/file.txt": true,
+	pendingFiles := map[string]struct{}{
+		"/dest/file.txt": {},
 	}
 
 	// Create a LinkCreate operation that uses the pending file as source

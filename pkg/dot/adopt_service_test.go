@@ -181,8 +181,10 @@ func TestAdoptService_GetManagedPaths_WithPackages(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should have .bashrc and .vimrc as managed
-	assert.True(t, managedPaths[filepath.Join(targetDir, ".bashrc")])
-	assert.True(t, managedPaths[filepath.Join(targetDir, ".vimrc")])
+	_, exists1 := managedPaths[filepath.Join(targetDir, ".bashrc")]
+	assert.True(t, exists1)
+	_, exists2 := managedPaths[filepath.Join(targetDir, ".vimrc")]
+	assert.True(t, exists2)
 	assert.Len(t, managedPaths, 2)
 }
 
@@ -223,8 +225,11 @@ func TestAdoptService_GetManagedPaths_MultipleLinks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should have all three bash files
-	assert.True(t, managedPaths[filepath.Join(targetDir, ".bashrc")])
-	assert.True(t, managedPaths[filepath.Join(targetDir, ".bash_profile")])
-	assert.True(t, managedPaths[filepath.Join(targetDir, ".bash_aliases")])
+	_, exists1 := managedPaths[filepath.Join(targetDir, ".bashrc")]
+	assert.True(t, exists1)
+	_, exists2 := managedPaths[filepath.Join(targetDir, ".bash_profile")]
+	assert.True(t, exists2)
+	_, exists3 := managedPaths[filepath.Join(targetDir, ".bash_aliases")]
+	assert.True(t, exists3)
 	assert.Len(t, managedPaths, 3)
 }

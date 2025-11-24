@@ -215,7 +215,7 @@ type LinkTarget struct {
 type CurrentState struct {
 	Files map[string]FileInfo   // Regular files at target paths
 	Links map[string]LinkTarget // Existing symlinks
-	Dirs  map[string]bool       // Existing directories
+	Dirs  map[string]struct{}   // Existing directories (set)
 }
 
 // detectLinkCreateConflicts checks for conflicts when creating a symlink
@@ -269,7 +269,7 @@ func detectDirCreateConflicts(op domain.DirCreate, current CurrentState) Resolut
 	pathKey := op.Path.String()
 
 	// Check if directory already exists
-	if current.Dirs[pathKey] {
+	if _, exists := current.Dirs[pathKey]; exists {
 		// Directory already exists, skip
 		return ResolutionOutcome{
 			Status: ResolveSkip,

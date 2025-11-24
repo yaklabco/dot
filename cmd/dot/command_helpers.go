@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yaklabco/dot/internal/doctor"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -51,7 +50,12 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 
 // getAvailablePackages returns list of available packages from the package directory.
 func getAvailablePackages() []string {
-	packageDir := globalCfg.packageDir
+	return getAvailablePackagesWithFlags(&cliFlags)
+}
+
+// getAvailablePackagesWithFlags returns packages from explicit CLI flags.
+func getAvailablePackagesWithFlags(flags *CLIFlags) []string {
+	packageDir := flags.packageDir
 	if packageDir == "" {
 		packageDir = "."
 	}
@@ -112,13 +116,14 @@ func isHiddenOrIgnored(name string) bool {
 		return true
 	}
 	// Ignore common non-package directories
-	ignoredDirs := map[string]bool{
-		"node_modules": true,
-		"vendor":       true,
-		".git":         true,
-		".svn":         true,
+	ignoredDirs := map[string]struct{}{
+		"node_modules": {},
+		"vendor":       {},
+		".git":         {},
+		".svn":         {},
 	}
-	return ignoredDirs[name]
+	_, ignored := ignoredDirs[name]
+	return ignored
 }
 
 // packageCompletion returns a completion function for package names.
@@ -185,12 +190,16 @@ type secretWarning struct {
 // Returns a list of warnings for files that might contain sensitive information.
 func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages []string) []secretWarning {
 	warnings := make([]secretWarning, 0)
-	patterns := doctor.DefaultSensitivePatterns()
+	patterns := dot.DefaultSensitivePatterns()
+
+	// Get package directory from client config
+	cfg := client.Config()
+	packageDir := cfg.PackageDir
 
 	// For each package, scan its files for potential secrets
 	for _, pkgName := range packages {
 		// Get package directory
-		pkgDir := filepath.Join(globalCfg.packageDir, pkgName)
+		pkgDir := filepath.Join(packageDir, pkgName)
 
 		// Get all files in package (recursively)
 		files, err := getPackageFiles(pkgDir)
@@ -200,7 +209,7 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 		}
 
 		// Detect secrets in the file list
-		detections := doctor.DetectSecrets(files, patterns)
+		detections := dot.DetectSecrets(files, patterns)
 
 		// Convert detections to warnings
 		for _, detection := range detections {
@@ -218,10 +227,10 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 // Used by the adopt command to warn before adopting sensitive files.
 func checkFilesForSecrets(files []string) []secretWarning {
 	warnings := make([]secretWarning, 0)
-	patterns := doctor.DefaultSensitivePatterns()
+	patterns := dot.DefaultSensitivePatterns()
 
 	// Detect secrets in the file list
-	detections := doctor.DetectSecrets(files, patterns)
+	detections := dot.DetectSecrets(files, patterns)
 
 	// Convert detections to warnings
 	for _, detection := range detections {

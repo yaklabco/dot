@@ -26,7 +26,7 @@ func TestManageCommand_Integration_Execute(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(vimPackage, "dot-vim-colors"), []byte("color theme"), 0644))
 
 	// Set global config
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: packageDir,
 		targetDir:  targetDir,
 		dryRun:     false,
@@ -34,7 +34,7 @@ func TestManageCommand_Integration_Execute(t *testing.T) {
 		quiet:      false,
 	}
 
-	// Create command (globalCfg is already set)
+	// Create command (cliFlags is already set)
 	cmd := newManageCommand()
 	cmd.SetContext(context.Background())
 	cmd.SetArgs([]string{"vim"})
@@ -70,7 +70,7 @@ func TestManageCommand_Integration_DryRun(t *testing.T) {
 	require.NoError(t, os.MkdirAll(vimPackage, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(vimPackage, "dot-vimrc"), []byte("test"), 0644))
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: packageDir,
 		targetDir:  targetDir,
 		dryRun:     true,
@@ -108,7 +108,7 @@ func TestManageCommand_Integration_MultiplePackages(t *testing.T) {
 	require.NoError(t, os.MkdirAll(zshPackage, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(zshPackage, "dot-zshrc"), []byte("zsh"), 0644))
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: packageDir,
 		targetDir:  targetDir,
 		dryRun:     false,
@@ -136,7 +136,7 @@ func TestManageCommand_Integration_PackageNotFound(t *testing.T) {
 	require.NoError(t, os.MkdirAll(packageDir, 0755))
 	require.NoError(t, os.MkdirAll(targetDir, 0755))
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: packageDir,
 		targetDir:  targetDir,
 		dryRun:     false,

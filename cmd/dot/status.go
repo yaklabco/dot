@@ -22,7 +22,7 @@ func newStatusCommand() *cobra.Command {
 
 		// Load extended config for table_style
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(configPath)
+		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
 
 		// Get format and color from local flags
 		format, _ := cmd.Flags().GetString("format")
@@ -96,7 +96,7 @@ The status includes installation timestamp, number of links, and link paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load extended config for table_style
 			configPath := getConfigFilePath()
-			extCfg, _ := loadConfigWithRepoPriority(configPath)
+			extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
 
 			// Create client
 			client, err := dot.NewClient(*cfg)

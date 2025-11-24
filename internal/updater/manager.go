@@ -47,19 +47,19 @@ func validateCommand(cmd []string) error {
 }
 
 // allowedPackageManagers is a whitelist of supported package managers
-var allowedPackageManagers = map[string]bool{
-	"brew":   true,
-	"apt":    true,
-	"yum":    true,
-	"pacman": true,
-	"dnf":    true,
-	"zypper": true,
-	"manual": true,
+var allowedPackageManagers = map[string]struct{}{
+	"brew":   {},
+	"apt":    {},
+	"yum":    {},
+	"pacman": {},
+	"dnf":    {},
+	"zypper": {},
+	"manual": {},
 }
 
 // validatePackageManager validates that the package manager name is in the allowed list.
 func validatePackageManager(name string) error {
-	if !allowedPackageManagers[name] {
+	if _, allowed := allowedPackageManagers[name]; !allowed {
 		return fmt.Errorf("unsupported package manager: %s (allowed: brew, apt, yum, pacman, dnf, zypper, manual)", name)
 	}
 	return nil

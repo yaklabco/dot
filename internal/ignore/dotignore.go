@@ -68,14 +68,14 @@ func LoadDotignoreWithInheritance(ctx context.Context, fs domain.FS, startPath, 
 	currentPath = filepath.Clean(currentPath)
 
 	// Track visited paths to prevent infinite loops
-	visited := make(map[string]bool)
+	visited := make(map[string]struct{})
 
 	for {
 		// Prevent infinite loops
-		if visited[currentPath] {
+		if _, seen := visited[currentPath]; seen {
 			break
 		}
-		visited[currentPath] = true
+		visited[currentPath] = struct{}{}
 
 		// Load .dotignore from current directory
 		dotignorePath := filepath.Join(currentPath, ".dotignore")

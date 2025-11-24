@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/yaklabco/dot/internal/cli/render"
-	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newConfigCommand creates the config command.
@@ -71,7 +71,7 @@ func getConfigFilePath() string {
 	}
 
 	// Use XDG config directory with default filename
-	configDir := config.GetConfigPath("dot")
+	configDir := dot.GetConfigPath("dot")
 	return filepath.Join(configDir, "config.yaml")
 }
 
@@ -146,8 +146,8 @@ func runConfigInit(force bool, format string) error {
 	}
 
 	// Create writer and write default config
-	writer := config.NewWriter(configPath)
-	if err := writer.WriteDefault(config.WriteOptions{
+	writer := dot.NewConfigWriter(configPath)
+	if err := writer.WriteDefault(dot.WriteOptions{
 		Format:          format,
 		IncludeComments: format == "yaml",
 	}); err != nil {
@@ -198,7 +198,7 @@ For example: directories.package, logging.level`,
 func runConfigGet(key string) error {
 	configPath := getConfigFilePath()
 
-	loader := config.NewLoader("dot", configPath)
+	loader := dot.NewConfigLoader("dot", configPath)
 	cfg, err := loader.LoadWithEnv()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -233,7 +233,7 @@ func getValidConfigKeys() []string {
 }
 
 // getConfigValue retrieves a value from config by key path.
-func getConfigValue(cfg *config.ExtendedConfig, key string) (string, error) {
+func getConfigValue(cfg *dot.ExtendedConfig, key string) (string, error) {
 	switch key {
 	case "directories.package":
 		return cfg.Directories.Package, nil
@@ -304,7 +304,7 @@ Values are automatically type-converted based on the field.`,
 func runConfigSet(key, value string) error {
 	configPath := getConfigFilePath()
 
-	writer := config.NewWriter(configPath)
+	writer := dot.NewConfigWriter(configPath)
 	if err := writer.Update(key, value); err != nil {
 		return fmt.Errorf("update config: %w", err)
 	}
@@ -339,7 +339,7 @@ Shows the final merged configuration from all sources.`,
 func runConfigListCmd(cmd *cobra.Command, args []string) error {
 	configPath := getConfigFilePath()
 
-	loader := config.NewLoader("dot", configPath)
+	loader := dot.NewConfigLoader("dot", configPath)
 	cfg, err := loader.LoadWithEnv()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -355,7 +355,7 @@ func runConfigListCmd(cmd *cobra.Command, args []string) error {
 	// Create table for each section
 	sections := []struct {
 		name   string
-		render func(*bytes.Buffer, *config.ExtendedConfig, *render.Colorizer)
+		render func(*bytes.Buffer, *dot.ExtendedConfig, *render.Colorizer)
 	}{
 		{"Directories", renderDirectoriesSection},
 		{"Logging", renderLoggingSection},
@@ -382,7 +382,7 @@ func runConfigListCmd(cmd *cobra.Command, args []string) error {
 }
 
 // renderDirectoriesSection renders the directories configuration table.
-func renderDirectoriesSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderDirectoriesSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Directories"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("package:"), cfg.Directories.Package)
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("target:"), cfg.Directories.Target)
@@ -390,7 +390,7 @@ func renderDirectoriesSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *
 }
 
 // renderLoggingSection renders the logging configuration.
-func renderLoggingSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderLoggingSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Logging"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("level:"), cfg.Logging.Level)
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("format:"), cfg.Logging.Format)
@@ -401,7 +401,7 @@ func renderLoggingSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *rend
 }
 
 // renderSymlinksSection renders the symlinks configuration.
-func renderSymlinksSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderSymlinksSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Symlinks"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("mode:"), cfg.Symlinks.Mode)
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("folding:"), formatBool(cfg.Symlinks.Folding, c))
@@ -414,7 +414,7 @@ func renderSymlinksSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *ren
 }
 
 // renderIgnoreSection renders the ignore configuration section.
-func renderIgnoreSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderIgnoreSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Ignore"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("use_defaults:"), formatBool(cfg.Ignore.UseDefaults, c))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("patterns:"), formatSlice(cfg.Ignore.Patterns, c))
@@ -422,7 +422,7 @@ func renderIgnoreSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *rende
 }
 
 // renderDotfileSection renders the dotfile configuration section.
-func renderDotfileSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderDotfileSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Dotfile"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("translate:"), formatBool(cfg.Dotfile.Translate, c))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("prefix:"), cfg.Dotfile.Prefix)
@@ -430,7 +430,7 @@ func renderDotfileSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *rend
 }
 
 // renderOutputSection renders the output configuration section.
-func renderOutputSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderOutputSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Output"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("format:"), cfg.Output.Format)
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("color:"), cfg.Output.Color)
@@ -440,7 +440,7 @@ func renderOutputSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *rende
 }
 
 // renderOperationsSection renders the operations configuration section.
-func renderOperationsSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderOperationsSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Operations"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("dry_run:"), formatBool(cfg.Operations.DryRun, c))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("atomic:"), formatBool(cfg.Operations.Atomic, c))
@@ -448,7 +448,7 @@ func renderOperationsSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *r
 }
 
 // renderPackagesSection renders the packages configuration section.
-func renderPackagesSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderPackagesSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Packages"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("sort_by:"), cfg.Packages.SortBy)
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("auto_discover:"), formatBool(cfg.Packages.AutoDiscover, c))
@@ -456,7 +456,7 @@ func renderPackagesSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *ren
 }
 
 // renderDoctorSection renders the doctor configuration section.
-func renderDoctorSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderDoctorSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Doctor"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("auto_fix:"), formatBool(cfg.Doctor.AutoFix, c))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("check_manifest:"), formatBool(cfg.Doctor.CheckManifest, c))
@@ -466,7 +466,7 @@ func renderDoctorSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *rende
 }
 
 // renderExperimentalSection renders the experimental configuration section.
-func renderExperimentalSection(buf *bytes.Buffer, cfg *config.ExtendedConfig, c *render.Colorizer) {
+func renderExperimentalSection(buf *bytes.Buffer, cfg *dot.ExtendedConfig, c *render.Colorizer) {
 	fmt.Fprintf(buf, "%s\n", c.Bold("Experimental"))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("parallel:"), formatBool(cfg.Experimental.Parallel, c))
 	fmt.Fprintf(buf, "  %-20s %s\n", c.Dim("profiling:"), formatBool(cfg.Experimental.Profiling, c))
@@ -597,7 +597,7 @@ func runConfigUpgrade(cmd *cobra.Command, force bool) error {
 	}
 
 	// Perform upgrade
-	backupPath, err := config.UpgradeConfig(configPath, force)
+	backupPath, err := dot.UpgradeConfig(configPath, force)
 	if err != nil {
 		return fmt.Errorf("upgrade failed: %w", err)
 	}

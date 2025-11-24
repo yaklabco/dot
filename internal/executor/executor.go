@@ -77,12 +77,38 @@ func (e *Executor) Execute(ctx context.Context, plan domain.Plan) domain.Result[
 		result = e.executeSequential(ctx, plan, checkpoint)
 	}
 
-	if len(result.Failed) > 0 {
-		// Automatic rollback
-		e.log.Warn(ctx, "execution_failed_rolling_back", "failed_count", len(result.Failed))
-		rolledBack := e.rollback(ctx, result.Executed, checkpoint)
-		result.RolledBack = rolledBack
+	// Check if execution was cancelled or failed
+	if len(result.Failed) > 0 || len(result.Errors) > 0 {
+		// Check if cancellation occurred
+		var isCancelled bool
+		for _, err := range result.Errors {
+			if _, ok := err.(domain.ErrExecutionCancelled); ok {
+				isCancelled = true
+				break
+			}
+		}
 
+		// Perform rollback if operations were executed
+		if len(result.Executed) > 0 {
+			e.log.Warn(ctx, "execution_failed_rolling_back",
+				"executed", len(result.Executed),
+				"failed_count", len(result.Failed),
+				"cancelled", isCancelled)
+			rolledBack := e.rollback(ctx, result.Executed, checkpoint)
+			result.RolledBack = rolledBack
+		}
+
+		// Return appropriate error
+		if isCancelled {
+			// Cancellation error takes precedence
+			for _, err := range result.Errors {
+				if cancelErr, ok := err.(domain.ErrExecutionCancelled); ok {
+					return domain.Err[ExecutionResult](cancelErr)
+				}
+			}
+		}
+
+		// Return execution failure
 		err := domain.ErrExecutionFailed{
 			Executed:   len(result.Executed),
 			Failed:     len(result.Failed),
@@ -111,10 +137,17 @@ func (e *Executor) prepare(ctx context.Context, plan domain.Plan) error {
 	e.log.Debug(ctx, "preparing_plan", "operations", len(plan.Operations))
 
 	// Track directories and files that will be created by earlier operations
-	pendingDirs := make(map[string]bool)
-	pendingFiles := make(map[string]bool)
+	pendingDirs := make(map[string]struct{})
+	pendingFiles := make(map[string]struct{})
 
 	for _, op := range plan.Operations {
+		// Check for context cancellation
+		if err := ctx.Err(); err != nil {
+			e.log.Warn(ctx, "prepare_cancelled", "context_error", err)
+			span.RecordError(err)
+			return fmt.Errorf("prepare cancelled: %w", err)
+		}
+
 		if err := op.Validate(); err != nil {
 			return fmt.Errorf("validation failed for %v: %w", op.ID(), err)
 		}
@@ -125,12 +158,12 @@ func (e *Executor) prepare(ctx context.Context, plan domain.Plan) error {
 
 		// Track directory creations for subsequent operations
 		if dirOp, ok := op.(domain.DirCreate); ok {
-			pendingDirs[dirOp.Path.String()] = true
+			pendingDirs[dirOp.Path.String()] = struct{}{}
 		}
 
 		// Track file moves for subsequent operations
 		if moveOp, ok := op.(domain.FileMove); ok {
-			pendingFiles[moveOp.Dest.String()] = true
+			pendingFiles[moveOp.Dest.String()] = struct{}{}
 		}
 	}
 
@@ -144,7 +177,7 @@ func (e *Executor) checkPreconditions(ctx context.Context, op domain.Operation) 
 }
 
 // checkPreconditionsWithPending verifies preconditions accounting for pending directory and file creations.
-func (e *Executor) checkPreconditionsWithPending(ctx context.Context, op domain.Operation, pendingDirs map[string]bool, pendingFiles map[string]bool) error {
+func (e *Executor) checkPreconditionsWithPending(ctx context.Context, op domain.Operation, pendingDirs map[string]struct{}, pendingFiles map[string]struct{}) error {
 	switch operation := op.(type) {
 	case domain.LinkCreate:
 		return e.checkLinkCreatePreconditionsWithPending(ctx, operation, pendingDirs, pendingFiles)
@@ -161,17 +194,22 @@ func (e *Executor) checkLinkCreatePreconditions(ctx context.Context, op domain.L
 	return e.checkLinkCreatePreconditionsWithPending(ctx, op, nil, nil)
 }
 
-func (e *Executor) checkLinkCreatePreconditionsWithPending(ctx context.Context, op domain.LinkCreate, pendingDirs map[string]bool, pendingFiles map[string]bool) error {
+func (e *Executor) checkLinkCreatePreconditionsWithPending(ctx context.Context, op domain.LinkCreate, pendingDirs map[string]struct{}, pendingFiles map[string]struct{}) error {
 	// Verify source exists or will exist after a pending operation
 	sourceStr := op.Source.String()
 	sourceExists := e.fs.Exists(ctx, sourceStr)
 
 	// Check if source will be created by a pending directory or file operation
 	if !sourceExists {
-		if pendingDirs != nil && pendingDirs[sourceStr] {
-			sourceExists = true
-		} else if pendingFiles != nil && pendingFiles[sourceStr] {
-			sourceExists = true
+		if pendingDirs != nil {
+			if _, ok := pendingDirs[sourceStr]; ok {
+				sourceExists = true
+			}
+		}
+		if !sourceExists && pendingFiles != nil {
+			if _, ok := pendingFiles[sourceStr]; ok {
+				sourceExists = true
+			}
 		}
 	}
 
@@ -190,7 +228,7 @@ func (e *Executor) checkLinkCreatePreconditionsWithPending(ctx context.Context, 
 	// Check if parent exists in filesystem OR will be created
 	parentExists := e.fs.Exists(ctx, parentStr)
 	if !parentExists && pendingDirs != nil {
-		parentExists = pendingDirs[parentStr]
+		_, parentExists = pendingDirs[parentStr]
 	}
 
 	if !parentExists {
@@ -219,7 +257,7 @@ func (e *Executor) checkDirCreatePreconditions(ctx context.Context, op domain.Di
 	return e.checkDirCreatePreconditionsWithPending(ctx, op, nil)
 }
 
-func (e *Executor) checkDirCreatePreconditionsWithPending(ctx context.Context, op domain.DirCreate, pendingDirs map[string]bool) error {
+func (e *Executor) checkDirCreatePreconditionsWithPending(ctx context.Context, op domain.DirCreate, pendingDirs map[string]struct{}) error {
 	// Check parent directory exists (or will exist)
 	parent := op.Path.Parent()
 	if !parent.IsOk() {
@@ -232,7 +270,7 @@ func (e *Executor) checkDirCreatePreconditionsWithPending(ctx context.Context, o
 	// Check if parent exists in filesystem OR will be created
 	parentExists := e.fs.Exists(ctx, parentStr)
 	if !parentExists && pendingDirs != nil {
-		parentExists = pendingDirs[parentStr]
+		_, parentExists = pendingDirs[parentStr]
 	}
 
 	if !parentExists {
@@ -261,7 +299,7 @@ func (e *Executor) checkFileMovePreconditions(ctx context.Context, op domain.Fil
 	return e.checkFileMovePreconditionsWithPending(ctx, op, nil)
 }
 
-func (e *Executor) checkFileMovePreconditionsWithPending(ctx context.Context, op domain.FileMove, pendingDirs map[string]bool) error {
+func (e *Executor) checkFileMovePreconditionsWithPending(ctx context.Context, op domain.FileMove, pendingDirs map[string]struct{}) error {
 	// Verify source exists
 	if !e.fs.Exists(ctx, op.Source.String()) {
 		return domain.ErrSourceNotFound{Path: op.Source.String()}
@@ -278,7 +316,7 @@ func (e *Executor) checkFileMovePreconditionsWithPending(ctx context.Context, op
 	// Check if parent exists in filesystem OR will be created
 	parentExists := e.fs.Exists(ctx, parentStr)
 	if !parentExists && pendingDirs != nil {
-		parentExists = pendingDirs[parentStr]
+		_, parentExists = pendingDirs[parentStr]
 	}
 
 	if !parentExists {
@@ -297,7 +335,23 @@ func (e *Executor) executeSequential(ctx context.Context, plan domain.Plan, chec
 		Errors:     []error{},
 	}
 
-	for _, op := range plan.Operations {
+	for i, op := range plan.Operations {
+		// Check for context cancellation before each operation
+		if err := ctx.Err(); err != nil {
+			skipped := len(plan.Operations) - i
+			e.log.Warn(ctx, "execution_cancelled",
+				"executed", len(result.Executed),
+				"skipped", skipped,
+				"context_error", err)
+
+			cancelErr := domain.ErrExecutionCancelled{
+				Executed: len(result.Executed),
+				Skipped:  skipped,
+			}
+			result.Errors = append(result.Errors, cancelErr)
+			return result
+		}
+
 		opID := op.ID()
 
 		ctx, span := e.tracer.Start(ctx, "operation.Execute")
@@ -333,6 +387,18 @@ func (e *Executor) rollback(ctx context.Context, executed []domain.OperationID, 
 
 	// Rollback in reverse order
 	for i := len(executed) - 1; i >= 0; i-- {
+		// Check for context cancellation during rollback
+		// Continue rollback even if cancelled to maintain consistency
+		if err := ctx.Err(); err != nil {
+			e.log.Warn(ctx, "rollback_cancelled_continuing",
+				"rolled_back", len(rolledBack),
+				"remaining", i+1,
+				"context_error", err)
+			// Note: We continue rollback despite cancellation to maintain
+			// system consistency. Partial rollback could leave the system
+			// in an inconsistent state.
+		}
+
 		opID := executed[i]
 		op := checkpoint.Lookup(opID)
 
@@ -374,6 +440,27 @@ func (e *Executor) executeParallel(ctx context.Context, plan domain.Plan, checkp
 	}
 
 	for i, batch := range batches {
+		// Check for context cancellation before each batch
+		if err := ctx.Err(); err != nil {
+			// Count remaining operations in unprocessed batches
+			skipped := 0
+			for j := i; j < len(batches); j++ {
+				skipped += len(batches[j])
+			}
+
+			e.log.Warn(ctx, "parallel_execution_cancelled",
+				"executed", len(result.Executed),
+				"skipped", skipped,
+				"context_error", err)
+
+			cancelErr := domain.ErrExecutionCancelled{
+				Executed: len(result.Executed),
+				Skipped:  skipped,
+			}
+			result.Errors = append(result.Errors, cancelErr)
+			return result
+		}
+
 		e.log.Debug(ctx, "executing_batch", "batch", i, "size", len(batch))
 
 		batchResult := e.executeBatch(ctx, batch, checkpoint)

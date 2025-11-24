@@ -58,46 +58,54 @@ func run() int {
 // setupProfiling initializes CPU profiling, memory profiling, and pprof HTTP server based on flags.
 // Returns a cleanup function that should be deferred.
 func setupProfiling() func() {
+	return setupProfilingWithFlags(&cliFlags)
+}
+
+// setupProfilingWithFlags initializes profiling from explicit CLI flags.
+func setupProfilingWithFlags(flags *CLIFlags) func() {
 	cleanupFuncs := []func(){}
 
 	// CPU profiling
-	if globalCfg.cpuProfile != "" {
-		f, err := os.Create(globalCfg.cpuProfile)
+	if flags.cpuProfile != "" {
+		f, err := os.Create(flags.cpuProfile)
 		if err != nil {
-			slog.Error("failed to create CPU profile", "error", err, "file", globalCfg.cpuProfile)
+			slog.Error("failed to create CPU profile", "error", err, "file", flags.cpuProfile)
 		} else {
 			if err := pprof.StartCPUProfile(f); err != nil {
 				slog.Error("failed to start CPU profile", "error", err)
 				f.Close()
 			} else {
-				slog.Info("CPU profiling enabled", "file", globalCfg.cpuProfile)
+				slog.Info("CPU profiling enabled", "file", flags.cpuProfile)
+				cpuFile := flags.cpuProfile // Capture for closure
 				cleanupFuncs = append(cleanupFuncs, func() {
 					pprof.StopCPUProfile()
 					f.Close()
-					slog.Info("CPU profile written", "file", globalCfg.cpuProfile)
+					slog.Info("CPU profile written", "file", cpuFile)
 				})
 			}
 		}
 	}
 
 	// pprof HTTP server
-	if globalCfg.pprofAddr != "" {
+	if flags.pprofAddr != "" {
+		addr := flags.pprofAddr // Capture for closure
 		go func() {
-			slog.Info("starting pprof server", "addr", globalCfg.pprofAddr)
+			slog.Info("starting pprof server", "addr", addr)
 			// The pprof handlers are automatically registered via the import
 			// #nosec G114 -- pprof server is for diagnostics only, no timeout needed
-			if err := http.ListenAndServe(globalCfg.pprofAddr, nil); err != nil {
+			if err := http.ListenAndServe(addr, nil); err != nil {
 				slog.Error("pprof server failed", "error", err)
 			}
 		}()
 	}
 
 	// Memory profile (written on exit)
-	if globalCfg.memProfile != "" {
+	if flags.memProfile != "" {
+		memFile := flags.memProfile // Capture for closure
 		cleanupFuncs = append(cleanupFuncs, func() {
-			f, err := os.Create(globalCfg.memProfile)
+			f, err := os.Create(memFile)
 			if err != nil {
-				slog.Error("failed to create memory profile", "error", err, "file", globalCfg.memProfile)
+				slog.Error("failed to create memory profile", "error", err, "file", memFile)
 				return
 			}
 			defer f.Close()
@@ -106,7 +114,7 @@ func setupProfiling() func() {
 			if err := pprof.WriteHeapProfile(f); err != nil {
 				slog.Error("failed to write memory profile", "error", err)
 			} else {
-				slog.Info("memory profile written", "file", globalCfg.memProfile)
+				slog.Info("memory profile written", "file", memFile)
 			}
 		})
 	}

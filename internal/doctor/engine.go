@@ -68,14 +68,14 @@ func (e *DiagnosticEngine) filterChecks(include []string) []domain.DiagnosticChe
 		return e.checks
 	}
 
-	includeMap := make(map[string]bool)
+	includeMap := make(map[string]struct{})
 	for _, name := range include {
-		includeMap[name] = true
+		includeMap[name] = struct{}{}
 	}
 
 	var filtered []domain.DiagnosticCheck
 	for _, check := range e.checks {
-		if includeMap[check.Name()] {
+		if _, include := includeMap[check.Name()]; include {
 			filtered = append(filtered, check)
 		}
 	}

@@ -11,14 +11,13 @@ import (
 	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
-	"github.com/yaklabco/dot/internal/adapters"
-	"github.com/yaklabco/dot/internal/config"
-	"github.com/yaklabco/dot/internal/updater"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
-// Global configuration shared across commands
-type globalConfig struct {
+// CLIFlags holds parsed command-line flag values.
+// This struct is populated during flag parsing and passed explicitly to functions
+// that need flag values, eliminating global mutable state.
+type CLIFlags struct {
 	packageDir     string
 	targetDir      string
 	backupDir      string
@@ -37,7 +36,9 @@ type globalConfig struct {
 	batch          bool
 }
 
-var globalCfg globalConfig
+// Package-level variable for flag storage during initialization.
+// Functions accept explicit *CLIFlags parameters rather than reading this directly.
+var cliFlags CLIFlags
 
 // NewRootCommand creates the root cobra command.
 func NewRootCommand(version, commit, date string) *cobra.Command {
@@ -67,7 +68,7 @@ comprehensive conflict detection, and incremental updates.`,
 	})
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVarP(&globalCfg.packageDir, "dir", "d", ".",
+	rootCmd.PersistentFlags().StringVarP(&cliFlags.packageDir, "dir", "d", ".",
 		"Source directory containing packages")
 
 	// Compute cross-platform home directory default
@@ -80,35 +81,35 @@ comprehensive conflict detection, and incremental updates.`,
 		}
 	}
 
-	rootCmd.PersistentFlags().StringVarP(&globalCfg.targetDir, "target", "t", defaultTarget,
+	rootCmd.PersistentFlags().StringVarP(&cliFlags.targetDir, "target", "t", defaultTarget,
 		"Target directory for symlinks")
-	rootCmd.PersistentFlags().StringVar(&globalCfg.backupDir, "backup-dir", "",
+	rootCmd.PersistentFlags().StringVar(&cliFlags.backupDir, "backup-dir", "",
 		"Directory for backup files (default: <target>/.dot-backup)")
-	rootCmd.PersistentFlags().BoolVarP(&globalCfg.dryRun, "dry-run", "n", false,
+	rootCmd.PersistentFlags().BoolVarP(&cliFlags.dryRun, "dry-run", "n", false,
 		"Show what would be done without applying changes")
-	rootCmd.PersistentFlags().CountVarP(&globalCfg.verbose, "verbose", "v",
+	rootCmd.PersistentFlags().CountVarP(&cliFlags.verbose, "verbose", "v",
 		"Increase verbosity: -v (info), -vv (debug), -vvv (trace)")
-	rootCmd.PersistentFlags().BoolVarP(&globalCfg.quiet, "quiet", "q", false,
+	rootCmd.PersistentFlags().BoolVarP(&cliFlags.quiet, "quiet", "q", false,
 		"Suppress all non-error output")
-	rootCmd.PersistentFlags().BoolVar(&globalCfg.logJSON, "log-json", false,
+	rootCmd.PersistentFlags().BoolVar(&cliFlags.logJSON, "log-json", false,
 		"Output logs in JSON format")
-	rootCmd.PersistentFlags().BoolVar(&globalCfg.noColor, "no-color", false,
+	rootCmd.PersistentFlags().BoolVar(&cliFlags.noColor, "no-color", false,
 		"Disable color output")
-	rootCmd.PersistentFlags().StringVar(&globalCfg.cpuProfile, "cpu-profile", "",
+	rootCmd.PersistentFlags().StringVar(&cliFlags.cpuProfile, "cpu-profile", "",
 		"Write CPU profile to file (for diagnostics)")
-	rootCmd.PersistentFlags().StringVar(&globalCfg.memProfile, "mem-profile", "",
+	rootCmd.PersistentFlags().StringVar(&cliFlags.memProfile, "mem-profile", "",
 		"Write memory profile to file (for diagnostics)")
-	rootCmd.PersistentFlags().StringVar(&globalCfg.pprofAddr, "pprof", "",
+	rootCmd.PersistentFlags().StringVar(&cliFlags.pprofAddr, "pprof", "",
 		"Enable pprof HTTP server on address (e.g. :6060)")
-	rootCmd.PersistentFlags().BoolVar(&globalCfg.batch, "batch", false,
+	rootCmd.PersistentFlags().BoolVar(&cliFlags.batch, "batch", false,
 		"Batch mode for scripting (implies --quiet and non-interactive prompts)")
-	rootCmd.PersistentFlags().StringSliceVar(&globalCfg.ignorePatterns, "ignore", []string{},
+	rootCmd.PersistentFlags().StringSliceVar(&cliFlags.ignorePatterns, "ignore", []string{},
 		"Additional ignore patterns (glob format, supports !negation)")
-	rootCmd.PersistentFlags().StringVar(&globalCfg.maxFileSize, "max-file-size", "",
+	rootCmd.PersistentFlags().StringVar(&cliFlags.maxFileSize, "max-file-size", "",
 		"Maximum file size to include (e.g. 100MB, 1GB). 0 or empty = no limit")
-	rootCmd.PersistentFlags().BoolVar(&globalCfg.noDefaults, "no-defaults", false,
+	rootCmd.PersistentFlags().BoolVar(&cliFlags.noDefaults, "no-defaults", false,
 		"Disable default ignore patterns (.git, .DS_Store, etc.)")
-	rootCmd.PersistentFlags().BoolVar(&globalCfg.noDotignore, "no-dotignore", false,
+	rootCmd.PersistentFlags().BoolVar(&cliFlags.noDotignore, "no-dotignore", false,
 		"Disable reading per-package .dotignore files")
 
 	// Add subcommands
@@ -128,14 +129,14 @@ comprehensive conflict detection, and incremental updates.`,
 	return rootCmd
 }
 
-// buildConfig creates a dot.Config from global flags and adapters.
+// buildConfig creates a dot.Config from CLI flags and adapters.
 // Precedence: flags (if set) > config file > defaults
 func buildConfig() (dot.Config, error) {
-	return buildConfigWithCmd(nil)
+	return buildConfigWithFlags(&cliFlags, nil)
 }
 
-// buildIgnoreConfig builds the ignore configuration from extended config and flags.
-func buildIgnoreConfig(extCfg *config.ExtendedConfig) (bool, bool, bool, []string, int64, error) {
+// buildIgnoreConfig builds the ignore configuration from extended config and CLI flags.
+func buildIgnoreConfig(flags *CLIFlags, extCfg *dot.ExtendedConfig) (bool, bool, bool, []string, int64, error) {
 	useDefaults := true
 	perPackageIgnore := true
 	interactiveLargeFiles := true
@@ -152,20 +153,20 @@ func buildIgnoreConfig(extCfg *config.ExtendedConfig) (bool, bool, bool, []strin
 	}
 
 	// Apply flag overrides (flags take precedence)
-	if globalCfg.noDefaults {
+	if flags.noDefaults {
 		useDefaults = false
 	}
-	if globalCfg.noDotignore {
+	if flags.noDotignore {
 		perPackageIgnore = false
 	}
-	if globalCfg.batch {
+	if flags.batch {
 		interactiveLargeFiles = false
 	}
-	if len(globalCfg.ignorePatterns) > 0 {
-		ignorePatterns = append(ignorePatterns, globalCfg.ignorePatterns...)
+	if len(flags.ignorePatterns) > 0 {
+		ignorePatterns = append(ignorePatterns, flags.ignorePatterns...)
 	}
-	if globalCfg.maxFileSize != "" {
-		size, err := parseFileSize(globalCfg.maxFileSize)
+	if flags.maxFileSize != "" {
+		size, err := parseFileSize(flags.maxFileSize)
 		if err != nil {
 			return false, false, false, nil, 0, fmt.Errorf("invalid max file size: %w", err)
 		}
@@ -211,22 +212,23 @@ func parseFileSize(sizeStr string) (int64, error) {
 	return int64(value * float64(multiplier)), nil
 }
 
-// buildConfigWithCmd creates config with flag precedence awareness.
-func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
+// buildConfigWithFlags creates config from CLI flags and extended configuration.
+// This is the internal implementation used by buildConfig and command handlers.
+func buildConfigWithFlags(flags *CLIFlags, cmd *cobra.Command) (dot.Config, error) {
 	// Check batch mode first (if cmd is provided)
 	if cmd != nil {
 		if batch, _ := cmd.Flags().GetBool("batch"); batch {
-			globalCfg.quiet = true
+			flags.quiet = true
 		}
 	}
 
 	// Create adapters
-	fs := adapters.NewOSFilesystem()
-	logger := createLogger()
+	fs := dot.NewOSFilesystem()
+	logger := createLoggerWithFlags(flags)
 
 	// Load extended config - check repo location first, then XDG location
 	configPath := getConfigFilePath()
-	extCfg, err := loadConfigWithRepoPriority(configPath)
+	extCfg, err := loadConfigWithRepoPriority(flags.packageDir, configPath)
 	if err != nil {
 		return dot.Config{}, fmt.Errorf("load configuration: %w", err)
 	}
@@ -246,19 +248,19 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 
 	// Resolve package directory using hierarchical discovery
 	// Priority: flag > env > cwd/.dotbootstrap.yaml > parent search > config > default
-	packageDir, err = resolvePackageDirectory(globalCfg.packageDir)
+	packageDir, err = resolvePackageDirectory(flags.packageDir)
 	if err != nil {
 		return dot.Config{}, fmt.Errorf("resolve package directory: %w", err)
 	}
 
-	// Override with globalCfg for target directory if set
+	// Override with flags for target directory if set
 	homeDir, _ := os.UserHomeDir()
-	if globalCfg.targetDir != "" && globalCfg.targetDir != homeDir {
-		targetDir = globalCfg.targetDir
+	if flags.targetDir != "" && flags.targetDir != homeDir {
+		targetDir = flags.targetDir
 	}
 
-	if globalCfg.backupDir != "" {
-		backupDir = globalCfg.backupDir
+	if flags.backupDir != "" {
+		backupDir = flags.backupDir
 	}
 
 	// Apply final defaults if still empty
@@ -275,7 +277,7 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 	}
 
 	// Build ignore configuration
-	useDefaults, perPackageIgnore, interactiveLargeFiles, ignorePatterns, maxFileSize, err := buildIgnoreConfig(extCfg)
+	useDefaults, perPackageIgnore, interactiveLargeFiles, ignorePatterns, maxFileSize, err := buildIgnoreConfig(flags, extCfg)
 	if err != nil {
 		return dot.Config{}, err
 	}
@@ -287,8 +289,8 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 		Backup:                   backup,
 		Overwrite:                overwrite,
 		ManifestDir:              manifestDir,
-		DryRun:                   globalCfg.dryRun,
-		Verbosity:                globalCfg.verbose,
+		DryRun:                   flags.dryRun,
+		Verbosity:                flags.verbose,
 		PackageNameMapping:       true, // Default: true (pre-1.0 breaking change)
 		UseDefaultIgnorePatterns: useDefaults,
 		IgnorePatterns:           ignorePatterns,
@@ -302,6 +304,12 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 	return cfg.WithDefaults(), nil
 }
 
+// buildConfigWithCmd is a bridge function for compatibility with existing command handlers.
+// It passes the current CLI flags to buildConfigWithFlags.
+func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
+	return buildConfigWithFlags(&cliFlags, cmd)
+}
+
 // loadConfigWithRepoPriority loads config checking repository location first.
 //
 // Priority order:
@@ -311,12 +319,12 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 //  4. Use defaults
 //
 // This allows repositories to define their own configuration without circular dependency.
-func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, error) {
+func loadConfigWithRepoPriority(packageDirFlag, xdgConfigPath string) (*dot.ExtendedConfig, error) {
 	var packageDir string
 
 	// Check if packageDir was explicitly set via flag
-	if globalCfg.packageDir != "" && globalCfg.packageDir != "." {
-		packageDir = globalCfg.packageDir
+	if packageDirFlag != "" && packageDirFlag != "." {
+		packageDir = packageDirFlag
 	} else {
 		// Use default packageDir location
 		homeDir, err := os.UserHomeDir()
@@ -330,7 +338,7 @@ func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, e
 		repoConfigPath := filepath.Join(packageDir, ".config", "dot", "config.yaml")
 		if _, err := os.Stat(repoConfigPath); err == nil {
 			// Repository config exists - use it
-			loader := config.NewLoader("dot", repoConfigPath)
+			loader := dot.NewConfigLoader("dot", repoConfigPath)
 			cfg, err := loader.LoadWithEnv()
 			if err == nil {
 				return cfg, nil
@@ -341,27 +349,28 @@ func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, e
 	}
 
 	// Fall back to XDG location
-	loader := config.NewLoader("dot", xdgConfigPath)
+	loader := dot.NewConfigLoader("dot", xdgConfigPath)
 	return loader.LoadWithEnv()
 }
 
-// createLogger creates appropriate logger based on flags.
+// createLogger creates appropriate logger based on CLI flags (legacy wrapper).
 func createLogger() dot.Logger {
-	if globalCfg.quiet {
-		return adapters.NewNoopLogger()
+	return createLoggerWithFlags(&cliFlags)
+}
+
+// createLoggerWithFlags creates appropriate logger from explicit CLI flags.
+func createLoggerWithFlags(flags *CLIFlags) dot.Logger {
+	if flags.quiet {
+		return dot.NewNoopLogger()
 	}
 
-	level := verbosityToLevel(globalCfg.verbose)
+	level := verbosityToLevel(flags.verbose)
 
-	if globalCfg.logJSON {
-		return adapters.NewSlogLogger(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-			Level: level,
-		})))
+	if flags.logJSON {
+		return dot.NewJSONLogger(os.Stderr, level)
 	}
 
-	return adapters.NewSlogLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	})))
+	return dot.NewTextLogger(os.Stderr, level)
 }
 
 // verbosityToLevel converts verbosity count to log level.
@@ -404,10 +413,15 @@ func argsWithUsage(validator cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
-// shouldUseColor determines if color should be enabled based on global flags and terminal detection.
+// shouldUseColor determines if color should be enabled based on CLI flags and terminal detection.
 func shouldUseColor() bool {
+	return shouldUseColorWithFlags(&cliFlags)
+}
+
+// shouldUseColorWithFlags determines color usage from explicit CLI flags.
+func shouldUseColorWithFlags(flags *CLIFlags) bool {
 	// Check --no-color flag first (highest precedence)
-	if globalCfg.noColor {
+	if flags.noColor {
 		return false
 	}
 
@@ -423,8 +437,13 @@ func shouldUseColor() bool {
 // shouldColorize determines if output should be colorized based on the color flag.
 // Precedence: --no-color flag > NO_COLOR env > --color flag > auto
 func shouldColorize(color string) bool {
+	return shouldColorizeWithFlags(&cliFlags, color)
+}
+
+// shouldColorizeWithFlags determines colorization from explicit CLI flags and color preference.
+func shouldColorizeWithFlags(flags *CLIFlags, color string) bool {
 	// Check --no-color flag first (highest precedence)
-	if globalCfg.noColor {
+	if flags.noColor {
 		return false
 	}
 
@@ -457,11 +476,11 @@ func performStartupVersionCheck(currentVersion string) {
 
 	// Load configuration
 	configPath := getConfigFilePath()
-	loader := config.NewLoader("dot", configPath)
+	loader := dot.NewConfigLoader("dot", configPath)
 	cfg, err := loader.LoadWithEnv()
 	if err != nil {
 		// If config fails to load, use defaults (which has checking disabled by default)
-		cfg = config.DefaultExtended()
+		cfg = dot.DefaultExtendedConfig()
 	}
 
 	// Don't check if disabled
@@ -471,7 +490,7 @@ func performStartupVersionCheck(currentVersion string) {
 
 	// Perform check
 	configDir := filepath.Dir(configPath)
-	checker := updater.NewStartupChecker(currentVersion, cfg, configDir, os.Stdout)
+	checker := dot.NewStartupChecker(currentVersion, cfg, configDir, os.Stdout)
 	result, err := checker.Check()
 	if err != nil {
 		return // Silent failure

@@ -13,7 +13,6 @@ import (
 	"github.com/yaklabco/dot/internal/cli/pretty"
 	"github.com/yaklabco/dot/internal/cli/render"
 	"github.com/yaklabco/dot/internal/cli/renderer"
-	"github.com/yaklabco/dot/internal/config"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -69,7 +68,7 @@ func parseDoctorMode(mode string) (dot.DiagnosticMode, error) {
 }
 
 // renderDoctorOutput renders the report.
-func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags doctorFlags, extCfg *config.ExtendedConfig) error {
+func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags doctorFlags, extCfg *dot.ExtendedConfig) error {
 	colorize := shouldColorize(flags.color)
 	tableStyle := ""
 	if extCfg != nil {
@@ -150,7 +149,7 @@ func newDoctorCommand() *cobra.Command {
 		}
 
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(configPath)
+		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
 
 		if err := renderDoctorOutput(cmd, report, flags, extCfg); err != nil {
 			return err

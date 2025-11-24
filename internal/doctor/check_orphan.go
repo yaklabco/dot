@@ -61,7 +61,7 @@ func (c *OrphanCheck) loadManifestOrEmpty(ctx context.Context) (manifest.Manifes
 }
 
 // performScan executes sequential or parallel directory scan.
-func (c *OrphanCheck) performScan(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet) ([]Issue, DiagnosticStats) {
+func (c *OrphanCheck) performScan(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet) ([]Issue, DiagnosticStats) {
 	workers := c.config.MaxWorkers
 	if workers <= 0 {
 		workers = runtime.NumCPU()
@@ -80,14 +80,14 @@ func (c *OrphanCheck) performScan(ctx context.Context, rootDirs []string, m *man
 }
 
 // scanSequential performs sequential directory scanning.
-func (c *OrphanCheck) scanSequential(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanSequential(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
 	for _, dir := range rootDirs {
 		c.scanDirectory(ctx, dir, m, linkSet, ignoreSet, localIssues, stats)
 	}
 }
 
 // scanParallel performs parallel directory scanning.
-func (c *OrphanCheck) scanParallel(ctx context.Context, rootDirs []string, workers int, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanParallel(ctx context.Context, rootDirs []string, workers int, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
 	resultChan := make(chan scanResult, len(rootDirs))
 	dirChan := make(chan string, len(rootDirs))
 	var wg sync.WaitGroup
@@ -233,7 +233,7 @@ type scanResult struct {
 	stats  DiagnosticStats
 }
 
-func (c *OrphanCheck) scanWorker(ctx context.Context, wg *sync.WaitGroup, dirChan chan string, resultChan chan scanResult, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet) {
+func (c *OrphanCheck) scanWorker(ctx context.Context, wg *sync.WaitGroup, dirChan chan string, resultChan chan scanResult, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet) {
 	defer wg.Done()
 	for dir := range dirChan {
 		if ctx.Err() != nil {
@@ -251,7 +251,7 @@ func (c *OrphanCheck) scanWorker(ctx context.Context, wg *sync.WaitGroup, dirCha
 	}
 }
 
-func (c *OrphanCheck) scanDirectory(ctx domain.Context, dir string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanDirectory(ctx domain.Context, dir string, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
 	// Recursive scan logic
 	entries, err := c.fs.ReadDir(ctx, dir)
 	if err != nil {
@@ -283,7 +283,7 @@ func (c *OrphanCheck) scanDirectory(ctx domain.Context, dir string, m *manifest.
 	}
 }
 
-func (c *OrphanCheck) checkForOrphanedLink(ctx context.Context, fullPath string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) checkForOrphanedLink(ctx context.Context, fullPath string, m *manifest.Manifest, linkSet map[string]struct{}, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
 	// Check if we've hit the MaxIssues limit
 	if c.config.MaxIssues > 0 && len(*issues) >= c.config.MaxIssues {
 		return
@@ -296,7 +296,9 @@ func (c *OrphanCheck) checkForOrphanedLink(ctx context.Context, fullPath string,
 
 	normalizedRel := filepath.ToSlash(relPath)
 	normalizedFull := filepath.ToSlash(fullPath)
-	managed := linkSet[normalizedRel] || linkSet[normalizedFull]
+	_, managedRel := linkSet[normalizedRel]
+	_, managedFull := linkSet[normalizedFull]
+	managed := managedRel || managedFull
 
 	if !managed {
 		if m.Doctor != nil {
@@ -371,12 +373,12 @@ func (c *OrphanCheck) normalizeAndDeduplicateDirs(dirs []string) []string {
 	return filterDescendants(absDirs)
 }
 
-func (c *OrphanCheck) buildManagedLinkSet(m *manifest.Manifest) map[string]bool {
-	linkSet := make(map[string]bool)
+func (c *OrphanCheck) buildManagedLinkSet(m *manifest.Manifest) map[string]struct{} {
+	linkSet := make(map[string]struct{})
 	for _, pkgInfo := range m.Packages {
 		for _, link := range pkgInfo.Links {
 			normalized := filepath.ToSlash(link)
-			linkSet[normalized] = true
+			linkSet[normalized] = struct{}{}
 		}
 	}
 	return linkSet
@@ -418,15 +420,15 @@ func (c *OrphanCheck) shouldSkipDirectory(path string) bool {
 
 // Helpers duplicated from doctor_service.go (since they weren't exported)
 func extractManagedDirectories(m *manifest.Manifest) []string {
-	dirSet := make(map[string]bool)
+	dirSet := make(map[string]struct{})
 	for _, pkgInfo := range m.Packages {
 		for _, link := range pkgInfo.Links {
 			dir := filepath.Dir(link)
 			for dir != "." && dir != "/" && dir != "" {
-				dirSet[dir] = true
+				dirSet[dir] = struct{}{}
 				dir = filepath.Dir(dir)
 			}
-			dirSet["."] = true
+			dirSet["."] = struct{}{}
 		}
 	}
 	dirs := make([]string, 0, len(dirSet))

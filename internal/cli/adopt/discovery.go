@@ -74,7 +74,7 @@ func DiscoverDotfiles(
 	managedPaths, err := getManagedPaths(ctx, client, targetDir)
 	if err != nil {
 		// Log warning but continue - we'll just not filter managed paths
-		managedPaths = make(map[string]bool)
+		managedPaths = make(map[string]struct{})
 	}
 
 	// Get home directory to check if scanDir is $HOME or .config
@@ -127,17 +127,17 @@ func DiscoverDotfiles(
 }
 
 // getManagedPaths retrieves all paths currently managed by dot.
-func getManagedPaths(ctx context.Context, client *dot.Client, targetDir string) (map[string]bool, error) {
+func getManagedPaths(ctx context.Context, client *dot.Client, targetDir string) (map[string]struct{}, error) {
 	status, err := client.Status(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get status: %w", err)
 	}
 
-	managedPaths := make(map[string]bool)
+	managedPaths := make(map[string]struct{})
 	for _, pkg := range status.Packages {
 		for _, link := range pkg.Links {
 			absPath := filepath.Join(targetDir, link)
-			managedPaths[absPath] = true
+			managedPaths[absPath] = struct{}{}
 		}
 	}
 
@@ -145,14 +145,14 @@ func getManagedPaths(ctx context.Context, client *dot.Client, targetDir string) 
 }
 
 // shouldSkipFile determines if a file should be skipped during discovery.
-func shouldSkipFile(name, fullPath string, isHomeDir, isConfigDir bool, managedPaths, excludeDirs map[string]bool) bool {
+func shouldSkipFile(name, fullPath string, isHomeDir, isConfigDir bool, managedPaths, excludeDirs map[string]struct{}) bool {
 	// Skip if already managed
-	if managedPaths[fullPath] {
+	if _, managed := managedPaths[fullPath]; managed {
 		return true
 	}
 
 	// Skip excluded directories
-	if excludeDirs[name] {
+	if _, excluded := excludeDirs[name]; excluded {
 		return true
 	}
 
@@ -231,10 +231,10 @@ func calculateDirectorySize(ctx context.Context, fs domain.FS, dirPath string) i
 }
 
 // makeExcludeMap converts slice to map for O(1) lookup.
-func makeExcludeMap(excludeDirs []string) map[string]bool {
-	m := make(map[string]bool, len(excludeDirs))
+func makeExcludeMap(excludeDirs []string) map[string]struct{} {
+	m := make(map[string]struct{}, len(excludeDirs))
 	for _, dir := range excludeDirs {
-		m[dir] = true
+		m[dir] = struct{}{}
 	}
 	return m
 }

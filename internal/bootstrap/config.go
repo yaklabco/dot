@@ -96,8 +96,8 @@ func (c Config) Validate() error {
 }
 
 // validatePackages validates all packages and returns their names.
-func (c Config) validatePackages() (map[string]bool, error) {
-	packageNames := make(map[string]bool)
+func (c Config) validatePackages() (map[string]struct{}, error) {
+	packageNames := make(map[string]struct{})
 
 	for _, pkg := range c.Packages {
 		// Check package name
@@ -106,10 +106,10 @@ func (c Config) validatePackages() (map[string]bool, error) {
 		}
 
 		// Check for duplicates
-		if packageNames[pkg.Name] {
+		if _, exists := packageNames[pkg.Name]; exists {
 			return nil, fmt.Errorf("duplicate package name: %s", pkg.Name)
 		}
-		packageNames[pkg.Name] = true
+		packageNames[pkg.Name] = struct{}{}
 
 		// Validate platforms
 		for _, platform := range pkg.Platform {
@@ -145,10 +145,10 @@ func (c Config) validateDefaults() error {
 }
 
 // validateProfiles validates that profiles reference valid packages.
-func (c Config) validateProfiles(packageNames map[string]bool) error {
+func (c Config) validateProfiles(packageNames map[string]struct{}) error {
 	for profileName, profile := range c.Profiles {
 		for _, pkgName := range profile.Packages {
-			if !packageNames[pkgName] {
+			if _, exists := packageNames[pkgName]; !exists {
 				return fmt.Errorf("profile %q references unknown package: %s", profileName, pkgName)
 			}
 		}
