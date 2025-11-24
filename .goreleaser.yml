@@ -102,7 +102,7 @@ brews:
     ids:
       - archives-unix
     repository:
-      owner: jamesainslie
+      owner: yaklabco
       name: homebrew-dot
       token: "{{ .Env.GITHUB_TOKEN }}"
     
