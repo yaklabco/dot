@@ -11,9 +11,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
-	"github.com/yaklabco/dot/internal/adapters"
-	"github.com/yaklabco/dot/internal/config"
-	"github.com/yaklabco/dot/internal/updater"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -135,7 +132,7 @@ func buildConfig() (dot.Config, error) {
 }
 
 // buildIgnoreConfig builds the ignore configuration from extended config and flags.
-func buildIgnoreConfig(extCfg *config.ExtendedConfig) (bool, bool, bool, []string, int64, error) {
+func buildIgnoreConfig(extCfg *dot.ExtendedConfig) (bool, bool, bool, []string, int64, error) {
 	useDefaults := true
 	perPackageIgnore := true
 	interactiveLargeFiles := true
@@ -221,7 +218,7 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 	}
 
 	// Create adapters
-	fs := adapters.NewOSFilesystem()
+	fs := dot.NewOSFilesystem()
 	logger := createLogger()
 
 	// Load extended config - check repo location first, then XDG location
@@ -311,7 +308,7 @@ func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
 //  4. Use defaults
 //
 // This allows repositories to define their own configuration without circular dependency.
-func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, error) {
+func loadConfigWithRepoPriority(xdgConfigPath string) (*dot.ExtendedConfig, error) {
 	var packageDir string
 
 	// Check if packageDir was explicitly set via flag
@@ -330,7 +327,7 @@ func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, e
 		repoConfigPath := filepath.Join(packageDir, ".config", "dot", "config.yaml")
 		if _, err := os.Stat(repoConfigPath); err == nil {
 			// Repository config exists - use it
-			loader := config.NewLoader("dot", repoConfigPath)
+			loader := dot.NewConfigLoader("dot", repoConfigPath)
 			cfg, err := loader.LoadWithEnv()
 			if err == nil {
 				return cfg, nil
@@ -341,27 +338,23 @@ func loadConfigWithRepoPriority(xdgConfigPath string) (*config.ExtendedConfig, e
 	}
 
 	// Fall back to XDG location
-	loader := config.NewLoader("dot", xdgConfigPath)
+	loader := dot.NewConfigLoader("dot", xdgConfigPath)
 	return loader.LoadWithEnv()
 }
 
 // createLogger creates appropriate logger based on flags.
 func createLogger() dot.Logger {
 	if globalCfg.quiet {
-		return adapters.NewNoopLogger()
+		return dot.NewNoopLogger()
 	}
 
 	level := verbosityToLevel(globalCfg.verbose)
 
 	if globalCfg.logJSON {
-		return adapters.NewSlogLogger(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-			Level: level,
-		})))
+		return dot.NewJSONLogger(os.Stderr, level)
 	}
 
-	return adapters.NewSlogLogger(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	})))
+	return dot.NewTextLogger(os.Stderr, level)
 }
 
 // verbosityToLevel converts verbosity count to log level.
@@ -457,11 +450,11 @@ func performStartupVersionCheck(currentVersion string) {
 
 	// Load configuration
 	configPath := getConfigFilePath()
-	loader := config.NewLoader("dot", configPath)
+	loader := dot.NewConfigLoader("dot", configPath)
 	cfg, err := loader.LoadWithEnv()
 	if err != nil {
 		// If config fails to load, use defaults (which has checking disabled by default)
-		cfg = config.DefaultExtended()
+		cfg = dot.DefaultExtendedConfig()
 	}
 
 	// Don't check if disabled
@@ -471,7 +464,7 @@ func performStartupVersionCheck(currentVersion string) {
 
 	// Perform check
 	configDir := filepath.Dir(configPath)
-	checker := updater.NewStartupChecker(currentVersion, cfg, configDir, os.Stdout)
+	checker := dot.NewStartupChecker(currentVersion, cfg, configDir, os.Stdout)
 	result, err := checker.Check()
 	if err != nil {
 		return // Silent failure

@@ -12,8 +12,6 @@ import (
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
 	"github.com/yaklabco/dot/internal/cli/terminal"
-	"github.com/yaklabco/dot/internal/config"
-	"github.com/yaklabco/dot/internal/scanner"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -164,7 +162,7 @@ func runAdoptInteractive(cmd *cobra.Command, scanDirs, excludeDirs []string, max
 
 	// Run interactive session
 	colorize := shouldUseColor()
-	configDir := config.GetConfigPath("dot")
+	configDir := dot.GetConfigPath("dot")
 	adopter := adopt.NewInteractiveAdopter(
 		cmd.InOrStdin(),
 		cmd.OutOrStdout(),
@@ -239,7 +237,7 @@ func runAdoptTraditional(cmd *cobra.Command, args []string) error {
 		}
 		// Apply dotfile translation to package name
 		// ".ssh" → "dot-ssh", "README.md" → "README.md"
-		pkg = scanner.UntranslateDotfile(pkg)
+		pkg = dot.UntranslateDotfile(pkg)
 	} else {
 		// Explicit mode: first arg is package name
 		pkg = args[0]

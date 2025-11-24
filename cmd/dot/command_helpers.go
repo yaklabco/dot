@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/yaklabco/dot/internal/doctor"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -185,7 +184,7 @@ type secretWarning struct {
 // Returns a list of warnings for files that might contain sensitive information.
 func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages []string) []secretWarning {
 	warnings := make([]secretWarning, 0)
-	patterns := doctor.DefaultSensitivePatterns()
+	patterns := dot.DefaultSensitivePatterns()
 
 	// For each package, scan its files for potential secrets
 	for _, pkgName := range packages {
@@ -200,7 +199,7 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 		}
 
 		// Detect secrets in the file list
-		detections := doctor.DetectSecrets(files, patterns)
+		detections := dot.DetectSecrets(files, patterns)
 
 		// Convert detections to warnings
 		for _, detection := range detections {
@@ -218,10 +217,10 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 // Used by the adopt command to warn before adopting sensitive files.
 func checkFilesForSecrets(files []string) []secretWarning {
 	warnings := make([]secretWarning, 0)
-	patterns := doctor.DefaultSensitivePatterns()
+	patterns := dot.DefaultSensitivePatterns()
 
 	// Detect secrets in the file list
-	detections := doctor.DetectSecrets(files, patterns)
+	detections := dot.DetectSecrets(files, patterns)
 
 	// Convert detections to warnings
 	for _, detection := range detections {

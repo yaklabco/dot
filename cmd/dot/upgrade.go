@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
-	"github.com/yaklabco/dot/internal/config"
-	"github.com/yaklabco/dot/internal/updater"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newUpgradeCommand creates the upgrade command.
@@ -56,13 +55,13 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 	// Load configuration
 	cfg, err := loadConfig()
 	if err != nil {
-		cfg = config.DefaultExtended()
+		cfg = dot.DefaultExtendedConfig()
 	}
 
 	fmt.Println("Checking for updates...")
 
 	// Check for updates
-	checker := updater.NewVersionChecker(cfg.Update.Repository)
+	checker := dot.NewVersionChecker(cfg.Update.Repository)
 	latestRelease, hasUpdate, err := checker.CheckForUpdate(currentVersion, cfg.Update.IncludePrerelease)
 	if err != nil {
 		return fmt.Errorf("check for updates: %w", err)
@@ -86,7 +85,7 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 	}
 
 	// Resolve package manager
-	pkgMgr, err := updater.ResolvePackageManager(cfg.Update.PackageManager)
+	pkgMgr, err := dot.ResolvePackageManager(cfg.Update.PackageManager)
 	if err != nil {
 		return fmt.Errorf("resolve package manager: %w", err)
 	}
@@ -132,14 +131,14 @@ func runUpgrade(currentVersion string, yes, checkOnly bool) error {
 }
 
 // loadConfig loads the configuration from the config file.
-func loadConfig() (*config.ExtendedConfig, error) {
+func loadConfig() (*dot.ExtendedConfig, error) {
 	configPath := getConfigFilePath()
-	loader := config.NewLoader("dot", configPath)
+	loader := dot.NewConfigLoader("dot", configPath)
 	return loader.LoadWithEnv()
 }
 
 // displayUpdateInfo shows update information and release notes.
-func displayUpdateInfo(currentVersion string, release *updater.GitHubRelease) {
+func displayUpdateInfo(currentVersion string, release *dot.GitHubRelease) {
 	colorize := shouldUseColor()
 	c := render.NewColorizer(colorize)
 
