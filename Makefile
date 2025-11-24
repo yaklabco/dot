@@ -1,4 +1,4 @@
-.PHONY: build test test-tparse lint clean install uninstall check qa help version changelog-update coverage-summary cs
+.PHONY: build test test-tparse lint clean install uninstall check qa help version changelog-update coverage-summary cs build-all
 
 # Build variables
 BINARY_NAME := dot
