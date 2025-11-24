@@ -130,7 +130,7 @@ func (g *Generator) MarshalYAMLWithComments(cfg Config, installed []string) ([]b
 		headerBuilder.WriteString("#\n")
 	}
 
-	headerBuilder.WriteString("# Documentation: https://github.com/jamesainslie/dot/blob/main/docs/user/bootstrap-config-spec.md\n")
+	headerBuilder.WriteString("# Documentation: https://github.com/yaklabco/dot/blob/main/docs/user/bootstrap-config-spec.md\n")
 	headerBuilder.WriteString("\n")
 
 	header := headerBuilder.String()

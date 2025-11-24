@@ -1,6 +1,6 @@
 package dot
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // Concrete path types re-exported from internal/domain.
 // These use proper type aliases (=) and include all methods from domain types.

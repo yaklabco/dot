@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/doctor"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/doctor"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // TriageOptions configures triage behavior.

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // OrphanCheck scans for symlinks not managed by dot.

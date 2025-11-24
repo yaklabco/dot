@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestCompose(t *testing.T) {

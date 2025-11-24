@@ -1,6 +1,6 @@
 package planner
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // ParallelizationPlan computes batches of operations that can execute concurrently.
 // Returns a slice of batches where operations within each batch have no dependencies

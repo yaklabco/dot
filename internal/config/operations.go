@@ -386,7 +386,7 @@ func generateUpgradeHeader(backupPath string, cfg *ExtendedConfig) string {
 		header.WriteString("#\n")
 	}
 
-	header.WriteString("# See https://github.com/jamesainslie/dot for documentation\n")
+	header.WriteString("# See https://github.com/yaklabco/dot for documentation\n")
 	header.WriteString("\n")
 
 	return header.String()

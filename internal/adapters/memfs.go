@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // MemFS implements an in-memory filesystem for testing.

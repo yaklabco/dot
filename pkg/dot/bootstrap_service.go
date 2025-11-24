@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/jamesainslie/dot/internal/bootstrap"
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/bootstrap"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // BootstrapService handles bootstrap configuration generation.

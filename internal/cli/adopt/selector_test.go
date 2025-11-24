@@ -7,8 +7,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jamesainslie/dot/internal/adapters"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/adapters"
 )
 
 func TestNewArrowSelector(t *testing.T) {

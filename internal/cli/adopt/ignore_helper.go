@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // AppendToGlobalDotignore appends a pattern to the global .dotignore file.

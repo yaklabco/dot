@@ -1,6 +1,6 @@
 package dot
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // Domain entity re-exports
 

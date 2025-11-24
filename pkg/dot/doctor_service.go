@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/doctor"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/doctor"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // DoctorService handles health check and diagnostic operations.

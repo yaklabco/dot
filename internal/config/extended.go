@@ -287,7 +287,7 @@ func DefaultExtended() *ExtendedConfig {
 			CheckOnStartup:    true,
 			CheckFrequency:    24, // Check once per day
 			PackageManager:    "auto",
-			Repository:        "jamesainslie/dot",
+			Repository:        "yaklabco/dot",
 			IncludePrerelease: false,
 		},
 		Network: NetworkConfig{

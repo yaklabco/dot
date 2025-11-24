@@ -3,7 +3,7 @@ package manifest
 import (
 	"context"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // ManifestStore provides persistence for manifests

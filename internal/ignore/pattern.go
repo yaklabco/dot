@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // PatternType identifies whether a pattern includes or excludes files.

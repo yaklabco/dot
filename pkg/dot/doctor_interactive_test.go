@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/manifest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // TestDoctorService_IgnoreLink tests the IgnoreLink functionality

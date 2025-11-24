@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // MockFS is a mock implementation of the FS interface for testing.

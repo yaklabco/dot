@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // Renderer defines the interface for output formatting.

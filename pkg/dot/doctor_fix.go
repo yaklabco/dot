@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // FixOptions configures fix behavior.

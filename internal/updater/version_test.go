@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 func TestParseVersion(t *testing.T) {
@@ -159,7 +159,7 @@ func TestVersionChecker_GetLatestVersion(t *testing.T) {
 		}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "/repos/jamesainslie/dot/releases", r.URL.Path)
+			assert.Equal(t, "/repos/yaklabco/dot/releases", r.URL.Path)
 			assert.Equal(t, "application/vnd.github.v3+json", r.Header.Get("Accept"))
 			assert.Equal(t, "dot-updater", r.Header.Get("User-Agent"))
 
@@ -171,12 +171,12 @@ func TestVersionChecker_GetLatestVersion(t *testing.T) {
 		// Create checker with custom base URL by manipulating repository
 		vc := &VersionChecker{
 			httpClient: server.Client(),
-			repository: server.URL + "/repos/jamesainslie/dot/releases", // Trick to use test server
+			repository: server.URL + "/repos/yaklabco/dot/releases", // Trick to use test server
 		}
 
 		// Parse server URL to extract host for testing
 		// We'll test the HTTP interaction directly
-		req, err := http.NewRequest("GET", server.URL+"/repos/jamesainslie/dot/releases", nil)
+		req, err := http.NewRequest("GET", server.URL+"/repos/yaklabco/dot/releases", nil)
 		require.NoError(t, err)
 		req.Header.Set("Accept", "application/vnd.github.v3+json")
 		req.Header.Set("User-Agent", "dot-updater")

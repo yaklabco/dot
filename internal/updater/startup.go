@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/config"
+	"github.com/yaklabco/dot/internal/config"
 	"golang.org/x/term"
 )
 

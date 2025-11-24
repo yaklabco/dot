@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // YAMLRenderer renders output as YAML.

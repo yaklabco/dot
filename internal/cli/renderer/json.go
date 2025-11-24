@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // JSONRenderer renders output as JSON.

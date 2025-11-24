@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // scannerModel represents the loading state while scanning for dotfiles.

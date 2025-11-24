@@ -3,8 +3,8 @@ package scanner_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 func TestTranslateDotfile(t *testing.T) {

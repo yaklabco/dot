@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/cli/golden"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/cli/golden"
 )
 
 // normalizePaths replaces dynamic paths with placeholders for consistent comparison

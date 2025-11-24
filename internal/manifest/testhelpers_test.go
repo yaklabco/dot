@@ -3,7 +3,7 @@ package manifest
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func mustTargetPath(t *testing.T, path string) domain.TargetPath {

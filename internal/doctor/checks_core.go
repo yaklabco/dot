@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // ManagedPackageCheck validates all packages managed by dot.

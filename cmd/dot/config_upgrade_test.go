@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jamesainslie/dot/internal/config"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 func TestConfigUpgrade_WithOldConfig(t *testing.T) {
@@ -298,7 +298,7 @@ ignore:
 	assert.Contains(t, header, backupPath)
 	assert.Contains(t, header, "# Deprecated fields migrated:")
 	assert.Contains(t, header, "ignore.overrides → ignore.patterns")
-	assert.Contains(t, header, "# See https://github.com/jamesainslie/dot")
+	assert.Contains(t, header, "# See https://github.com/yaklabco/dot")
 }
 
 func TestRunConfigUpgrade_Integration(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestHealthStatus_String(t *testing.T) {

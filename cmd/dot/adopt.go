@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/cli/adopt"
-	"github.com/jamesainslie/dot/internal/cli/output"
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/cli/terminal"
-	"github.com/jamesainslie/dot/internal/config"
-	"github.com/jamesainslie/dot/internal/scanner"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/adopt"
+	"github.com/yaklabco/dot/internal/cli/output"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/terminal"
+	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/internal/scanner"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newAdoptCommand creates the adopt command.

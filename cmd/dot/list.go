@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/cli/renderer"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/renderer"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newListCommand creates the list command with configuration from global flags.

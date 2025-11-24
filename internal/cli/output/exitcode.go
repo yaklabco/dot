@@ -3,7 +3,7 @@ package output
 import (
 	"errors"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Exit codes for different error types.

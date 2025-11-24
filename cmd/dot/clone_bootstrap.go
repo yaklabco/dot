@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newCloneBootstrapCommand creates the clone bootstrap subcommand.

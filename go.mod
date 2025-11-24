@@ -1,4 +1,4 @@
-module github.com/jamesainslie/dot
+module github.com/yaklabco/dot
 
 go 1.25.4
 

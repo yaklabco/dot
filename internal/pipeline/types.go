@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Pipeline represents a functional pipeline stage that transforms input A to output B.

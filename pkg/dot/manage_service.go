@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/executor"
-	"github.com/jamesainslie/dot/internal/manifest"
-	"github.com/jamesainslie/dot/internal/pipeline"
+	"github.com/yaklabco/dot/internal/executor"
+	"github.com/yaklabco/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/pipeline"
 )
 
 // ManageService handles package installation (manage and remanage operations).

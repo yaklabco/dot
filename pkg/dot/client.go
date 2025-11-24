@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/cli/selector"
-	"github.com/jamesainslie/dot/internal/executor"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/manifest"
-	"github.com/jamesainslie/dot/internal/pipeline"
-	"github.com/jamesainslie/dot/internal/planner"
-	"github.com/jamesainslie/dot/internal/scanner"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/cli/selector"
+	"github.com/yaklabco/dot/internal/executor"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/pipeline"
+	"github.com/yaklabco/dot/internal/planner"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 // Client provides the high-level API for dot operations.

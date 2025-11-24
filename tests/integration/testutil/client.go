@@ -3,9 +3,9 @@ package testutil
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // NewTestClient creates a dot client configured for the test environment.

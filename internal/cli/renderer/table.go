@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/cli/pretty"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/pretty"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // TableRenderer renders output as tables.

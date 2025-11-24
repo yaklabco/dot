@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // DefaultScanDirs returns the default directories to scan for dotfiles.

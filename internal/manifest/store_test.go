@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestManifestStore_Interface(t *testing.T) {

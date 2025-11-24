@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 func TestScanPackage(t *testing.T) {

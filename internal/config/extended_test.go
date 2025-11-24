@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 func TestExtendedConfig_Default(t *testing.T) {
@@ -70,7 +70,7 @@ func TestExtendedConfig_Default(t *testing.T) {
 	assert.True(t, cfg.Update.CheckOnStartup)
 	assert.Equal(t, 24, cfg.Update.CheckFrequency)
 	assert.Equal(t, "auto", cfg.Update.PackageManager)
-	assert.Equal(t, "jamesainslie/dot", cfg.Update.Repository)
+	assert.Equal(t, "yaklabco/dot", cfg.Update.Repository)
 	assert.False(t, cfg.Update.IncludePrerelease)
 
 	// Experimental
@@ -397,18 +397,18 @@ func TestExtendedConfig_ValidateUpdate(t *testing.T) {
 		repo      string
 		wantErr   bool
 	}{
-		{"valid defaults", 24, "auto", "jamesainslie/dot", false},
-		{"valid check frequency 0", 0, "auto", "jamesainslie/dot", false},
-		{"valid check frequency -1 (disabled)", -1, "auto", "jamesainslie/dot", false},
-		{"invalid check frequency -2", -2, "auto", "jamesainslie/dot", true},
-		{"valid package manager brew", 24, "brew", "jamesainslie/dot", false},
-		{"valid package manager apt", 24, "apt", "jamesainslie/dot", false},
-		{"valid package manager yum", 24, "yum", "jamesainslie/dot", false},
-		{"valid package manager pacman", 24, "pacman", "jamesainslie/dot", false},
-		{"valid package manager dnf", 24, "dnf", "jamesainslie/dot", false},
-		{"valid package manager zypper", 24, "zypper", "jamesainslie/dot", false},
-		{"valid package manager manual", 24, "manual", "jamesainslie/dot", false},
-		{"invalid package manager", 24, "invalid-mgr", "jamesainslie/dot", true},
+		{"valid defaults", 24, "auto", "yaklabco/dot", false},
+		{"valid check frequency 0", 0, "auto", "yaklabco/dot", false},
+		{"valid check frequency -1 (disabled)", -1, "auto", "yaklabco/dot", false},
+		{"invalid check frequency -2", -2, "auto", "yaklabco/dot", true},
+		{"valid package manager brew", 24, "brew", "yaklabco/dot", false},
+		{"valid package manager apt", 24, "apt", "yaklabco/dot", false},
+		{"valid package manager yum", 24, "yum", "yaklabco/dot", false},
+		{"valid package manager pacman", 24, "pacman", "yaklabco/dot", false},
+		{"valid package manager dnf", 24, "dnf", "yaklabco/dot", false},
+		{"valid package manager zypper", 24, "zypper", "yaklabco/dot", false},
+		{"valid package manager manual", 24, "manual", "yaklabco/dot", false},
+		{"invalid package manager", 24, "invalid-mgr", "yaklabco/dot", true},
 		{"empty repository", 24, "auto", "", true},
 		{"invalid repository format (no slash)", 24, "auto", "invalid", true},
 		{"invalid repository format (empty owner)", 24, "auto", "/repo", true},

@@ -3,8 +3,8 @@ package config_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 func TestValidateDotfile_AllCases(t *testing.T) {

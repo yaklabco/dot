@@ -3,7 +3,7 @@ package dot
 import (
 	"fmt"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Error types re-exported from internal/domain

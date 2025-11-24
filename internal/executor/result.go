@@ -1,6 +1,6 @@
 package executor
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // ExecutionResult contains the outcome of plan execution.
 type ExecutionResult struct {

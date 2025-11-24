@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // testConfig returns a standard test configuration

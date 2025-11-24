@@ -5,8 +5,8 @@ import (
 	"io"
 	"sort"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // TextRenderer renders output as human-readable plain text.

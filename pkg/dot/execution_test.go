@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestExecutionResult_Success(t *testing.T) {

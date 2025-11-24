@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
 )
 
 // setupBenchmarkPackage creates a temporary package directory with the specified number of files.

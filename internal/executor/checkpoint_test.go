@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestCheckpoint_Create(t *testing.T) {

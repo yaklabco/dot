@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // InstrumentedExecutor wraps Executor with metrics collection.

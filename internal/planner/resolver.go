@@ -3,7 +3,7 @@ package planner
 import (
 	"fmt"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // ConflictType categorizes conflicts by their nature

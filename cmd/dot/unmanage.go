@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/jamesainslie/dot/internal/cli/output"
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/output"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newUnmanageCommand creates the unmanage command.

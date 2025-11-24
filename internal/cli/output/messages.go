@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Printer handles output formatting and display.

@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/planner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/planner"
 )
 
 func TestNewManagePipeline(t *testing.T) {
