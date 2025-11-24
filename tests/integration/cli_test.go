@@ -38,7 +38,7 @@ func TestCLI_HelpCommand(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
 
-	assert.Contains(t, string(output), "Usage")
+	assert.Contains(t, string(output), "USAGE")
 }
 
 // TestCLI_StatusCommand tests status command execution.
