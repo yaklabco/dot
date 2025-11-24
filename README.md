@@ -4,10 +4,10 @@
 </div>
 
 # dot
-[![CI](https://github.com/jamesainslie/dot/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesainslie/dot/actions/workflows/ci.yml)
-[![Release](https://github.com/jamesainslie/dot/actions/workflows/release-please.yml/badge.svg)](https://github.com/jamesainslie/dot/actions/workflows/release-please.yml)
-[![Version](https://img.shields.io/github/v/release/jamesainslie/dot)](https://github.com/jamesainslie/dot/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jamesainslie/dot)](https://goreportcard.com/report/github.com/jamesainslie/dot)
+[![CI](https://github.com/yaklabco/dot/actions/workflows/ci.yml/badge.svg)](https://github.com/yaklabco/dot/actions/workflows/ci.yml)
+[![Release](https://github.com/yaklabco/dot/actions/workflows/release-please.yml/badge.svg)](https://github.com/yaklabco/dot/actions/workflows/release-please.yml)
+[![Version](https://img.shields.io/github/v/release/yaklabco/dot)](https://github.com/yaklabco/dot/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yaklabco/dot)](https://goreportcard.com/report/github.com/yaklabco/dot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A type-safe symbolic link manager for configuration files and dotfiles, written in Go.
@@ -32,17 +32,17 @@ dot manages configuration files through symbolic links, providing a centralized 
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap jamesainslie/dot
+brew tap yaklabco/dot
 brew install dot
 ```
 
 ### From Binary Releases
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/jamesainslie/dot/releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/yaklabco/dot/releases).
 
 ```bash
 # Linux/macOS
-curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
+curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
 sudo mv dot /usr/local/bin/
 ```
 
@@ -51,7 +51,7 @@ sudo mv dot /usr/local/bin/
 Requires Go 1.25.4 or later:
 
 ```bash
-go install github.com/jamesainslie/dot/cmd/dot@latest
+go install github.com/yaklabco/dot/cmd/dot@latest
 ```
 
 ### Verification
@@ -589,7 +589,7 @@ package main
 
 import (
     "context"
-    "github.com/jamesainslie/dot/pkg/dot"
+    "github.com/yaklabco/dot/pkg/dot"
 )
 
 func main() {
@@ -676,8 +676,8 @@ See [Migration Guide](docs/user/migration-from-stow.md) for transitioning from G
 ## Support
 
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/jamesainslie/dot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jamesainslie/dot/discussions)
+- **Issues**: [GitHub Issues](https://github.com/yaklabco/dot/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yaklabco/dot/discussions)
 
 ## Project Status
 
