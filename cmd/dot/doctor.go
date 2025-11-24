@@ -149,7 +149,7 @@ func newDoctorCommand() *cobra.Command {
 		}
 
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(configPath)
+		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
 
 		if err := renderDoctorOutput(cmd, report, flags, extCfg); err != nil {
 			return err

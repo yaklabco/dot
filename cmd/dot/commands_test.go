@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupGlobalCfg initializes globalCfg with deterministic test values and registers cleanup.
+// setupGlobalCfg initializes cliFlags with deterministic test values and registers cleanup.
 func setupGlobalCfg(t *testing.T) {
 	t.Helper()
 
-	// Save previous globalCfg and environment
-	previous := globalCfg
+	// Save previous cliFlags and environment
+	previous := cliFlags
 	oldXDGData := os.Getenv("XDG_DATA_HOME")
 	oldXDGConfig := os.Getenv("XDG_CONFIG_HOME")
 	oldXDGState := os.Getenv("XDG_STATE_HOME")
@@ -25,8 +25,8 @@ func setupGlobalCfg(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", filepath.Join(xdgBase, "config"))
 	os.Setenv("XDG_STATE_HOME", filepath.Join(xdgBase, "state"))
 
-	// Set globalCfg to use temporary directories
-	globalCfg = globalConfig{
+	// Set cliFlags to use temporary directories
+	cliFlags = CLIFlags{
 		packageDir: t.TempDir(),
 		targetDir:  t.TempDir(),
 		dryRun:     true, // Always dry-run in tests to avoid side effects
@@ -35,9 +35,9 @@ func setupGlobalCfg(t *testing.T) {
 		logJSON:    false,
 	}
 
-	// Restore previous globalCfg and environment on cleanup
+	// Restore previous cliFlags and environment on cleanup
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 		if oldXDGData != "" {
 			os.Setenv("XDG_DATA_HOME", oldXDGData)
 		} else {

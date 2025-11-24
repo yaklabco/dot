@@ -50,7 +50,12 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 
 // getAvailablePackages returns list of available packages from the package directory.
 func getAvailablePackages() []string {
-	packageDir := globalCfg.packageDir
+	return getAvailablePackagesWithFlags(&cliFlags)
+}
+
+// getAvailablePackagesWithFlags returns packages from explicit CLI flags.
+func getAvailablePackagesWithFlags(flags *CLIFlags) []string {
+	packageDir := flags.packageDir
 	if packageDir == "" {
 		packageDir = "."
 	}
@@ -186,10 +191,14 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 	warnings := make([]secretWarning, 0)
 	patterns := dot.DefaultSensitivePatterns()
 
+	// Get package directory from client config
+	cfg := client.Config()
+	packageDir := cfg.PackageDir
+
 	// For each package, scan its files for potential secrets
 	for _, pkgName := range packages {
 		// Get package directory
-		pkgDir := filepath.Join(globalCfg.packageDir, pkgName)
+		pkgDir := filepath.Join(packageDir, pkgName)
 
 		// Get all files in package (recursively)
 		files, err := getPackageFiles(pkgDir)

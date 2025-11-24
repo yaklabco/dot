@@ -21,16 +21,16 @@ func TestBuildConfig_UsesConfigFile(t *testing.T) {
 `
 	require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
 
-	previous := globalCfg
+	previous := cliFlags
 	err := os.Setenv("DOT_CONFIG", tmpConfig)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 		os.Unsetenv("DOT_CONFIG")
 	})
 
 	// Set flags to defaults (should use config values)
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: ".",
 		targetDir:  "",
 	}
@@ -57,18 +57,18 @@ func TestBuildConfig_FlagsOverrideConfig(t *testing.T) {
 `
 	require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
 
-	previous := globalCfg
+	previous := cliFlags
 	err := os.Setenv("DOT_CONFIG", tmpConfig)
 	if err != nil {
 		t.Fatalf("os.Setenv DOT_CONFIG=%s: %v", tmpConfig, err)
 	}
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 		os.Unsetenv("DOT_CONFIG")
 	})
 
 	// Set flags explicitly (not defaults)
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: flagPkgDir,
 		targetDir:  flagTargetDir,
 	}
@@ -84,17 +84,17 @@ func TestBuildConfig_FlagsOverrideConfig(t *testing.T) {
 func TestBuildConfig_AppliesDefaults(t *testing.T) {
 	tmpConfig := filepath.Join(t.TempDir(), "nonexistent.yaml")
 
-	previous := globalCfg
+	previous := cliFlags
 	err := os.Setenv("DOT_CONFIG", tmpConfig)
 	if err != nil {
 		t.Fatalf("os.Setenv DOT_CONFIG=%s: %v", tmpConfig, err)
 	}
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 		os.Unsetenv("DOT_CONFIG")
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: ".",
 		targetDir:  "",
 	}
@@ -110,13 +110,13 @@ func TestBuildConfig_AppliesDefaults(t *testing.T) {
 }
 
 func TestBuildConfig_BackupDirFlag(t *testing.T) {
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
 	tmpBackup := t.TempDir() + "/backups"
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: ".",
 		targetDir:  t.TempDir(),
 		backupDir:  tmpBackup,

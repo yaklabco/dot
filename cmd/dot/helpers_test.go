@@ -30,12 +30,12 @@ func TestShouldColorize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore globalCfg
-			previous := globalCfg
+			// Save and restore cliFlags
+			previous := cliFlags
 			t.Cleanup(func() {
-				globalCfg = previous
+				cliFlags = previous
 			})
-			globalCfg.noColor = false
+			cliFlags.noColor = false
 
 			// Unset NO_COLOR for this test to ensure it doesn't interfere
 			original := os.Getenv("NO_COLOR")
@@ -54,22 +54,22 @@ func TestShouldColorize(t *testing.T) {
 
 func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	t.Run("--no-color takes precedence over always", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg.noColor = true
+		cliFlags.noColor = true
 
 		result := shouldColorize("always")
 		assert.False(t, result, "--no-color should disable colors even with --color=always")
 	})
 
 	t.Run("--no-color takes precedence over NO_COLOR unset", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg.noColor = true
+		cliFlags.noColor = true
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")
@@ -84,11 +84,11 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	})
 
 	t.Run("NO_COLOR env takes precedence over --color=always when --no-color is false", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg.noColor = false
+		cliFlags.noColor = false
 
 		original := os.Getenv("NO_COLOR")
 		os.Setenv("NO_COLOR", "1")
@@ -105,11 +105,11 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	})
 
 	t.Run("colors enabled when neither flag nor env set", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg.noColor = false
+		cliFlags.noColor = false
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")
@@ -133,12 +133,12 @@ func TestShouldColorize_Auto(t *testing.T) {
 }
 
 func TestBuildConfig_ValidatesPackageDir(t *testing.T) {
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: ".",
 		targetDir:  ".",
 	}
@@ -163,12 +163,12 @@ func TestCreateLogger_AllModes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			previous := globalCfg
+			previous := cliFlags
 			t.Cleanup(func() {
-				globalCfg = previous
+				cliFlags = previous
 			})
 
-			globalCfg = globalConfig{
+			cliFlags = CLIFlags{
 				quiet:   tt.quiet,
 				logJSON: tt.logJSON,
 				verbose: tt.verbose,
@@ -206,12 +206,12 @@ func TestIsHiddenOrIgnored(t *testing.T) {
 func TestGetAvailablePackages(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: tmpDir,
 	}
 
@@ -233,12 +233,12 @@ func TestGetAvailablePackages(t *testing.T) {
 func TestPackageCompletion_Available(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: tmpDir,
 	}
 
@@ -265,12 +265,12 @@ func TestGetInstalledPackages(t *testing.T) {
 }
 
 func TestPackageCompletion_Installed(t *testing.T) {
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: t.TempDir(),
 		targetDir:  t.TempDir(),
 	}
@@ -314,13 +314,13 @@ func TestDerivePackageName(t *testing.T) {
 func TestGetAvailablePackages_WithFlags(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
 	// Test with explicit package dir
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: tmpDir,
 	}
 
@@ -339,12 +339,12 @@ func TestGetAvailablePackages_WithFlags(t *testing.T) {
 func TestGetAvailablePackages_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: tmpDir,
 	}
 
@@ -353,12 +353,12 @@ func TestGetAvailablePackages_EmptyDir(t *testing.T) {
 }
 
 func TestGetAvailablePackages_InvalidDir(t *testing.T) {
-	previous := globalCfg
+	previous := cliFlags
 	t.Cleanup(func() {
-		globalCfg = previous
+		cliFlags = previous
 	})
 
-	globalCfg = globalConfig{
+	cliFlags = CLIFlags{
 		packageDir: "/this/path/definitely/does/not/exist/anywhere",
 	}
 

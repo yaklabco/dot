@@ -86,11 +86,11 @@ func TestSetupSignalHandler(t *testing.T) {
 
 func TestSetupProfiling(t *testing.T) {
 	t.Run("returns no-op cleanup when no profiling flags set", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg = globalConfig{} // All profiling flags empty
+		cliFlags = CLIFlags{} // All profiling flags empty
 
 		cleanup := setupProfiling()
 		require.NotNil(t, cleanup)
@@ -98,11 +98,11 @@ func TestSetupProfiling(t *testing.T) {
 	})
 
 	t.Run("handles invalid CPU profile path gracefully", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg = globalConfig{
+		cliFlags = CLIFlags{
 			cpuProfile: "/invalid/path/that/does/not/exist/cpu.prof",
 		}
 
@@ -112,11 +112,11 @@ func TestSetupProfiling(t *testing.T) {
 	})
 
 	t.Run("handles invalid memory profile path gracefully", func(t *testing.T) {
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg = globalConfig{
+		cliFlags = CLIFlags{
 			memProfile: "/invalid/path/that/does/not/exist/mem.prof",
 		}
 
@@ -129,11 +129,11 @@ func TestSetupProfiling(t *testing.T) {
 		tmpDir := t.TempDir()
 		cpuFile := tmpDir + "/cpu.prof"
 
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg = globalConfig{
+		cliFlags = CLIFlags{
 			cpuProfile: cpuFile,
 		}
 
@@ -154,11 +154,11 @@ func TestSetupProfiling(t *testing.T) {
 		tmpDir := t.TempDir()
 		memFile := tmpDir + "/mem.prof"
 
-		previous := globalCfg
+		previous := cliFlags
 		t.Cleanup(func() {
-			globalCfg = previous
+			cliFlags = previous
 		})
-		globalCfg = globalConfig{
+		cliFlags = CLIFlags{
 			memProfile: memFile,
 		}
 

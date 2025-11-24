@@ -37,7 +37,7 @@ func runManage(cmd *cobra.Command, args []string) error {
 
 	// Load extended config for table_style
 	configPath := getConfigFilePath()
-	extCfg, _ := loadConfigWithRepoPriority(configPath)
+	extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
 
 	client, err := dot.NewClient(cfg)
 	if err != nil {

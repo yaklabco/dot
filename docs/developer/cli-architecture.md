@@ -64,19 +64,30 @@ Startup version checking is a **CLI concern** implemented in `cmd/dot/root.go`:
 
 ## State Management
 
-### Global State (Anti-Pattern)
+### CLI Flags (Refactored)
 
-The current `globalCfg` variable in `root.go` is **global mutable state** and represents a deviation from functional principles. This is a known anti-pattern that should be refactored.
+The CLI layer uses a package-level `cliFlags` variable to store parsed command-line flags. While still package-level, the variable is only mutated during flag parsing in `NewRootCommand()`, and all functions accept explicit `*CLIFlags` parameters rather than reading the global directly.
 
-**Current State** (Technical Debt):
+**Current Implementation**:
 ```go
-var globalCfg globalConfig  // Mutable global state
+// Package-level variable for flag storage during initialization
+var cliFlags CLIFlags
+
+// Functions accept explicit parameters
+func buildConfigWithFlags(flags *CLIFlags, cmd *cobra.Command) (dot.Config, error) {
+    // Uses explicit flags parameter, not global
+}
+
+func createLoggerWithFlags(flags *CLIFlags) dot.Logger {
+    // Uses explicit flags parameter, not global
+}
 ```
 
-**Planned Refactoring**:
-- Pass configuration through cobra command context
-- Use a `CLIContext` struct attached to cobra commands
-- Make configuration construction pure functions with explicit inputs
+**Benefits**:
+- Explicit dependencies make data flow clear
+- Functions are testable with different flag values
+- Reduces hidden coupling between functions
+- Maintains compatibility with existing cobra patterns
 
 ### Command Execution Flow
 
