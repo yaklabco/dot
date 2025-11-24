@@ -1,4 +1,11 @@
 <a name="unreleased"></a>
+## [0.6.1](https://github.com/yaklabco/dot/compare/v0.6.0...v0.6.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* **release:** use HOMEBREW_TAP_TOKEN for tap updates ([111ccf9](https://github.com/yaklabco/dot/commit/111ccf91e008953dbeb966ca99eaa1f797bac53a))
+
 ## [0.6.0](https://github.com/yaklabco/dot/compare/dot-v0.5.0...dot-v0.6.0) (2025-11-24)
 
 
