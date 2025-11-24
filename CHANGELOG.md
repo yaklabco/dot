@@ -1,4 +1,12 @@
 <a name="unreleased"></a>
+## [0.6.2](https://github.com/yaklabco/dot/compare/v0.6.1...v0.6.2) (2025-11-24)
+
+
+### Features
+
+* **cli:** integrate fang for enhanced help and error output ([bbfca24](https://github.com/yaklabco/dot/commit/bbfca24a6a9192236303eefea3421521a924854a))
+* **cli:** integrate fang for enhanced help and error output ([4d7cb41](https://github.com/yaklabco/dot/commit/4d7cb41a449978877f056ed661e83f1f22307164))
+
 ## [0.6.1](https://github.com/yaklabco/dot/compare/v0.6.0...v0.6.1) (2025-11-24)
 
 
