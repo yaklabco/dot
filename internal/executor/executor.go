@@ -77,12 +77,38 @@ func (e *Executor) Execute(ctx context.Context, plan domain.Plan) domain.Result[
 		result = e.executeSequential(ctx, plan, checkpoint)
 	}
 
-	if len(result.Failed) > 0 {
-		// Automatic rollback
-		e.log.Warn(ctx, "execution_failed_rolling_back", "failed_count", len(result.Failed))
-		rolledBack := e.rollback(ctx, result.Executed, checkpoint)
-		result.RolledBack = rolledBack
+	// Check if execution was cancelled or failed
+	if len(result.Failed) > 0 || len(result.Errors) > 0 {
+		// Check if cancellation occurred
+		var isCancelled bool
+		for _, err := range result.Errors {
+			if _, ok := err.(domain.ErrExecutionCancelled); ok {
+				isCancelled = true
+				break
+			}
+		}
 
+		// Perform rollback if operations were executed
+		if len(result.Executed) > 0 {
+			e.log.Warn(ctx, "execution_failed_rolling_back",
+				"executed", len(result.Executed),
+				"failed_count", len(result.Failed),
+				"cancelled", isCancelled)
+			rolledBack := e.rollback(ctx, result.Executed, checkpoint)
+			result.RolledBack = rolledBack
+		}
+
+		// Return appropriate error
+		if isCancelled {
+			// Cancellation error takes precedence
+			for _, err := range result.Errors {
+				if cancelErr, ok := err.(domain.ErrExecutionCancelled); ok {
+					return domain.Err[ExecutionResult](cancelErr)
+				}
+			}
+		}
+
+		// Return execution failure
 		err := domain.ErrExecutionFailed{
 			Executed:   len(result.Executed),
 			Failed:     len(result.Failed),
@@ -115,6 +141,13 @@ func (e *Executor) prepare(ctx context.Context, plan domain.Plan) error {
 	pendingFiles := make(map[string]bool)
 
 	for _, op := range plan.Operations {
+		// Check for context cancellation
+		if err := ctx.Err(); err != nil {
+			e.log.Warn(ctx, "prepare_cancelled", "context_error", err)
+			span.RecordError(err)
+			return fmt.Errorf("prepare cancelled: %w", err)
+		}
+
 		if err := op.Validate(); err != nil {
 			return fmt.Errorf("validation failed for %v: %w", op.ID(), err)
 		}
@@ -297,7 +330,23 @@ func (e *Executor) executeSequential(ctx context.Context, plan domain.Plan, chec
 		Errors:     []error{},
 	}
 
-	for _, op := range plan.Operations {
+	for i, op := range plan.Operations {
+		// Check for context cancellation before each operation
+		if err := ctx.Err(); err != nil {
+			skipped := len(plan.Operations) - i
+			e.log.Warn(ctx, "execution_cancelled",
+				"executed", len(result.Executed),
+				"skipped", skipped,
+				"context_error", err)
+
+			cancelErr := domain.ErrExecutionCancelled{
+				Executed: len(result.Executed),
+				Skipped:  skipped,
+			}
+			result.Errors = append(result.Errors, cancelErr)
+			return result
+		}
+
 		opID := op.ID()
 
 		ctx, span := e.tracer.Start(ctx, "operation.Execute")
@@ -333,6 +382,18 @@ func (e *Executor) rollback(ctx context.Context, executed []domain.OperationID, 
 
 	// Rollback in reverse order
 	for i := len(executed) - 1; i >= 0; i-- {
+		// Check for context cancellation during rollback
+		// Continue rollback even if cancelled to maintain consistency
+		if err := ctx.Err(); err != nil {
+			e.log.Warn(ctx, "rollback_cancelled_continuing",
+				"rolled_back", len(rolledBack),
+				"remaining", i+1,
+				"context_error", err)
+			// Note: We continue rollback despite cancellation to maintain
+			// system consistency. Partial rollback could leave the system
+			// in an inconsistent state.
+		}
+
 		opID := executed[i]
 		op := checkpoint.Lookup(opID)
 
@@ -374,6 +435,27 @@ func (e *Executor) executeParallel(ctx context.Context, plan domain.Plan, checkp
 	}
 
 	for i, batch := range batches {
+		// Check for context cancellation before each batch
+		if err := ctx.Err(); err != nil {
+			// Count remaining operations in unprocessed batches
+			skipped := 0
+			for j := i; j < len(batches); j++ {
+				skipped += len(batches[j])
+			}
+
+			e.log.Warn(ctx, "parallel_execution_cancelled",
+				"executed", len(result.Executed),
+				"skipped", skipped,
+				"context_error", err)
+
+			cancelErr := domain.ErrExecutionCancelled{
+				Executed: len(result.Executed),
+				Skipped:  skipped,
+			}
+			result.Errors = append(result.Errors, cancelErr)
+			return result
+		}
+
 		e.log.Debug(ctx, "executing_batch", "batch", i, "size", len(batch))
 
 		batchResult := e.executeBatch(ctx, batch, checkpoint)

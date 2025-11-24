@@ -81,6 +81,16 @@ func (e ErrEmptyPlan) Error() string {
 	return "cannot execute empty plan"
 }
 
+// ErrExecutionCancelled indicates execution was cancelled via context.
+type ErrExecutionCancelled struct {
+	Executed int
+	Skipped  int
+}
+
+func (e ErrExecutionCancelled) Error() string {
+	return fmt.Sprintf("execution cancelled: %d operations completed, %d skipped", e.Executed, e.Skipped)
+}
+
 // ErrExecutionFailed indicates one or more operations failed during execution.
 type ErrExecutionFailed struct {
 	Executed   int
@@ -204,6 +214,9 @@ func UserFacingError(err error) string {
 
 	case ErrEmptyPlan:
 		return "Cannot execute empty plan. Ensure the plan contains operations."
+
+	case ErrExecutionCancelled:
+		return fmt.Sprintf("Execution was cancelled: %d operations completed, %d skipped.", e.Executed, e.Skipped)
 
 	case ErrExecutionFailed:
 		return fmt.Sprintf("Execution failed: %d operations succeeded, %d failed.\nRolled back %d operations.", e.Executed, e.Failed, e.RolledBack)
