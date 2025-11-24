@@ -43,7 +43,7 @@ func (c *ManagedPackageCheck) Description() string {
 	return "Validates status of all managed packages and symlinks"
 }
 
-func (c *ManagedPackageCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *ManagedPackageCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
@@ -52,12 +52,6 @@ func (c *ManagedPackageCheck) Run(ctx domain.Context) (domain.CheckResult, error
 	}
 
 	// Load manifest
-	// Convert domain.Context to context.Context
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		return result, fmt.Errorf("invalid context type")
-	}
-
 	// Construct target path
 	targetPathResult := c.newTargetPath.NewTargetPath(c.targetDir)
 	if !targetPathResult.IsOk() {
@@ -65,7 +59,7 @@ func (c *ManagedPackageCheck) Run(ctx domain.Context) (domain.CheckResult, error
 	}
 	targetPath := targetPathResult.Unwrap()
 
-	manifestResult := c.manifestSvc.Load(stdCtx, targetPath)
+	manifestResult := c.manifestSvc.Load(ctx, targetPath)
 	if !manifestResult.IsOk() {
 		err := manifestResult.UnwrapErr()
 		if c.isManifestNotFound(err) {
@@ -90,7 +84,7 @@ func (c *ManagedPackageCheck) Run(ctx domain.Context) (domain.CheckResult, error
 		managedLinks += pkgInfo.LinkCount
 		for _, linkPath := range pkgInfo.Links {
 			totalLinks++
-			healthResult := c.healthChecker.CheckLink(stdCtx, pkgName, linkPath, pkgInfo.PackageDir)
+			healthResult := c.healthChecker.CheckLink(ctx, pkgName, linkPath, pkgInfo.PackageDir)
 
 			if !healthResult.IsHealthy {
 				brokenLinks++
@@ -158,16 +152,11 @@ func (c *ManifestIntegrityCheck) Description() string {
 	return "Validates integrity and consistency of the manifest file"
 }
 
-func (c *ManifestIntegrityCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *ManifestIntegrityCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
 		Issues:    make([]domain.Issue, 0),
-	}
-
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		return result, fmt.Errorf("invalid context type")
 	}
 
 	targetPathResult := c.newTargetPath.NewTargetPath(c.targetDir)
@@ -179,7 +168,7 @@ func (c *ManifestIntegrityCheck) Run(ctx domain.Context) (domain.CheckResult, er
 	// We load the manifest to check validity.
 	// Ideally we'd parse raw JSON to check syntax if Load fails,
 	// but Load handles unmarshaling errors.
-	manifestResult := c.manifestSvc.Load(stdCtx, targetPath)
+	manifestResult := c.manifestSvc.Load(ctx, targetPath)
 
 	if !manifestResult.IsOk() {
 		err := manifestResult.UnwrapErr()

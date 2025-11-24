@@ -33,7 +33,7 @@ func (c *PlatformCheck) Description() string {
 	return "Validates platform compatibility for managed packages"
 }
 
-func (c *PlatformCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *PlatformCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
@@ -41,7 +41,7 @@ func (c *PlatformCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 		Stats:     make(map[string]any),
 	}
 
-	mf, err := c.manifestSvc.LoadManifest(context.Background())
+	mf, err := c.manifestSvc.LoadManifest(ctx)
 	if err != nil {
 		return result, fmt.Errorf("failed to load manifest: %w", err)
 	}
@@ -56,14 +56,12 @@ func (c *PlatformCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 	packagesChecked := 0
 	incompatibleCount := 0
 
-	stdCtx := context.Background()
-
 	for _, pkg := range mf.Packages {
 		packagesChecked++
 		pkgPath := filepath.Join(c.packageDir, pkg.Name)
 
 		// Check if package directory exists
-		exists, err := c.fs.Exists(stdCtx, pkgPath)
+		exists, err := c.fs.Exists(ctx, pkgPath)
 		if err != nil {
 			return result, fmt.Errorf("failed to check package directory: %w", err)
 		}
@@ -75,7 +73,7 @@ func (c *PlatformCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 
 		// Load package metadata
 		metadataPath := filepath.Join(pkgPath, ".dot-metadata.json")
-		metadataExists, err := c.fs.Exists(stdCtx, metadataPath)
+		metadataExists, err := c.fs.Exists(ctx, metadataPath)
 		if err != nil {
 			// Metadata file check failed, assume no metadata and continue
 			continue
@@ -85,7 +83,7 @@ func (c *PlatformCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 			continue
 		}
 
-		data, err := c.fs.ReadFile(stdCtx, metadataPath)
+		data, err := c.fs.ReadFile(ctx, metadataPath)
 		if err != nil {
 			result.Issues = append(result.Issues, domain.Issue{
 				Code:     "METADATA_READ_ERROR",

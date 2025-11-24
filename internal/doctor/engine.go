@@ -88,8 +88,7 @@ func (e *DiagnosticEngine) runSequential(ctx context.Context, checks []domain.Di
 		if ctx.Err() != nil {
 			break
 		}
-		// Adapt context.Context to domain.Context
-		result, err := check.Run(ctx.(domain.Context))
+		result, err := check.Run(ctx)
 		if err != nil {
 			// System error executing check, treat as fail
 			result = domain.CheckResult{
@@ -121,24 +120,7 @@ func (e *DiagnosticEngine) runParallel(ctx context.Context, checks []domain.Diag
 				return
 			}
 
-			// Adapt context.Context to domain.Context
-			// In Go, context.Context satisfies the interface if method signatures match
-			// But standard context.Context doesn't have Deadline() returning interface{}
-			// We need to cast properly or wrap.
-			// Ideally domain.Context should match context.Context exactly.
-			// For now, assuming the caller passes a context.Context which we can cast.
-			// However, strictly standard context.Context is what we expect.
-
-			// Since we defined domain.Context with interface{} for Deadline return value,
-			// it might not strictly match standard context.Context which returns (time.Time, bool).
-			// Let's fix domain.Context definition in next step if needed.
-			// For now, assuming we pass through.
-
-			// Wait, standard context.Deadline() returns (time.Time, bool).
-			// In domain.go we defined Deadline() (deadline interface{}, ok bool).
-			// We should probably fix domain.Context to match context.Context exactly.
-
-			res, err := c.Run(ctx.(domain.Context))
+			res, err := c.Run(ctx)
 			if err != nil {
 				res = domain.CheckResult{
 					CheckName: c.Name(),

@@ -30,7 +30,7 @@ func (c *PermissionCheck) Description() string {
 	return "Validates filesystem permissions for dot operations"
 }
 
-func (c *PermissionCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *PermissionCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
@@ -38,13 +38,8 @@ func (c *PermissionCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 		Stats:     make(map[string]any),
 	}
 
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		stdCtx = context.Background()
-	}
-
 	// Check if target directory exists
-	exists, err := c.fs.Exists(stdCtx, c.targetDir)
+	exists, err := c.fs.Exists(ctx, c.targetDir)
 	if err != nil {
 		return result, fmt.Errorf("failed to check target directory: %w", err)
 	}
@@ -65,7 +60,7 @@ func (c *PermissionCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 
 	// Check write permission to target directory
 	testFile := fmt.Sprintf("%s/.dot-permission-test", c.targetDir)
-	if err := c.fs.WriteFile(stdCtx, testFile, []byte("test"), 0600); err != nil {
+	if err := c.fs.WriteFile(ctx, testFile, []byte("test"), 0600); err != nil {
 		result.Status = domain.CheckStatusFail
 		result.Issues = append(result.Issues, domain.Issue{
 			Code:     "TARGET_DIR_NOT_WRITABLE",
@@ -83,10 +78,25 @@ func (c *PermissionCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 	}
 
 	// Clean up test file
-	_ = c.fs.Remove(stdCtx, testFile)
+	if err := c.fs.Remove(ctx, testFile); err != nil {
+		// Warning about cleanup failure
+		result.Issues = append(result.Issues, domain.Issue{
+			Code:     "CLEANUP_FAILED",
+			Message:  fmt.Sprintf("Failed to remove test file: %s", testFile),
+			Severity: domain.IssueSeverityWarning,
+			Path:     testFile,
+			Context: map[string]any{
+				"error": err.Error(),
+			},
+		})
+		// Don't fail the whole check just for cleanup, but note it.
+		if result.Status == domain.CheckStatusPass {
+			result.Status = domain.CheckStatusWarning
+		}
+	}
 
 	// Check read permission
-	entries, err := c.fs.ReadDir(stdCtx, c.targetDir)
+	entries, err := c.fs.ReadDir(ctx, c.targetDir)
 	if err != nil {
 		if os.IsPermission(err) {
 			result.Status = domain.CheckStatusFail

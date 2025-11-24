@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"context"
+)
 
 // DiagnosticCheck represents a pluggable health check.
 type DiagnosticCheck interface {
@@ -9,7 +11,7 @@ type DiagnosticCheck interface {
 	// Description returns a human-readable description of what this check does.
 	Description() string
 	// Run executes the check and returns the result.
-	Run(ctx Context) (CheckResult, error)
+	Run(ctx context.Context) (CheckResult, error)
 }
 
 // CheckResult contains the outcome of a diagnostic check.
@@ -55,13 +57,10 @@ type Remediation struct {
 	Description string
 	// Action is a function that attempts to fix the issue.
 	// It returns an error if the fix failed.
-	Action func(Context) error
+	Action func(context.Context) error
 }
 
-// Context matches context.Context interface
-type Context interface {
-	Deadline() (deadline time.Time, ok bool)
-	Done() <-chan struct{}
-	Err() error
-	Value(key interface{}) interface{}
-}
+// Context is an alias for context.Context to maintain interface compatibility.
+//
+// Deprecated: Use context.Context directly instead.
+type Context = context.Context

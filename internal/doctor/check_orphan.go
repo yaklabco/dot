@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/jamesainslie/dot/internal/domain"
@@ -46,13 +47,13 @@ func (c *OrphanCheck) Description() string {
 }
 
 // loadManifestOrEmpty loads manifest or returns empty if missing.
-func (c *OrphanCheck) loadManifestOrEmpty(stdCtx context.Context) (manifest.Manifest, error) {
+func (c *OrphanCheck) loadManifestOrEmpty(ctx context.Context) (manifest.Manifest, error) {
 	targetPathResult := c.newTargetPath.NewTargetPath(c.targetDir)
 	if !targetPathResult.IsOk() {
 		return manifest.Manifest{}, targetPathResult.UnwrapErr()
 	}
 
-	manifestResult := c.manifestSvc.Load(stdCtx, targetPathResult.Unwrap())
+	manifestResult := c.manifestSvc.Load(ctx, targetPathResult.Unwrap())
 	if manifestResult.IsOk() {
 		return manifestResult.Unwrap(), nil
 	}
@@ -60,7 +61,7 @@ func (c *OrphanCheck) loadManifestOrEmpty(stdCtx context.Context) (manifest.Mani
 }
 
 // performScan executes sequential or parallel directory scan.
-func (c *OrphanCheck) performScan(stdCtx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet) ([]Issue, DiagnosticStats) {
+func (c *OrphanCheck) performScan(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet) ([]Issue, DiagnosticStats) {
 	workers := c.config.MaxWorkers
 	if workers <= 0 {
 		workers = runtime.NumCPU()
@@ -70,28 +71,28 @@ func (c *OrphanCheck) performScan(stdCtx context.Context, rootDirs []string, m *
 	localIssues := make([]Issue, 0)
 
 	if workers == 1 || len(rootDirs) == 1 {
-		c.scanSequential(stdCtx, rootDirs, m, linkSet, ignoreSet, &localIssues, &stats)
+		c.scanSequential(ctx, rootDirs, m, linkSet, ignoreSet, &localIssues, &stats)
 	} else {
-		c.scanParallel(stdCtx, rootDirs, workers, m, linkSet, ignoreSet, &localIssues, &stats)
+		c.scanParallel(ctx, rootDirs, workers, m, linkSet, ignoreSet, &localIssues, &stats)
 	}
 
 	return localIssues, stats
 }
 
 // scanSequential performs sequential directory scanning.
-func (c *OrphanCheck) scanSequential(stdCtx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanSequential(ctx context.Context, rootDirs []string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
 	for _, dir := range rootDirs {
-		c.scanDirectory(stdCtx, dir, m, linkSet, ignoreSet, localIssues, stats)
+		c.scanDirectory(ctx, dir, m, linkSet, ignoreSet, localIssues, stats)
 	}
 }
 
 // scanParallel performs parallel directory scanning.
-func (c *OrphanCheck) scanParallel(stdCtx context.Context, rootDirs []string, workers int, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanParallel(ctx context.Context, rootDirs []string, workers int, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, localIssues *[]Issue, stats *DiagnosticStats) {
 	resultChan := make(chan scanResult, len(rootDirs))
 	dirChan := make(chan string, len(rootDirs))
 	var wg sync.WaitGroup
 
-	workerCtx, cancelWorkers := context.WithCancel(stdCtx)
+	workerCtx, cancelWorkers := context.WithCancel(ctx)
 	defer cancelWorkers()
 
 	for i := 0; i < workers; i++ {
@@ -167,7 +168,7 @@ func convertIssuesToDomain(localIssues []Issue) []domain.Issue {
 	return domainIssues
 }
 
-func (c *OrphanCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *OrphanCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
@@ -180,12 +181,7 @@ func (c *OrphanCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 		return result, nil
 	}
 
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		return result, nil
-	}
-
-	m, err := c.loadManifestOrEmpty(stdCtx)
+	m, err := c.loadManifestOrEmpty(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -195,7 +191,7 @@ func (c *OrphanCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 	linkSet := c.buildManagedLinkSet(&m)
 	ignoreSet := c.buildIgnoreSet(&m)
 
-	localIssues, stats := c.performScan(stdCtx, rootDirs, &m, linkSet, ignoreSet)
+	localIssues, stats := c.performScan(ctx, rootDirs, &m, linkSet, ignoreSet)
 
 	result.Issues = convertIssuesToDomain(localIssues)
 	result.Stats["orphaned_links"] = stats.OrphanedLinks
@@ -243,7 +239,7 @@ func (c *OrphanCheck) scanWorker(ctx context.Context, wg *sync.WaitGroup, dirCha
 	}
 }
 
-func (c *OrphanCheck) scanDirectory(ctx context.Context, dir string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
+func (c *OrphanCheck) scanDirectory(ctx domain.Context, dir string, m *manifest.Manifest, linkSet map[string]bool, ignoreSet *ignore.IgnoreSet, issues *[]Issue, stats *DiagnosticStats) {
 	// Recursive scan logic
 	entries, err := c.fs.ReadDir(ctx, dir)
 	if err != nil {
@@ -394,16 +390,8 @@ func (c *OrphanCheck) calculateDepth(path string) int {
 	if err != nil || rel == "." {
 		return 0
 	}
-	depth := 0
-	for _, char := range rel {
-		if char == filepath.Separator {
-			depth++
-		}
-	}
-	if rel != "" && rel != "." {
-		depth++
-	}
-	return depth
+	// Depth is number of separators + 1 (e.g. "a/b" has 1 separator, depth 2)
+	return strings.Count(rel, string(filepath.Separator)) + 1
 }
 
 func (c *OrphanCheck) shouldSkipDirectory(path string) bool {
@@ -452,7 +440,7 @@ func filterDescendants(dirs []string) []string {
 				continue
 			}
 			rel, err := filepath.Rel(other, dir)
-			if err == nil && rel != "." && !filepath.IsAbs(rel) && rel[0] != '.' {
+			if err == nil && rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, "..") {
 				isDescendant = true
 				break
 			}

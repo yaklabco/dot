@@ -35,17 +35,12 @@ func (c *ConflictCheck) Description() string {
 	return "Detects filesystem conflicts before operations"
 }
 
-func (c *ConflictCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *ConflictCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
 		Issues:    make([]domain.Issue, 0),
 		Stats:     make(map[string]any),
-	}
-
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		return result, fmt.Errorf("invalid context type")
 	}
 
 	conflicts := 0
@@ -54,7 +49,7 @@ func (c *ConflictCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
 			fullPath := filepath.Join(c.targetDir, link)
 
 			// Check if something exists at path
-			info, err := c.fs.Lstat(stdCtx, fullPath)
+			info, err := c.fs.Lstat(ctx, fullPath)
 			if err != nil {
 				if os.IsNotExist(err) {
 					continue // Path is clear
@@ -139,21 +134,16 @@ func (c *ConflictPermissionCheck) Description() string {
 	return "Verifies write permissions in target directory"
 }
 
-func (c *ConflictPermissionCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (c *ConflictPermissionCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	result := domain.CheckResult{
 		CheckName: c.Name(),
 		Status:    domain.CheckStatusPass,
 		Issues:    make([]domain.Issue, 0),
 	}
 
-	stdCtx, ok := ctx.(context.Context)
-	if !ok {
-		return result, fmt.Errorf("invalid context type")
-	}
-
 	// Simple check: try to create a temp file in target dir
 	testFile := filepath.Join(c.targetDir, ".dot-perm-test")
-	err := c.fs.WriteFile(stdCtx, testFile, []byte("test"), 0644)
+	err := c.fs.WriteFile(ctx, testFile, []byte("test"), 0644)
 	if err != nil {
 		if os.IsPermission(err) {
 			result.Status = domain.CheckStatusFail
@@ -175,7 +165,7 @@ func (c *ConflictPermissionCheck) Run(ctx domain.Context) (domain.CheckResult, e
 		})
 		return result, nil
 	}
-	_ = c.fs.Remove(stdCtx, testFile)
+	_ = c.fs.Remove(ctx, testFile)
 
 	return result, nil
 }

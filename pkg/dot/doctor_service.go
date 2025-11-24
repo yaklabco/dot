@@ -159,7 +159,9 @@ func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (
 	engine.RegisterCheck(doctor.NewPermissionCheck(fsAdapter, s.targetDir))
 
 	// Check conflicts for specific packages if we knew their links
-	// For now, just permission check as an example of "PreFlight" capability
+	// TODO: Implement ConflictCheck for the provided packages
+	// For now, we ignore the 'packages' argument and just run the permission check
+	// as an example of "PreFlight" capability.
 
 	report, err := engine.Run(ctx, doctor.RunOptions{Parallel: true})
 	if err != nil {
@@ -169,10 +171,16 @@ func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (
 }
 
 // aggregateStat adds an integer stat value to the total.
+// It gracefully handles int, int64, and float64 types.
 func aggregateStat(stats map[string]any, key string) int {
 	if val, ok := stats[key]; ok {
-		if v, ok := val.(int); ok {
+		switch v := val.(type) {
+		case int:
 			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
 		}
 	}
 	return 0

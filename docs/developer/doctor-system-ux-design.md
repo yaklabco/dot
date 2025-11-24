@@ -1486,7 +1486,7 @@ Comparing files...
  [user]
      name = Blake Smith
      email = blake@example.com
-+    signingkey = ABC123DEF456
++    signingkey = EXAMPLE_KEY_ABC123  # Example key (not real)
 +
 +[commit]
 +    gpgsign = true
