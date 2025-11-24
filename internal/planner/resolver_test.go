@@ -317,7 +317,7 @@ func TestDetectDirCreateConflicts(t *testing.T) {
 		current := CurrentState{
 			Files: make(map[string]FileInfo),
 			Links: make(map[string]LinkTarget),
-			Dirs:  map[string]bool{dirPath.String(): true},
+			Dirs:  map[string]struct{}{dirPath.String(): {}},
 		}
 
 		outcome := detectDirCreateConflicts(op, current)
@@ -333,7 +333,7 @@ func TestDetectDirCreateConflicts(t *testing.T) {
 		current := CurrentState{
 			Files: make(map[string]FileInfo),
 			Links: make(map[string]LinkTarget),
-			Dirs:  make(map[string]bool),
+			Dirs:  make(map[string]struct{}),
 		}
 
 		outcome := detectDirCreateConflicts(op, current)
@@ -355,7 +355,7 @@ func TestResolveFunction(t *testing.T) {
 		current := CurrentState{
 			Files: make(map[string]FileInfo),
 			Links: make(map[string]LinkTarget),
-			Dirs:  make(map[string]bool),
+			Dirs:  make(map[string]struct{}),
 		}
 
 		policies := DefaultPolicies()
@@ -380,7 +380,7 @@ func TestResolveFunction(t *testing.T) {
 				targetPath.String(): {Size: 100},
 			},
 			Links: make(map[string]LinkTarget),
-			Dirs:  make(map[string]bool),
+			Dirs:  make(map[string]struct{}),
 		}
 
 		policies := DefaultPolicies() // Defaults to PolicyFail
@@ -408,7 +408,7 @@ func TestResolveFunction(t *testing.T) {
 				targetPath.String(): {Size: 100},
 			},
 			Links: make(map[string]LinkTarget),
-			Dirs:  make(map[string]bool),
+			Dirs:  make(map[string]struct{}),
 		}
 
 		policies := DefaultPolicies()
@@ -441,7 +441,7 @@ func TestConflictAggregation(t *testing.T) {
 			target2.String(): {Size: 200},
 		},
 		Links: make(map[string]LinkTarget),
-		Dirs:  make(map[string]bool),
+		Dirs:  make(map[string]struct{}),
 	}
 
 	policies := DefaultPolicies()
@@ -473,7 +473,7 @@ func TestMixedOperations(t *testing.T) {
 			targetPath.String(): {Size: 100}, // Conflict for link
 		},
 		Links: make(map[string]LinkTarget),
-		Dirs:  make(map[string]bool), // No conflict for dir
+		Dirs:  make(map[string]struct{}), // No conflict for dir
 	}
 
 	policies := DefaultPolicies()
@@ -511,7 +511,7 @@ func TestResolveOperationWithAllTypes(t *testing.T) {
 	current := CurrentState{
 		Files: make(map[string]FileInfo),
 		Links: make(map[string]LinkTarget),
-		Dirs:  make(map[string]bool),
+		Dirs:  make(map[string]struct{}),
 	}
 	policies := DefaultPolicies()
 
@@ -625,7 +625,7 @@ func TestResolveLinkCreateWithDifferentConflicts(t *testing.T) {
 			Links: map[string]LinkTarget{
 				targetPath.String(): {Target: wrongPath.String()},
 			},
-			Dirs: make(map[string]bool),
+			Dirs: make(map[string]struct{}),
 		}
 
 		outcome := resolveLinkCreate(op, current, policies, "")
@@ -646,7 +646,7 @@ func TestResolveDirCreateEdgeCases(t *testing.T) {
 				dirPath.String(): {Size: 100},
 			},
 			Links: make(map[string]LinkTarget),
-			Dirs:  make(map[string]bool),
+			Dirs:  make(map[string]struct{}),
 		}
 
 		outcome := resolveDirCreate(op, current, policies)
@@ -668,7 +668,7 @@ func TestResolveWithWarnings(t *testing.T) {
 		Links: map[string]LinkTarget{
 			targetPath.String(): {Target: sourcePath.String()},
 		},
-		Dirs: make(map[string]bool),
+		Dirs: make(map[string]struct{}),
 	}
 
 	policies := DefaultPolicies()

@@ -406,15 +406,15 @@ func extractPackageNames(packages []bootstrap.PackageSpec) []string {
 // intersectPackages returns packages present in both lists, preserving order from first list.
 func intersectPackages(packages, allowed []string) []string {
 	// Build a set of allowed packages for O(1) lookup
-	allowedSet := make(map[string]bool, len(allowed))
+	allowedSet := make(map[string]struct{}, len(allowed))
 	for _, pkg := range allowed {
-		allowedSet[pkg] = true
+		allowedSet[pkg] = struct{}{}
 	}
 
 	// Filter packages to only those in allowed set
 	result := make([]string, 0, len(packages))
 	for _, pkg := range packages {
-		if allowedSet[pkg] {
+		if _, allowed := allowedSet[pkg]; allowed {
 			result = append(result, pkg)
 		}
 	}

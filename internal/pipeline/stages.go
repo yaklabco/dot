@@ -17,22 +17,22 @@ func scanCurrentState(ctx context.Context, fs domain.FS, desired planner.Desired
 	current := planner.CurrentState{
 		Files: make(map[string]planner.FileInfo),
 		Links: make(map[string]planner.LinkTarget),
-		Dirs:  make(map[string]bool),
+		Dirs:  make(map[string]struct{}),
 	}
 
 	// Collect all paths we need to check
-	pathsToCheck := make(map[string]bool)
+	pathsToCheck := make(map[string]struct{})
 
 	// Add all desired link paths
 	for path := range desired.Links {
-		pathsToCheck[path] = true
+		pathsToCheck[path] = struct{}{}
 		// Also check parent directories
 		addParentPaths(path, pathsToCheck)
 	}
 
 	// Add all desired directory paths
 	for path := range desired.Dirs {
-		pathsToCheck[path] = true
+		pathsToCheck[path] = struct{}{}
 		// Also check parent directories
 		addParentPaths(path, pathsToCheck)
 	}
@@ -63,7 +63,7 @@ func scanCurrentState(ctx context.Context, fs domain.FS, desired planner.Desired
 
 		// Check if it's a directory
 		if isDir, _ := fs.IsDir(ctx, path); isDir {
-			current.Dirs[path] = true
+			current.Dirs[path] = struct{}{}
 			continue
 		}
 
@@ -79,13 +79,13 @@ func scanCurrentState(ctx context.Context, fs domain.FS, desired planner.Desired
 }
 
 // addParentPaths adds all parent directory paths to the set
-func addParentPaths(path string, paths map[string]bool) {
+func addParentPaths(path string, paths map[string]struct{}) {
 	dir := filepath.Dir(path)
 	for dir != "." && dir != "/" && dir != "" {
-		if paths[dir] {
+		if _, exists := paths[dir]; exists {
 			break // Already added this and all its parents
 		}
-		paths[dir] = true
+		paths[dir] = struct{}{}
 		dir = filepath.Dir(dir)
 	}
 }

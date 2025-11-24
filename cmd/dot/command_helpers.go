@@ -116,13 +116,14 @@ func isHiddenOrIgnored(name string) bool {
 		return true
 	}
 	// Ignore common non-package directories
-	ignoredDirs := map[string]bool{
-		"node_modules": true,
-		"vendor":       true,
-		".git":         true,
-		".svn":         true,
+	ignoredDirs := map[string]struct{}{
+		"node_modules": {},
+		"vendor":       {},
+		".git":         {},
+		".svn":         {},
 	}
-	return ignoredDirs[name]
+	_, ignored := ignoredDirs[name]
+	return ignored
 }
 
 // packageCompletion returns a completion function for package names.

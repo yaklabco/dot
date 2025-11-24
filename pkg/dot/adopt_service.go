@@ -47,7 +47,7 @@ func newAdoptService(
 // GetManagedPaths returns a map of all paths currently managed by dot.
 // The map keys are absolute paths that are already symlinked.
 // This is useful for filtering out already-managed files during discovery.
-func (s *AdoptService) GetManagedPaths(ctx context.Context) (map[string]bool, error) {
+func (s *AdoptService) GetManagedPaths(ctx context.Context) (map[string]struct{}, error) {
 	// Load manifest
 	targetPath := NewTargetPath(s.targetDir)
 	if targetPath.IsErr() {
@@ -59,7 +59,7 @@ func (s *AdoptService) GetManagedPaths(ctx context.Context) (map[string]bool, er
 		err := result.UnwrapErr()
 		// If manifest doesn't exist, return empty map
 		if os.IsNotExist(err) {
-			return make(map[string]bool), nil
+			return make(map[string]struct{}), nil
 		}
 		return nil, fmt.Errorf("load manifest: %w", err)
 	}
@@ -67,12 +67,12 @@ func (s *AdoptService) GetManagedPaths(ctx context.Context) (map[string]bool, er
 	m := result.Unwrap()
 
 	// Extract all managed paths
-	managedPaths := make(map[string]bool)
+	managedPaths := make(map[string]struct{})
 	for _, pkg := range m.Packages {
 		for _, link := range pkg.Links {
 			// Convert relative link to absolute path
 			absPath := filepath.Join(s.targetDir, link)
-			managedPaths[absPath] = true
+			managedPaths[absPath] = struct{}{}
 		}
 	}
 
