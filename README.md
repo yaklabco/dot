@@ -681,7 +681,7 @@ See [Migration Guide](docs/user/migration-from-stow.md) for transitioning from G
 
 ## Project Status
 
-**Current Version**: v0.3.1
+**Current Version**: v0.5.0
 
 **Stability**: Stable
 

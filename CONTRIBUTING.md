@@ -397,168 +397,53 @@ Update documentation when:
 
 ## Release Process
 
-The release process is automated via GoReleaser and GitHub Actions. Only maintainers perform releases.
+The release process is automated via **Release Please** and **GoReleaser**. Only maintainers perform releases.
+
+### Overview
+
+1. **Release Please** monitors the `main` branch for Conventional Commits.
+2. It maintains a "Release PR" that updates the changelog and version.
+3. When this PR is merged, it creates a git tag.
+4. This tag triggers the **GoReleaser** workflow to build and publish artifacts.
 
 ### Pre-Release Checklist
 
-Before creating a release:
+Before merging the Release PR:
 
 - [ ] All tests passing (`make test`)
 - [ ] Linters passing (`make lint`)
 - [ ] Code builds successfully (`make build`)
-- [ ] `CHANGELOG.md` updated with release notes
-- [ ] Version reflects semantic versioning guidelines
-- [ ] Documentation reflects new version features
-- [ ] Breaking changes documented
-- [ ] Migration guide created (if needed)
-- [ ] Integration tests verified on target platforms
+- [ ] Review the auto-generated CHANGELOG in the Release PR
+- [ ] Verify version bump is correct (based on commit types)
 
 ### Release Steps
 
-1. **Update CHANGELOG**:
-   ```bash
-   vim CHANGELOG.md
-   # Add release section with date and changes
-   ```
+1. **Review Release PR**:
+   - Go to Pull Requests tab on GitHub.
+   - Look for the PR created by `release-please-bot`.
+   - Verify the changes.
 
-2. **Create annotated tag**:
-   ```bash
-   git tag -a v0.x.x -m "Release v0.x.x"
-   ```
-   
-   Tag format: `v{major}.{minor}.{patch}`
-   
-   Examples:
-   - New features: bump minor version (`v0.2.0`)
-   - Bug fixes: bump patch version (`v0.1.1`)
-   - Breaking changes: bump major version (`v1.0.0`)
+2. **Merge Release PR**:
+   - Merge the PR into `main`.
+   - Release Please will automatically tag the commit.
 
-3. **Push tag**:
-   ```bash
-   git push origin v0.x.x
-   ```
-   
-   This triggers the GitHub Actions release workflow automatically.
+3. **Monitor Workflow**:
+   - The tag push triggers `.github/workflows/release.yml`.
+   - Verify it builds and publishes successfully.
 
-4. **Monitor workflow**:
-   - Navigate to Actions tab on GitHub
-   - Verify release workflow executes successfully
-   - Check for test or build failures
+### Troubleshooting
 
-5. **Verify artifacts**:
-   - Binary builds for all platforms (darwin/amd64, darwin/arm64, linux/amd64, linux/arm64)
-   - Archives contain correct files (binary, LICENSE, README, CHANGELOG)
-   - Checksums file generated
-   - Release notes formatted correctly
-
-### Post-Release Checklist
-
-After release completes:
-
-- [ ] Formula updated in tap repository (`jamesainslie/homebrew-dot`)
-- [ ] Test installation: `brew upgrade dot` (if already installed)
-- [ ] Test fresh installation: `brew install jamesainslie/dot/dot`
-- [ ] Verify version: `dot --version` matches release tag
-- [ ] GitHub release notes created
-- [ ] Shell completions work correctly
-- [ ] No broken links in documentation
-- [ ] Release announced (if significant)
-
-### Validation Tests
-
-Run these tests after release:
-
-```bash
-# Fresh Homebrew installation
-brew tap jamesainslie/dot
-brew install dot
-dot --version
-dot --help
-dot status
-
-# Upgrade from previous version (if applicable)
-brew upgrade dot
-dot --version
-
-# Platform-specific tests
-# macOS Intel: Verify on x86_64 machine
-# macOS Apple Silicon: Verify on ARM64 machine
-# Linux: Verify on Ubuntu/Debian system
-```
+- If the Release PR is not created, ensure commits on `main` follow Conventional Commits.
+- If the release fails to publish, check the Actions tab for `Release` workflow logs.
 
 ### Version Numbering
 
-Follow [Semantic Versioning 2.0.0](https://semver.org/):
+Follow [Semantic Versioning 2.0.0](https://semver.org/). Version bumps are determined automatically:
 
-- **MAJOR** (`v1.0.0`): Breaking changes, incompatible API changes
-- **MINOR** (`v0.2.0`): New features, backward compatible
-- **PATCH** (`v0.1.1`): Bug fixes, backward compatible
+- **MAJOR** (`feat!`): Breaking changes
+- **MINOR** (`feat`): New features
+- **PATCH** (`fix`): Bug fixes
 
-Pre-release versions:
-- Alpha: `v0.2.0-alpha.1`
-- Beta: `v0.2.0-beta.1`
-- Release Candidate: `v0.2.0-rc.1`
-
-### Release Automation
-
-The release workflow (`.github/workflows/release.yml`):
-
-1. Triggers on pushed tags matching `v*`
-2. Sets up Go 1.25.4 environment
-3. Runs test suite (`make test`)
-4. Runs linters (`make lint`)
-5. Executes GoReleaser with clean build
-6. Builds binaries for all platforms
-7. Creates archives (tar.gz for Unix, zip for Windows)
-8. Generates checksums
-9. Creates GitHub release with notes
-10. Updates Homebrew tap formula automatically
-11. Uploads release artifacts
-
-### Rollback Procedure
-
-If release fails or contains critical bugs:
-
-1. **Delete tag locally and remotely**:
-   ```bash
-   git tag -d v0.x.x
-   git push origin :refs/tags/v0.x.x
-   ```
-
-2. **Delete GitHub release**:
-   - Navigate to Releases page
-   - Delete the problematic release
-
-3. **Fix issues**:
-   - Create fixes in feature branch
-   - Test thoroughly
-   - Merge to main
-
-4. **Create new release**:
-   - Follow standard release process
-   - Use next patch version (e.g., `v0.x.y+1`)
-
-### Troubleshooting Releases
-
-**GoReleaser fails**:
-- Verify `.goreleaser.yml` syntax: `goreleaser check`
-- Test locally: `goreleaser release --snapshot --clean`
-- Check GitHub token permissions
-
-**Formula not updated**:
-- Verify `GITHUB_TOKEN` has write access to tap repository
-- Check tap repository for failed commit
-- Manually update formula if necessary
-
-**Binary build fails**:
-- Verify Go version compatibility
-- Check for platform-specific code issues
-- Review build logs in GitHub Actions
-
-**Tests fail in CI**:
-- Do not proceed with release
-- Fix failing tests
-- Delete tag and retry after fixes
 
 ## Getting Help
 
