@@ -23,9 +23,15 @@ type mockCheck struct {
 
 func (m *mockCheck) Name() string        { return m.name }
 func (m *mockCheck) Description() string { return m.description }
-func (m *mockCheck) Run(ctx domain.Context) (domain.CheckResult, error) {
+func (m *mockCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 	if m.delay > 0 {
-		time.Sleep(m.delay)
+		select {
+		case <-time.After(m.delay):
+			// Delay completed
+		case <-ctx.Done():
+			// Context cancelled during delay
+			return domain.CheckResult{}, ctx.Err()
+		}
 	}
 	return m.result, m.err
 }
@@ -257,12 +263,13 @@ func TestDiagnosticEngine_Run_NoChecks(t *testing.T) {
 
 func TestDiagnosticEngine_Run_ContextCancellation(t *testing.T) {
 	engine := NewDiagnosticEngine()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
 
 	check := &mockCheck{
 		name:        "slow-check",
 		description: "A slow check",
-		delay:       500 * time.Millisecond,
+		delay:       1 * time.Second,
 		result: domain.CheckResult{
 			CheckName: "slow-check",
 			Status:    domain.CheckStatusPass,
@@ -272,17 +279,12 @@ func TestDiagnosticEngine_Run_ContextCancellation(t *testing.T) {
 	}
 	engine.RegisterCheck(check)
 
-	// Cancel context after 100ms
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
-
 	report, err := engine.Run(ctx, RunOptions{})
 
 	// Engine handles cancellation gracefully by stopping execution
-	// but returns a report (possibly partial or empty)
 	require.NoError(t, err)
-	// With cancellation, the slow check may not complete
-	assert.LessOrEqual(t, len(report.Results), 1)
+	// With timeout, check returns error which becomes a failed check result
+	require.Len(t, report.Results, 1)
+	assert.Equal(t, domain.CheckStatusFail, report.Results[0].Status)
+	assert.Contains(t, report.Results[0].Issues[0].Message, "context deadline exceeded")
 }
