@@ -33,9 +33,9 @@ When changes are pushed to `main`, the Release Please workflow runs.
 - It analyzes the commits since the last release.
 - It creates or updates a **Release PR**.
 - This PR contains:
-- The calculated next version.
-- The generated `CHANGELOG.md` updates.
-- Updates to `.release-please-manifest.json`.
+  - The calculated next version.
+  - The generated `CHANGELOG.md` updates.
+  - Updates to `.release-please-manifest.json`.
 
 ### 3. Review and Release
 

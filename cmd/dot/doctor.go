@@ -242,7 +242,11 @@ func getSeverityIcon(severity dot.IssueSeverity, c *render.Colorizer) string {
 }
 
 // renderSuccinctDiagnostics outputs diagnostics in a succinct, colorized format.
+// Note: tableStyle parameter is currently unused in succinct mode. It's included
+// for API consistency with other renderers but doesn't affect the output.
+// If table styling becomes relevant for succinct mode, implement it here.
 func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport, colorize bool, tableStyle string) {
+	_ = tableStyle // Explicitly mark as unused
 	c := render.NewColorizer(colorize)
 
 	// Health status header

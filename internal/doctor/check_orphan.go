@@ -147,6 +147,10 @@ func (c *OrphanCheck) scanParallel(ctx context.Context, rootDirs []string, worke
 }
 
 // convertIssuesToDomain converts local issues to domain issues.
+// Note: This mapping preserves IssueSeverityError but collapses all other
+// severities to IssueSeverityWarning. OrphanCheck currently only emits
+// error and warning severities, so this is sufficient. Future extensions
+// adding IssueSeverityInfo or other levels will be mapped to warning.
 func convertIssuesToDomain(localIssues []Issue) []domain.Issue {
 	domainIssues := make([]domain.Issue, 0, len(localIssues))
 	for _, issue := range localIssues {
@@ -392,6 +396,11 @@ func (c *OrphanCheck) buildIgnoreSet(m *manifest.Manifest) *ignore.IgnoreSet {
 	return ignoreSet
 }
 
+// calculateDepth computes the directory depth relative to targetDir.
+// Examples:
+//   - targetDir itself -> depth 0
+//   - targetDir/foo -> depth 1
+//   - targetDir/foo/bar -> depth 2
 func (c *OrphanCheck) calculateDepth(path string) int {
 	path = filepath.Clean(path)
 	targetDir := filepath.Clean(c.targetDir)

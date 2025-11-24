@@ -42,6 +42,10 @@ type DiagnosticReport struct {
 }
 
 // Run executes the registered checks based on options.
+// Note: Run always returns nil error. Individual check failures are encoded
+// as CheckResult objects with Status=CheckStatusFail or issues with code
+// CHECK_EXECUTION_ERROR. Callers should inspect DiagnosticReport.Results
+// for per-check failures rather than relying on the returned error.
 func (e *DiagnosticEngine) Run(ctx context.Context, opts RunOptions) (DiagnosticReport, error) {
 	startTime := time.Now()
 	report := DiagnosticReport{
@@ -116,7 +120,19 @@ func (e *DiagnosticEngine) runParallel(ctx context.Context, checks []domain.Diag
 		wg.Add(1)
 		go func(idx int, c domain.DiagnosticCheck) {
 			defer wg.Done()
+			// If context cancelled before check starts, set a skipped result
 			if ctx.Err() != nil {
+				results[idx] = domain.CheckResult{
+					CheckName: c.Name(),
+					Status:    domain.CheckStatusSkipped,
+					Issues: []domain.Issue{
+						{
+							Code:     "CHECK_CANCELLED",
+							Message:  "Check cancelled due to context cancellation",
+							Severity: domain.IssueSeverityWarning,
+						},
+					},
+				}
 				return
 			}
 
@@ -141,14 +157,28 @@ func (e *DiagnosticEngine) runParallel(ctx context.Context, checks []domain.Diag
 	return results
 }
 
+// determineOverallStatus computes aggregate status from check results.
+// Status priority: Fail > Warning > Pass. Skipped checks don't affect status.
+// Note: Unknown or future status values are treated as Pass.
 func (e *DiagnosticEngine) determineOverallStatus(results []domain.CheckResult) domain.CheckStatus {
 	status := domain.CheckStatusPass
 	for _, res := range results {
-		if res.Status == domain.CheckStatusFail {
+		switch res.Status {
+		case domain.CheckStatusFail:
 			return domain.CheckStatusFail
-		}
-		if res.Status == domain.CheckStatusWarning && status != domain.CheckStatusFail {
-			status = domain.CheckStatusWarning
+		case domain.CheckStatusWarning:
+			if status != domain.CheckStatusFail {
+				status = domain.CheckStatusWarning
+			}
+		case domain.CheckStatusSkipped:
+			// Skipped checks don't affect overall status
+			continue
+		case domain.CheckStatusPass:
+			// Pass doesn't change status
+			continue
+		default:
+			// Unknown status values treated as pass (no-op)
+			continue
 		}
 	}
 	return status

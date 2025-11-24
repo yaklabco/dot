@@ -150,7 +150,13 @@ func (s *DoctorService) DoctorWithMode(ctx context.Context, mode DiagnosticMode,
 }
 
 // PreFlightCheck performs quick checks before an operation.
+// Note: The packages parameter is currently unused. Future implementation
+// will use it to check for conflicts specific to the provided packages.
+// For now, only a generic PermissionCheck is performed.
 func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (DiagnosticReport, error) {
+	// TODO: Use packages parameter to run targeted ConflictCheck
+	_ = packages // Explicitly ignore for now
+
 	engine := doctor.NewDiagnosticEngine()
 
 	// Adapter for FS interface
@@ -158,11 +164,6 @@ func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (
 
 	// Check permissions
 	engine.RegisterCheck(doctor.NewPermissionCheck(fsAdapter, s.targetDir))
-
-	// Check conflicts for specific packages if we knew their links
-	// TODO: Implement ConflictCheck for the provided packages
-	// For now, we ignore the 'packages' argument and just run the permission check
-	// as an example of "PreFlight" capability.
 
 	report, err := engine.Run(ctx, doctor.RunOptions{Parallel: true})
 	if err != nil {
@@ -172,7 +173,10 @@ func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (
 }
 
 // aggregateStat adds an integer stat value to the total.
-// It gracefully handles int, int64, and float64 types.
+// It gracefully handles int, int64, and float64 types, converting as needed.
+// Non-numeric values or missing keys return 0.
+// Note: Use consistent stat key names across checks (total_links, broken_links,
+// managed_links, orphaned_links) to ensure proper aggregation.
 func aggregateStat(stats map[string]any, key string) int {
 	if val, ok := stats[key]; ok {
 		switch v := val.(type) {
@@ -401,6 +405,10 @@ func (w *fileInfoWrapper) Size() int64       { return w.info.Size() }
 func (w *fileInfoWrapper) Mode() os.FileMode { return w.info.Mode() }
 func (w *fileInfoWrapper) IsDir() bool       { return w.info.IsDir() }
 func (w *fileInfoWrapper) Sys() any          { return w.info.Sys() }
+
+// ModTime adapts domain.FileInfo.ModTime() to fs.FileInfo.ModTime().
+// Note: Assumes domain.FileInfo.ModTime() returns time.Time. If the underlying
+// implementation returns a different type, this returns zero time.
 func (w *fileInfoWrapper) ModTime() time.Time {
 	t, ok := w.info.ModTime().(time.Time)
 	if !ok {
@@ -430,6 +438,10 @@ type doctorFSAdapter struct {
 	fs FS
 }
 
+// Exists wraps pkg/dot/FS.Exists which returns only a bool.
+// Note: This adapter cannot surface errors for existence checks. Permission
+// errors or other filesystem issues are not distinguished from "not found".
+// Use Lstat or Stat if you need error details.
 func (a *doctorFSAdapter) Exists(ctx context.Context, path string) (bool, error) {
 	return a.fs.Exists(ctx, path), nil
 }

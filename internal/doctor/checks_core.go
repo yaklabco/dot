@@ -9,7 +9,7 @@ import (
 
 // ManagedPackageCheck validates all packages managed by dot.
 type ManagedPackageCheck struct {
-	fs                 FS
+	fs                 FS // Reserved for future filesystem operations
 	manifestSvc        ManifestLoader
 	healthChecker      LinkHealthChecker
 	targetDir          string
@@ -121,7 +121,7 @@ func (c *ManagedPackageCheck) Run(ctx context.Context) (domain.CheckResult, erro
 
 // ManifestIntegrityCheck validates the manifest file itself.
 type ManifestIntegrityCheck struct {
-	fs                 FS
+	fs                 FS // Reserved for future filesystem operations
 	targetDir          string
 	manifestSvc        ManifestLoader
 	newTargetPath      TargetPathCreator
@@ -174,6 +174,8 @@ func (c *ManifestIntegrityCheck) Run(ctx context.Context) (domain.CheckResult, e
 		err := manifestResult.UnwrapErr()
 		if c.isManifestNotFound(err) {
 			// Missing manifest is valid state for new installs
+			// Use CheckStatusSkipped for consistency with ManagedPackageCheck
+			result.Status = domain.CheckStatusSkipped
 			return result, nil
 		}
 
