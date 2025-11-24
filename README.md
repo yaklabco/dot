@@ -176,6 +176,10 @@ When all files in a directory belong to a single package, dot creates a single d
 
 ## Usage
 
+<div align="center">
+  <img src="pics/help.png" alt="dot CLI help" width="800"/>
+</div>
+
 ### Package Management Commands
 
 #### Manage (Install)
@@ -223,7 +227,23 @@ dot remanage dot-vim dot-tmux dot-zsh
 
 #### Adopt (Import)
 
-Move existing files into a package and replace with symlinks:
+Move existing files into a package and replace with symlinks.
+
+**Interactive Mode**
+
+Run without arguments to interactively discover and select dotfiles. This mode scans your home directory for potential dotfiles and presents a TUI for selection.
+
+```bash
+dot adopt
+```
+
+<div align="center">
+  <img src="pics/adopt.png" alt="dot adopt interactive UI" width="800"/>
+</div>
+
+**Command Line Mode**
+
+Use for scripting or known files:
 
 ```bash
 # Auto-naming: single file (package name derived from filename)
@@ -243,7 +263,14 @@ dot adopt git .git*
 # Package "git" with all .git* files
 ```
 
-**Note**: When adopting multiple files, you must provide an explicit package name as the first argument. This ensures predictable behavior and clear package organization.
+**Note**: When adopting multiple files via command line, you must provide an explicit package name as the first argument.
+
+**Interactive Options**
+
+```bash
+dot adopt --scan-dirs ~/.config    # Scan additional directories
+dot adopt --max-size 100MB         # Increase file size limit
+```
 
 ### Repository Commands
 
@@ -383,9 +410,47 @@ dot list --format json
     --ignore PATTERN Add ignore pattern (repeatable)
 ```
 
+### Maintenance Commands
+
+#### Tool Upgrade
+
+Update dot to the latest version:
+
+```bash
+# Check for and install updates
+dot upgrade
+
+# Check without installing
+dot upgrade --check-only
+```
+
 ## Configuration
 
 dot supports configuration files in YAML, JSON, or TOML formats.
+
+### Configuration Management
+
+Manage configuration settings directly from the CLI:
+
+```bash
+# Initialize a new configuration file
+dot config init
+
+# View current configuration
+dot config list
+
+# Get a specific value
+dot config get directories.package
+
+# Set a value
+dot config set logging.level debug
+
+# Show configuration file path
+dot config path
+
+# Upgrade configuration format
+dot config upgrade
+```
 
 ### Configuration Locations
 
@@ -681,7 +746,7 @@ See [Migration Guide](docs/user/migration-from-stow.md) for transitioning from G
 
 ## Project Status
 
-**Current Version**: v0.5.0
+**Current Version**: v0.6.0
 
 **Stability**: Stable
 
