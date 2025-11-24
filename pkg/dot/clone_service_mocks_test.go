@@ -3,7 +3,7 @@ package dot
 import (
 	"context"
 
-	"github.com/jamesainslie/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/adapters"
 )
 
 // mockGitCloner is a test double for GitCloner.

@@ -29,7 +29,7 @@ Follow the post-installation instructions to add Homebrew to your PATH.
 The dot formula is hosted in a custom tap. Add the tap to your Homebrew:
 
 ```bash
-brew tap jamesainslie/dot
+brew tap yaklabco/dot
 ```
 
 This registers the tap and makes the dot formula available for installation.
@@ -153,7 +153,7 @@ This removes the binary but preserves your configuration files and package repos
 Remove the tap entirely:
 
 ```bash
-brew untap jamesainslie/dot
+brew untap yaklabco/dot
 ```
 
 This removes the tap registration but does not affect installed binaries unless they are also uninstalled.
@@ -258,7 +258,7 @@ If `brew install dot` reports formula not found:
 
 2. Re-add tap if missing:
    ```bash
-   brew tap jamesainslie/dot
+   brew tap yaklabco/dot
    ```
 
 3. Update tap:
@@ -376,7 +376,7 @@ Expected output shows installed packages with symlink counts and status.
 For issues specific to Homebrew installation:
 
 1. Check [Troubleshooting Guide](08-troubleshooting.md)
-2. Search [GitHub Issues](https://github.com/jamesainslie/dot/issues)
+2. Search [GitHub Issues](https://github.com/yaklabco/dot/issues)
 3. Report bugs with `brew gist-logs dot` output
 
 For general dot usage questions, see the main [documentation](../../README.md).

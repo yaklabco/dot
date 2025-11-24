@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/bootstrap"
-	"github.com/jamesainslie/dot/internal/cli/selector"
-	"github.com/jamesainslie/dot/internal/cli/terminal"
-	"github.com/jamesainslie/dot/internal/config"
-	"github.com/jamesainslie/dot/internal/manifest"
-	"github.com/jamesainslie/dot/internal/scanner"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/bootstrap"
+	"github.com/yaklabco/dot/internal/cli/selector"
+	"github.com/yaklabco/dot/internal/cli/terminal"
+	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 // CloneService handles repository cloning and package installation.

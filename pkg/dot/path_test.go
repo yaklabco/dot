@@ -3,9 +3,9 @@ package dot_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestNewPackagePath(t *testing.T) {

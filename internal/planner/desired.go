@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/scanner"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 // LinkSpec specifies a desired symbolic link.

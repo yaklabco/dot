@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/doctor"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/doctor"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // packageCommandFunc is a function that executes a package operation.

@@ -195,6 +195,6 @@ make install
 
 For migration issues, see:
 - [Troubleshooting Guide](08-troubleshooting.md)
-- [GitHub Issues](https://github.com/jamesainslie/dot/issues)
+- [GitHub Issues](https://github.com/yaklabco/dot/issues)
 - [Developer Documentation](../developer/architecture.md)
 

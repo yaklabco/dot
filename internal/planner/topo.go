@@ -1,6 +1,6 @@
 package planner
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // TopologicalSort returns operations in dependency order using depth-first search.
 // Operations with no dependencies come first, and each operation appears after

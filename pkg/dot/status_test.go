@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestStatus(t *testing.T) {

@@ -3,7 +3,7 @@ package output
 import (
 	"fmt"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/render"
 )
 
 // VerboseLogger provides verbosity-aware logging.

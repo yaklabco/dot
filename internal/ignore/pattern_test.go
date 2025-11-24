@@ -3,9 +3,9 @@ package ignore_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/ignore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/ignore"
 )
 
 func TestNewPattern(t *testing.T) {

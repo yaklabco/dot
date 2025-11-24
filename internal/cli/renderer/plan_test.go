@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestJSONRenderer_RenderPlan(t *testing.T) {

@@ -3,7 +3,7 @@ package adapters
 import (
 	"context"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // NoopLogger is a logger that does nothing.

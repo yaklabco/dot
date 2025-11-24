@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/bootstrap"
-	"github.com/jamesainslie/dot/internal/cli/selector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/bootstrap"
+	"github.com/yaklabco/dot/internal/cli/selector"
 )
 
 func TestNewCloneService(t *testing.T) {

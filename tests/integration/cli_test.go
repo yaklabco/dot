@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jamesainslie/dot/tests/integration/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
 // TestCLI_VersionCommand tests the version command.

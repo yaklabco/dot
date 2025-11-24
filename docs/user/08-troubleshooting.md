@@ -32,7 +32,7 @@ source ~/.bashrc
 ls -la /usr/local/bin/dot
 
 # Reinstall if missing
-curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
+curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
 sudo mv dot /usr/local/bin/
 ```
 

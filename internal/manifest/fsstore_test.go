@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
 )
 
 func TestFSManifestStore_Load_MissingFile(t *testing.T) {

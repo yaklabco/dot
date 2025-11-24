@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/render"
 )
 
 // Formatter provides consistent formatting for CLI output.

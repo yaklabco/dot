@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/bootstrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/bootstrap"
 )
 
 // TestCloneCommand_EndToEnd tests the complete clone workflow using the public Client API.
@@ -24,7 +24,7 @@ func TestCloneCommand_EndToEnd(t *testing.T) {
 	t.Skip("placeholder for future end-to-end clone testing with real git repository")
 
 	// Future implementation would:
-	// 1. Clone a test repository (e.g., github.com/jamesainslie/dot-test-fixture)
+	// 1. Clone a test repository (e.g., github.com/yaklabco/dot-test-fixture)
 	// 2. Verify bootstrap config is loaded
 	// 3. Verify packages are installed according to profile
 	// 4. Verify manifest contains repository tracking info

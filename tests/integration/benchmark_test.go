@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/tests/integration/testutil"
+	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
 // BenchmarkManage_SinglePackage benchmarks managing a single package.

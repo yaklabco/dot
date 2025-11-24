@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // TestBackupPolicy_PreservesContent tests end-to-end backup policy with content verification

@@ -6,11 +6,11 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/jamesainslie/dot/internal/cli/output"
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/config"
-	"github.com/jamesainslie/dot/internal/updater"
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/internal/cli/output"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/internal/updater"
 )
 
 // newUpgradeCommand creates the upgrade command.
@@ -30,7 +30,7 @@ it will provide instructions for manual upgrade.
 Configuration (in ~/.config/dot/config.yaml):
   update:
     package_manager: auto    # auto, brew, apt, yum, pacman, dnf, zypper, manual
-    repository: jamesainslie/dot
+    repository: yaklabco/dot
     include_prerelease: false`,
 		Example: `  # Check for and install updates
   dot upgrade

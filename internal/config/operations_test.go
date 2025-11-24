@@ -319,7 +319,7 @@ func TestGenerateUpgradeHeader(t *testing.T) {
 				"# Backup saved to: " + backupPath,
 				"# Deprecated fields migrated:",
 				"#   - ignore.overrides → ignore.patterns",
-				"# See https://github.com/jamesainslie/dot",
+				"# See https://github.com/yaklabco/dot",
 			},
 		},
 		{
@@ -329,7 +329,7 @@ func TestGenerateUpgradeHeader(t *testing.T) {
 				"# Dot Configuration",
 				"# Upgraded on",
 				"# Backup saved to: " + backupPath,
-				"# See https://github.com/jamesainslie/dot",
+				"# See https://github.com/yaklabco/dot",
 			},
 		},
 	}

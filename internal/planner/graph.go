@@ -1,6 +1,6 @@
 package planner
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // DependencyGraph represents operation dependencies for topological sorting.
 // It maintains a directed graph where nodes are operations and edges represent

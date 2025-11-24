@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newCloneCommand creates the clone command.

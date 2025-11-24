@@ -5,12 +5,12 @@ import (
 	"io/fs"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/scanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 // MockFS implements the FS interface for testing scanner logic.

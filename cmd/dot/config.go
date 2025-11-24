@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/config"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 // newConfigCommand creates the config command.

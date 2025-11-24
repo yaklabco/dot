@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
 )
 
 // ScanConfig contains configuration options for scanning.

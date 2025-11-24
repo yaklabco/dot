@@ -10,11 +10,11 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/jamesainslie/dot/internal/cli/pretty"
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/internal/cli/renderer"
-	"github.com/jamesainslie/dot/internal/config"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/pretty"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/renderer"
+	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // doctorFlags holds parsed flags.

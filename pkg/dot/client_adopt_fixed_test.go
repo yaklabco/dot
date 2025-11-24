@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestClient_Adopt_FileNotFound(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/internal/cli/output"
-	"github.com/jamesainslie/dot/internal/cli/renderer"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/cli/output"
+	"github.com/yaklabco/dot/internal/cli/renderer"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newManageCommand creates the manage command.

@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestConfig_Validate_EmptyTargetDir(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/tests/integration/testutil"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
 // TestE2E_Manage_SinglePackage tests managing a single package.

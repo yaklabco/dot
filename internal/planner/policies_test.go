@@ -3,8 +3,8 @@ package planner
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Task 7.2.1: Test Resolution Policy Types

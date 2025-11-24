@@ -4,10 +4,10 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/planner"
-	"github.com/jamesainslie/dot/internal/scanner"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/planner"
+	"github.com/yaklabco/dot/internal/scanner"
 )
 
 // scanCurrentState scans only the specific paths relevant to the desired state.

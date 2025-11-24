@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jamesainslie/dot/pkg/dot"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // newRemanageCommand creates the remanage command.

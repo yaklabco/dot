@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/tests/integration/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
 // TestState_ManifestCreation tests that manifest is created on first manage.

@@ -41,7 +41,7 @@ Pre-compiled binaries are available for all supported platforms.
 
 ```bash
 # Download and extract
-curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
+curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
 
 # Move to system path
 sudo mv dot /usr/local/bin/
@@ -52,7 +52,7 @@ dot --version
 
 #### Windows
 
-Download the Windows binary from [releases page](https://github.com/jamesainslie/dot/releases):
+Download the Windows binary from [releases page](https://github.com/yaklabco/dot/releases):
 
 1. Download `dot-Windows-x86_64.zip`
 2. Extract to desired location
@@ -109,7 +109,7 @@ Requires Go 1.25.4 or later.
 #### Quick Install
 
 ```bash
-go install github.com/jamesainslie/dot/cmd/dot@latest
+go install github.com/yaklabco/dot/cmd/dot@latest
 ```
 
 Binary installed to `$GOPATH/bin` or `~/go/bin`.
@@ -118,7 +118,7 @@ Binary installed to `$GOPATH/bin` or `~/go/bin`.
 
 ```bash
 # Clone repository
-git clone https://github.com/jamesainslie/dot.git
+git clone https://github.com/yaklabco/dot.git
 cd dot
 
 # Build
@@ -341,7 +341,7 @@ Platform: linux/amd64
 
 ```bash
 # Download latest release
-curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
+curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-$(uname -s)-$(uname -m).tar.gz | tar xz
 
 # Replace existing binary
 sudo mv dot /usr/local/bin/

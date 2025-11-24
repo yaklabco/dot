@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/config"
 )
 
 func TestNewStartupChecker(t *testing.T) {

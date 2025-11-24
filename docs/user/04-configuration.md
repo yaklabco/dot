@@ -170,7 +170,7 @@ Upgraded configuration files include a header with upgrade information:
 # Deprecated fields migrated:
 #   - ignore.overrides → ignore.patterns (with ! prefix for negation)
 #
-# See https://github.com/jamesainslie/dot for documentation
+# See https://github.com/yaklabco/dot for documentation
 
 directories:
   package: "."

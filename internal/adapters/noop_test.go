@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/adapters"
 )
 
 func TestNoopLogger(t *testing.T) {

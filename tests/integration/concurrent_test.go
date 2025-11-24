@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/tests/integration/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
 // TestConcurrent_ParallelPackageScanning tests concurrent package scanning.

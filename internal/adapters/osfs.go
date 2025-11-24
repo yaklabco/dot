@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/jamesainslie/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 // OSFilesystem implements the FS interface using the os package.

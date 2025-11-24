@@ -58,7 +58,7 @@ func (s *YAMLStrategy) marshalWithComments(cfg *ExtendedConfig) ([]byte, error) 
 	var buf bytes.Buffer
 
 	buf.WriteString("# Dot Configuration File\n")
-	buf.WriteString("# Documentation: https://github.com/jamesainslie/dot/docs/configuration.md\n\n")
+	buf.WriteString("# Documentation: https://github.com/yaklabco/dot/docs/configuration.md\n\n")
 
 	buf.WriteString("# Core Directories\n")
 	buf.WriteString("directories:\n")

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jamesainslie/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/adapters"
 )
 
 // TestAdopt_PreventDoubleAdoption tests that adopting an already-adopted file fails gracefully.

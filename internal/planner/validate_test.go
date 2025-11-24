@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestDotOperationalPaths(t *testing.T) {

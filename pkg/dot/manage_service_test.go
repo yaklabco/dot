@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/executor"
-	"github.com/jamesainslie/dot/internal/ignore"
-	"github.com/jamesainslie/dot/internal/manifest"
-	"github.com/jamesainslie/dot/internal/pipeline"
-	"github.com/jamesainslie/dot/internal/planner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/executor"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/pipeline"
+	"github.com/yaklabco/dot/internal/planner"
 )
 
 func TestManageService_Manage(t *testing.T) {

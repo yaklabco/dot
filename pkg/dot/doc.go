@@ -25,8 +25,8 @@
 //		"context"
 //		"log"
 //
-//		"github.com/jamesainslie/dot/internal/adapters"
-//		"github.com/jamesainslie/dot/pkg/dot"
+//		"github.com/yaklabco/dot/internal/adapters"
+//		"github.com/yaklabco/dot/pkg/dot"
 //	)
 //
 //	cfg := dot.Config{

@@ -1,6 +1,6 @@
 package dot
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // ConflictInfo represents conflict information in plan metadata.
 type ConflictInfo = domain.ConflictInfo

@@ -3,8 +3,8 @@ package doctor_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/doctor"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/doctor"
 )
 
 func TestDefaultSensitivePatterns(t *testing.T) {

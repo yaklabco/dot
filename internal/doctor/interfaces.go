@@ -5,8 +5,8 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/jamesainslie/dot/internal/domain"
-	"github.com/jamesainslie/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/domain"
+	"github.com/yaklabco/dot/internal/manifest"
 )
 
 // FS defines the filesystem abstraction interface needed by doctor checks.

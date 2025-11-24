@@ -1,6 +1,6 @@
 package dot
 
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // Result represents a value or an error, implementing a Result monad for error handling.
 // This provides a functional approach to error handling with composition support.

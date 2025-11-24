@@ -3,8 +3,8 @@ package dot_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestPackage(t *testing.T) {

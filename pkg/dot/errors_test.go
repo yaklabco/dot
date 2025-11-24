@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestErrInvalidPath(t *testing.T) {

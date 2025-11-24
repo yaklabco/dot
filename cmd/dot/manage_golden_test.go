@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/cli/golden"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/cli/golden"
 )
 
 // TestManageCommand_Golden tests the manage command with various scenarios

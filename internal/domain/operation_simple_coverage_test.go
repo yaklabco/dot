@@ -3,9 +3,9 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestOperationKind_String(t *testing.T) {

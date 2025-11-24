@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/cli/render"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 func TestReportUnmanageAllResults(t *testing.T) {

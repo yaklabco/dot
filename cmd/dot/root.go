@@ -10,11 +10,11 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/internal/config"
-	"github.com/jamesainslie/dot/internal/updater"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/internal/config"
+	"github.com/yaklabco/dot/internal/updater"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // Global configuration shared across commands

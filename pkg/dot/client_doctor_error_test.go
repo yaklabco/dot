@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jamesainslie/dot/internal/adapters"
-	"github.com/jamesainslie/dot/pkg/dot"
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/internal/adapters"
+	"github.com/yaklabco/dot/pkg/dot"
 )
 
 // Test that Doctor properly propagates non-not-found manifest errors
