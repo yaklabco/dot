@@ -5,7 +5,7 @@
 
 # dot
 [![CI](https://github.com/jamesainslie/dot/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesainslie/dot/actions/workflows/ci.yml)
-[![Release](https://github.com/jamesainslie/dot/actions/workflows/release.yml/badge.svg)](https://github.com/jamesainslie/dot/actions/workflows/release.yml)
+[![Release](https://github.com/jamesainslie/dot/actions/workflows/release-please.yml/badge.svg)](https://github.com/jamesainslie/dot/actions/workflows/release-please.yml)
 [![Version](https://img.shields.io/github/v/release/jamesainslie/dot)](https://github.com/jamesainslie/dot/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jamesainslie/dot)](https://goreportcard.com/report/github.com/jamesainslie/dot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
