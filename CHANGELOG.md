@@ -1,4 +1,19 @@
 <a name="unreleased"></a>
+## [0.6.3](https://github.com/yaklabco/dot/compare/v0.6.2...v0.6.3) (2025-11-24)
+
+
+### Features
+
+* **executor:** add context cancellation support with rollback semantics ([3f5fc89](https://github.com/yaklabco/dot/commit/3f5fc890a98712ea0ca68bf5f197f298404798a6))
+
+
+### Code Refactoring
+
+* **arch:** enhance architecture with state cleanup and safety improvements ([3b6b819](https://github.com/yaklabco/dot/commit/3b6b819db10b0d026f51fb31afd6e59a8258b286))
+* **cli:** eliminate global state by introducing CLIFlags ([fdc5144](https://github.com/yaklabco/dot/commit/fdc51445d633d7b75bee9e2daf7d3629a4a48a21))
+* **cli:** enforce cli/api layer separation ([5402cd0](https://github.com/yaklabco/dot/commit/5402cd000325f008411f6db52e2b8992f2938827))
+* replace map[string]bool sets with map[string]struct{} ([fca42ba](https://github.com/yaklabco/dot/commit/fca42ba1bb3b9eb51c46bfa0c90149d5c5741f91))
+
 ## [0.6.2](https://github.com/yaklabco/dot/compare/v0.6.1...v0.6.2) (2025-11-24)
 
 
