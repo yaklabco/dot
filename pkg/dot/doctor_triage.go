@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jamesainslie/dot/internal/doctor"
+	"github.com/jamesainslie/dot/internal/ignore"
 	"github.com/jamesainslie/dot/internal/manifest"
 )
 
@@ -173,6 +174,17 @@ func (s *DoctorService) confirmTriageChanges(result TriageResult) bool {
 	response = strings.ToLower(strings.TrimSpace(response))
 
 	return response == "" || response == "y" || response == "yes"
+}
+
+// buildIgnoreSet creates an IgnoreSet from manifest's ignored patterns.
+func (s *DoctorService) buildIgnoreSet(m *manifest.Manifest) *ignore.IgnoreSet {
+	ignoreSet := ignore.NewIgnoreSet()
+	if m.Doctor != nil {
+		for _, pattern := range m.Doctor.IgnoredPatterns {
+			_ = ignoreSet.Add(pattern)
+		}
+	}
+	return ignoreSet
 }
 
 // filterAlreadyIgnored filters out issues that are already ignored.
