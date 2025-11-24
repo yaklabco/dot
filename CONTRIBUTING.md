@@ -19,7 +19,7 @@ Be respectful, professional, and collaborative. Harassment and unprofessional be
 
 1. **Fork and clone**:
 ```bash
-git fork https://github.com/jamesainslie/dot.git
+git fork https://github.com/yaklabco/dot.git
 cd dot
 ```
 

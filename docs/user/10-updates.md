@@ -59,7 +59,7 @@ update:
   package_manager: auto
 
   # GitHub repository for releases
-  repository: jamesainslie/dot
+  repository: yaklabco/dot
 
   # Include pre-release versions
   include_prerelease: false
@@ -198,7 +198,7 @@ brew upgrade dot
 ```
 
 **Manual:**
-Download the latest release from https://github.com/jamesainslie/dot/releases
+Download the latest release from https://github.com/yaklabco/dot/releases
 
 ### Network Errors
 
@@ -293,7 +293,7 @@ A new version is available!
 
   Current version:  v0.3.0
   Latest version:   v0.4.0
-  Release URL:      https://github.com/jamesainslie/dot/releases/tag/v0.4.0
+  Release URL:      https://github.com/yaklabco/dot/releases/tag/v0.4.0
 
 Release Notes:
   - Add upgrade command
@@ -314,7 +314,7 @@ Checking for updates...
 
   Current version:  v0.3.0
   Latest version:   v0.4.0
-  Release URL:      https://github.com/jamesainslie/dot/releases/tag/v0.4.0
+  Release URL:      https://github.com/yaklabco/dot/releases/tag/v0.4.0
 
 Release Notes:
   - Add upgrade command
@@ -357,7 +357,7 @@ update:
   package_manager: auto
   
   # Official repository
-  repository: jamesainslie/dot
+  repository: yaklabco/dot
   
   # Stable releases only
   include_prerelease: false

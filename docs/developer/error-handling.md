@@ -120,7 +120,7 @@ if err := operation(id); err != nil {
 For consistent error wrapping:
 
 ```go
-import "github.com/jamesainslie/dot/internal/domain"
+import "github.com/yaklabco/dot/internal/domain"
 
 // Wrap with context
 err := domain.WrapError(err, "operation failed")

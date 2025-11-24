@@ -221,7 +221,7 @@ dot remanage vim zsh
 
 ```bash
 # Reinstall dot
-curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-Linux-x86_64.tar.gz | tar xz
+curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-Linux-x86_64.tar.gz | tar xz
 sudo mv dot /usr/local/bin/
 
 # Clone dotfiles
@@ -271,7 +271,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install dot
         run: |
-          curl -L https://github.com/jamesainslie/dot/releases/latest/download/dot-Linux-x86_64.tar.gz | tar xz
+          curl -L https://github.com/yaklabco/dot/releases/latest/download/dot-Linux-x86_64.tar.gz | tar xz
           sudo mv dot /usr/local/bin/
       - name: Deploy
         run: dot --quiet manage vim zsh tmux
