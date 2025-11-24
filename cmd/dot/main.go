@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 -- pprof is intentionally exposed for diagnostics
@@ -14,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 )
 
@@ -45,19 +45,9 @@ func run() int {
 
 	rootCmd := NewRootCommand(version, commit, date)
 
-	// Execute command with signal-aware context
-	executedCmd, err := executeCommand(ctx, rootCmd)
+	// Execute command with fang for enhanced output
+	err := fang.Execute(ctx, rootCmd)
 	if err != nil {
-		// Show usage for argument validation errors
-		// (Flag errors are handled by SetFlagErrorFunc in root.go)
-		if executedCmd != nil && isArgValidationError(err) {
-			fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
-			_ = executedCmd.Usage()
-		} else {
-			// Print all other errors to stderr
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		}
-
 		// Handle doctor-specific exit codes
 		return getDoctorExitCode(err)
 	}
