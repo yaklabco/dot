@@ -2,12 +2,15 @@ package dot
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
-	"runtime"
-	"sync"
+	"strings"
+	"time"
 
-	"github.com/jamesainslie/dot/internal/ignore"
+	"github.com/jamesainslie/dot/internal/doctor"
+	"github.com/jamesainslie/dot/internal/domain"
 	"github.com/jamesainslie/dot/internal/manifest"
 )
 
@@ -20,12 +23,6 @@ type DoctorService struct {
 	targetDir     string
 	healthChecker *HealthChecker
 	adoptSvc      *AdoptService
-}
-
-// scanResult holds the results from scanning a single directory.
-type scanResult struct {
-	issues []Issue
-	stats  DiagnosticStats
 }
 
 // newDoctorService creates a new doctor service (for tests).
@@ -43,7 +40,7 @@ func newDoctorService(
 		packageDir:    packageDir,
 		targetDir:     targetDir,
 		healthChecker: newHealthChecker(fs, targetDir),
-		adoptSvc:      nil, // Not needed for basic tests
+		adoptSvc:      nil,
 	}
 }
 
@@ -67,45 +64,236 @@ func newDoctorServiceWithAdopt(
 	}
 }
 
+// DiagnosticMode defines the depth of diagnostic checks to perform.
+type DiagnosticMode string
+
+const (
+	// DiagnosticFast performs only essential checks (managed packages, manifest integrity).
+	DiagnosticFast DiagnosticMode = "fast"
+	// DiagnosticDeep performs comprehensive checks including orphan detection.
+	DiagnosticDeep DiagnosticMode = "deep"
+)
+
 // Doctor performs health checks with default scan configuration.
 func (s *DoctorService) Doctor(ctx context.Context) (DiagnosticReport, error) {
-	return s.DoctorWithScan(ctx, DefaultScanConfig())
+	return s.DoctorWithMode(ctx, DiagnosticDeep, DefaultScanConfig())
 }
 
 // DoctorWithScan performs health checks with explicit scan configuration.
 func (s *DoctorService) DoctorWithScan(ctx context.Context, scanCfg ScanConfig) (DiagnosticReport, error) {
-	targetPath, err := s.getTargetPath()
+	return s.DoctorWithMode(ctx, DiagnosticDeep, scanCfg)
+}
+
+// DoctorWithMode performs health checks with explicit mode and configuration.
+func (s *DoctorService) DoctorWithMode(ctx context.Context, mode DiagnosticMode, scanCfg ScanConfig) (DiagnosticReport, error) {
+	engine := doctor.NewDiagnosticEngine()
+
+	// Helper adapters for check constructors
+	newTargetPath := &doctorTargetPathCreatorAdapter{}
+
+	// Adapter for ManifestLoader interface
+	manifestLoader := &manifestLoaderAdapter{svc: s.manifestSvc, targetDir: s.targetDir}
+
+	// Adapter for LinkHealthChecker interface
+	healthChecker := &linkHealthCheckerAdapter{checker: s.healthChecker}
+
+	// Adapter for FS interface
+	fsAdapter := &doctorFSAdapter{fs: s.fs}
+
+	// Convert scanCfg to doctor.ScanConfig
+	doctorScanCfg := doctor.ScanConfig{
+		Mode:         doctor.ScanMode(scanCfg.Mode),
+		MaxWorkers:   scanCfg.MaxWorkers,
+		MaxDepth:     scanCfg.MaxDepth,
+		MaxIssues:    scanCfg.MaxIssues,
+		ScopeToDirs:  scanCfg.ScopeToDirs,
+		SkipPatterns: scanCfg.SkipPatterns,
+	}
+
+	// Fast mode: Essential checks only
+	// 1. Manifest Integrity Check
+	engine.RegisterCheck(doctor.NewManifestIntegrityCheck(fsAdapter, manifestLoader, s.targetDir, newTargetPath, IsManifestNotFoundError))
+
+	// 2. Managed Packages Check
+	engine.RegisterCheck(doctor.NewManagedPackageCheck(fsAdapter, manifestLoader, healthChecker, s.targetDir, newTargetPath, IsManifestNotFoundError))
+
+	// Deep mode: Additional comprehensive checks
+	if mode == DiagnosticDeep {
+		// 3. Orphan Check (only if not disabled)
+		if scanCfg.Mode != ScanOff {
+			engine.RegisterCheck(doctor.NewOrphanCheck(fsAdapter, manifestLoader, s.targetDir, doctorScanCfg, newTargetPath))
+		}
+
+		// 4. Platform Compatibility Check
+		engine.RegisterCheck(doctor.NewPlatformCheck(fsAdapter, manifestLoader, s.packageDir))
+	}
+
+	// Execute checks with parallel execution for performance
+	report, err := engine.Run(ctx, doctor.RunOptions{
+		Parallel: true,
+	})
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
 
-	m, issues, stats, err := s.loadManifestOrCreateDefault(ctx, targetPath)
+	// Check for system-level check execution errors and propagate them
+	for _, result := range report.Results {
+		for _, issue := range result.Issues {
+			if issue.Code == "CHECK_EXECUTION_ERROR" {
+				return DiagnosticReport{}, fmt.Errorf("%s: %s", result.CheckName, issue.Message)
+			}
+		}
+	}
+
+	// Transform report to legacy DiagnosticReport for CLI compatibility
+	return s.transformReport(report), nil
+}
+
+// PreFlightCheck performs quick checks before an operation.
+func (s *DoctorService) PreFlightCheck(ctx context.Context, packages []string) (DiagnosticReport, error) {
+	engine := doctor.NewDiagnosticEngine()
+
+	// Adapter for FS interface
+	fsAdapter := &doctorFSAdapter{fs: s.fs}
+
+	// Check permissions
+	engine.RegisterCheck(doctor.NewPermissionCheck(fsAdapter, s.targetDir))
+
+	// Check conflicts for specific packages if we knew their links
+	// TODO: Implement ConflictCheck for the provided packages
+	// For now, we ignore the 'packages' argument and just run the permission check
+	// as an example of "PreFlight" capability.
+
+	report, err := engine.Run(ctx, doctor.RunOptions{Parallel: true})
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	// If manifest doesn't exist, return early with info issue
-	if m == nil {
-		return DiagnosticReport{
-			OverallHealth: HealthOK,
-			Issues:        issues,
-			Statistics:    stats,
-		}, nil
+	return s.transformReport(report), nil
+}
+
+// aggregateStat adds an integer stat value to the total.
+// It gracefully handles int, int64, and float64 types.
+func aggregateStat(stats map[string]any, key string) int {
+	if val, ok := stats[key]; ok {
+		switch v := val.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		}
 	}
+	return 0
+}
 
-	s.checkManagedPackages(ctx, m, &issues, &stats)
-
-	if scanCfg.Mode != ScanOff {
-		s.performOrphanScan(ctx, m, scanCfg, &issues, &stats)
+// convertSeverity converts domain severity to public severity.
+func convertSeverity(severity domain.IssueSeverity) IssueSeverity {
+	switch severity {
+	case domain.IssueSeverityError:
+		return SeverityError
+	case domain.IssueSeverityWarning:
+		return SeverityWarning
+	default:
+		return SeverityInfo
 	}
+}
 
-	health := s.determineOverallHealth(issues)
+// convertIssueType converts code string to IssueType.
+func convertIssueType(code string) IssueType {
+	// Normalize to lowercase for consistent mapping
+	code = strings.ToLower(code)
+
+	switch code {
+	case "broken_link":
+		return IssueBrokenLink
+	case "orphaned_link":
+		return IssueOrphanedLink
+	case "wrong_target":
+		return IssueWrongTarget
+	case "permission", "permission_denied", "target_dir_not_writable", "target_dir_not_readable", "write_test_failed":
+		return IssuePermission
+	case "circular":
+		return IssueCircular
+	case "manifest_inconsistency", "no_manifest", "manifest_inconsistent", "check_execution_error":
+		return IssueManifestInconsistency
+	case "conflict_detected", "access_error":
+		// Map conflict/access issues to a reasonable existing type
+		return IssueManifestInconsistency
+	case "metadata_read_error", "platform_incompatible", "test_fail", "test_issue", "target_dir_missing", "cleanup_failed":
+		// Map additional error codes
+		return IssueManifestInconsistency
+	default:
+		return IssueManifestInconsistency
+	}
+}
+
+// extractSuggestion extracts suggestion from context.
+func extractSuggestion(ctx map[string]any) string {
+	if val, ok := ctx["suggestion"]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+// convertIssue converts domain issue to public issue.
+func convertIssue(internalIssue domain.Issue) Issue {
+	return Issue{
+		Severity:   convertSeverity(internalIssue.Severity),
+		Type:       convertIssueType(internalIssue.Code),
+		Path:       internalIssue.Path,
+		Message:    internalIssue.Message,
+		Suggestion: extractSuggestion(internalIssue.Context),
+	}
+}
+
+// determineOverallHealth determines overall health from status.
+func determineOverallHealth(status domain.CheckStatus) HealthStatus {
+	if status == domain.CheckStatusFail {
+		return HealthErrors
+	} else if status == domain.CheckStatusWarning {
+		return HealthWarnings
+	}
+	return HealthOK
+}
+
+// transformReport converts internal engine report to public DiagnosticReport.
+func (s *DoctorService) transformReport(internal doctor.DiagnosticReport) DiagnosticReport {
+	issues := make([]Issue, 0)
+	stats := DiagnosticStats{}
+
+	for _, res := range internal.Results {
+		stats.TotalLinks += aggregateStat(res.Stats, "total_links")
+		stats.BrokenLinks += aggregateStat(res.Stats, "broken_links")
+		stats.OrphanedLinks += aggregateStat(res.Stats, "orphaned_links")
+		stats.ManagedLinks += aggregateStat(res.Stats, "managed_links")
+
+		for _, internalIssue := range res.Issues {
+			issues = append(issues, convertIssue(internalIssue))
+		}
+	}
 
 	return DiagnosticReport{
-		OverallHealth: health,
+		OverallHealth: determineOverallHealth(internal.OverallStatus),
 		Issues:        issues,
 		Statistics:    stats,
-	}, nil
+	}
 }
+
+// IsManifestNotFoundError checks if an error indicates a missing manifest.
+func IsManifestNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, os.ErrNotExist)
+}
+
+// Note: Helper methods like getTargetPath, loadManifestOrCreateDefault are still useful if used by other methods
+// but might be redundant if logic moved to checks.
+// Keeping them if they are used by Triage or other methods not yet refactored.
+// Triage still needs `loadManifestOrCreateDefault`.
 
 // getTargetPath constructs and validates target path.
 func (s *DoctorService) getTargetPath() (TargetPath, error) {
@@ -124,7 +312,7 @@ func (s *DoctorService) loadManifestOrCreateDefault(ctx context.Context, targetP
 
 	if !manifestResult.IsOk() {
 		err := manifestResult.UnwrapErr()
-		if isManifestNotFoundError(err) {
+		if IsManifestNotFoundError(err) {
 			issues = append(issues, Issue{
 				Severity:   SeverityInfo,
 				Type:       IssueManifestInconsistency,
@@ -140,524 +328,161 @@ func (s *DoctorService) loadManifestOrCreateDefault(ctx context.Context, targetP
 	return &m, issues, stats, nil
 }
 
-// checkManagedPackages validates all packages in the manifest.
-func (s *DoctorService) checkManagedPackages(ctx context.Context, m *manifest.Manifest, issues *[]Issue, stats *DiagnosticStats) {
-	for pkgName, pkgInfo := range m.Packages {
-		stats.ManagedLinks += pkgInfo.LinkCount
-		for _, linkPath := range pkgInfo.Links {
-			stats.TotalLinks++
-			s.checkLink(ctx, pkgName, linkPath, pkgInfo, issues, stats)
-		}
+// manifestLoaderAdapter adapts ManifestService to doctor.ManifestLoader interface.
+type manifestLoaderAdapter struct {
+	svc       *ManifestService
+	targetDir string
+}
+
+func (a *manifestLoaderAdapter) Load(ctx context.Context, targetPath domain.TargetPath) domain.Result[manifest.Manifest] {
+	return a.svc.Load(ctx, targetPath)
+}
+
+func (a *manifestLoaderAdapter) LoadManifest(ctx context.Context) (*manifest.Manifest, error) {
+	targetPathResult := NewTargetPath(a.targetDir)
+	if !targetPathResult.IsOk() {
+		return nil, fmt.Errorf("failed to create target path: %w", targetPathResult.UnwrapErr())
+	}
+	targetPath := targetPathResult.Unwrap()
+
+	manifestResult := a.svc.Load(ctx, targetPath)
+	if manifestResult.IsOk() {
+		m := manifestResult.Unwrap()
+		return &m, nil
+	}
+	return nil, fmt.Errorf("failed to load manifest: %w", manifestResult.UnwrapErr())
+}
+
+// linkHealthCheckerAdapter adapts HealthChecker to doctor.LinkHealthChecker interface.
+type linkHealthCheckerAdapter struct {
+	checker *HealthChecker
+}
+
+func (a *linkHealthCheckerAdapter) CheckLink(ctx context.Context, packageName, linkPath, packageDir string) doctor.LinkHealthResult {
+	result := a.checker.CheckLink(ctx, packageName, linkPath, packageDir)
+
+	var severity domain.IssueSeverity
+	switch result.Severity {
+	case SeverityError:
+		severity = domain.IssueSeverityError
+	case SeverityWarning:
+		severity = domain.IssueSeverityWarning
+	default:
+		severity = domain.IssueSeverityInfo
+	}
+
+	return doctor.LinkHealthResult{
+		IsHealthy:  result.IsHealthy,
+		Severity:   severity,
+		IssueType:  doctor.IssueType(result.IssueType.String()),
+		Message:    result.Message,
+		Suggestion: result.Suggestion,
 	}
 }
 
-// determineOverallHealth computes health status from issues.
-func (s *DoctorService) determineOverallHealth(issues []Issue) HealthStatus {
-	health := HealthOK
-	for _, issue := range issues {
-		if issue.Severity == SeverityError {
-			return HealthErrors
-		}
-		if issue.Severity == SeverityWarning && health == HealthOK {
-			health = HealthWarnings
-		}
+// doctorTargetPathCreatorAdapter implements doctor.TargetPathCreator.
+type doctorTargetPathCreatorAdapter struct{}
+
+func (a *doctorTargetPathCreatorAdapter) NewTargetPath(path string) domain.Result[domain.TargetPath] {
+	r := NewTargetPath(path)
+	if r.IsErr() {
+		return domain.Err[domain.TargetPath](r.UnwrapErr())
 	}
-	return health
+	return domain.Ok(r.Unwrap())
 }
 
-// checkLink validates a single link from the manifest.
-func (s *DoctorService) checkLink(ctx context.Context, pkgName string, linkPath string, pkgInfo manifest.PackageInfo, issues *[]Issue, stats *DiagnosticStats) {
-	// Use unified health checker
-	result := s.healthChecker.CheckLink(ctx, pkgName, linkPath, pkgInfo.PackageDir)
-
-	if !result.IsHealthy {
-		// Count broken links for statistics
-		if result.IssueType == IssueBrokenLink {
-			stats.BrokenLinks++
-		}
-
-		// Add issue to list
-		*issues = append(*issues, Issue{
-			Severity:   result.Severity,
-			Type:       result.IssueType,
-			Path:       linkPath,
-			Message:    result.Message,
-			Suggestion: result.Suggestion,
-		})
-	}
+// fileInfoWrapper adapts domain.FileInfo to fs.FileInfo
+type fileInfoWrapper struct {
+	info domain.FileInfo
 }
 
-// performOrphanScan executes orphaned link scanning based on configuration.
-// Scans directories in parallel using worker pool for improved performance.
-func (s *DoctorService) performOrphanScan(
-	ctx context.Context,
-	m *manifest.Manifest,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) {
-	scanDirs := s.determineScanDirectories(m, scanCfg)
-	rootDirs := s.normalizeAndDeduplicateDirs(scanDirs, scanCfg.Mode)
-	linkSet := buildManagedLinkSet(m)
-	ignoreSet := s.buildIgnoreSet(m)
-
-	// Determine worker count
-	workers := scanCfg.MaxWorkers
-	if workers <= 0 {
-		workers = runtime.NumCPU()
+func (w *fileInfoWrapper) Name() string      { return w.info.Name() }
+func (w *fileInfoWrapper) Size() int64       { return w.info.Size() }
+func (w *fileInfoWrapper) Mode() os.FileMode { return w.info.Mode() }
+func (w *fileInfoWrapper) IsDir() bool       { return w.info.IsDir() }
+func (w *fileInfoWrapper) Sys() any          { return w.info.Sys() }
+func (w *fileInfoWrapper) ModTime() time.Time {
+	t, ok := w.info.ModTime().(time.Time)
+	if !ok {
+		return time.Time{}
 	}
-
-	// If only 1 worker or 1 directory, use sequential scan (no overhead)
-	if workers == 1 || len(rootDirs) == 1 {
-		for _, dir := range rootDirs {
-			if s.shouldStopScan(scanCfg, issues) {
-				break
-			}
-			s.scanDirectory(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
-		}
-		return
-	}
-
-	// Parallel scan with worker pool
-	resultChan := make(chan scanResult, len(rootDirs))
-	dirChan := make(chan string, len(rootDirs))
-	var wg sync.WaitGroup
-
-	// Create cancellable context for early termination
-	workerCtx, cancelWorkers := context.WithCancel(ctx)
-	defer cancelWorkers()
-
-	// Start workers
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go s.scanWorker(workerCtx, &wg, dirChan, resultChan, m, linkSet, ignoreSet, scanCfg)
-	}
-
-	// Feed directories to workers with cancellation support
-	go func() {
-		for _, dir := range rootDirs {
-			select {
-			case dirChan <- dir:
-			case <-workerCtx.Done():
-				close(dirChan)
-				return
-			}
-		}
-		close(dirChan)
-	}()
-
-	// Wait for workers and close results
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	// Collect results, respecting MaxIssues budget
-	for result := range resultChan {
-		if s.collectScanResult(result, scanCfg, issues, stats, cancelWorkers, resultChan) {
-			break
-		}
-	}
+	return t
 }
 
-// scanWorker processes directories from dirChan and sends results to resultChan.
-func (s *DoctorService) scanWorker(
-	ctx context.Context,
-	wg *sync.WaitGroup,
-	dirChan chan string,
-	resultChan chan scanResult,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	scanCfg ScanConfig,
-) {
-	defer wg.Done()
-	for dir := range dirChan {
-		if ctx.Err() != nil {
-			return
-		}
-
-		localIssues := []Issue{}
-		localStats := DiagnosticStats{}
-		s.scanDirectory(ctx, dir, m, linkSet, ignoreSet, scanCfg, &localIssues, &localStats)
-
-		// Only send result if context not cancelled
-		select {
-		case resultChan <- scanResult{
-			issues: localIssues,
-			stats:  localStats,
-		}:
-		case <-ctx.Done():
-			return
-		}
-	}
+// dirEntryWrapper adapts domain.DirEntry to fs.DirEntry
+type dirEntryWrapper struct {
+	entry domain.DirEntry
 }
 
-// collectScanResult processes a single scan result and returns true if collection should stop.
-func (s *DoctorService) collectScanResult(
-	result scanResult,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-	cancelWorkers context.CancelFunc,
-	resultChan chan scanResult,
-) bool {
-	// Respect remaining budget before appending
-	if scanCfg.MaxIssues > 0 {
-		remaining := scanCfg.MaxIssues - len(*issues)
-		if remaining <= 0 {
-			// Budget exhausted, cancel workers and drain results
-			cancelWorkers()
-			for range resultChan {
-			}
-			return true
-		}
-		// Truncate result to remaining budget
-		if len(result.issues) > remaining {
-			*issues = append(*issues, result.issues[:remaining]...)
-		} else {
-			*issues = append(*issues, result.issues...)
-		}
-	} else {
-		// No limit, append all
-		*issues = append(*issues, result.issues...)
-	}
-
-	stats.TotalLinks += result.stats.TotalLinks
-	stats.BrokenLinks += result.stats.BrokenLinks
-	stats.OrphanedLinks += result.stats.OrphanedLinks
-	stats.ManagedLinks += result.stats.ManagedLinks
-	return false
-}
-
-// shouldStopScan checks if scanning should stop early based on MaxIssues limit.
-func (s *DoctorService) shouldStopScan(scanCfg ScanConfig, issues *[]Issue) bool {
-	return scanCfg.MaxIssues > 0 && len(*issues) >= scanCfg.MaxIssues
-}
-
-// determineScanDirectories determines which directories to scan based on configuration.
-func (s *DoctorService) determineScanDirectories(m *manifest.Manifest, scanCfg ScanConfig) []string {
-	if len(scanCfg.ScopeToDirs) > 0 {
-		return scanCfg.ScopeToDirs
-	}
-	if scanCfg.Mode == ScanScoped {
-		return extractManagedDirectories(m)
-	}
-	return []string{s.targetDir}
-}
-
-// normalizeAndDeduplicateDirs converts scan directories to absolute paths and removes descendants.
-func (s *DoctorService) normalizeAndDeduplicateDirs(dirs []string, mode ScanMode) []string {
-	absDirs := make([]string, 0, len(dirs))
-	for _, dir := range dirs {
-		fullPath := dir
-		if mode == ScanScoped {
-			fullPath = filepath.Join(s.targetDir, dir)
-		}
-		absDirs = append(absDirs, fullPath)
-	}
-	return filterDescendants(absDirs)
-}
-
-// scanDirectory scans a single directory for orphaned links with limit checks.
-func (s *DoctorService) scanDirectory(
-	ctx context.Context,
-	dir string,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) {
-	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
+func (w *dirEntryWrapper) Name() string      { return w.entry.Name() }
+func (w *dirEntryWrapper) IsDir() bool       { return w.entry.IsDir() }
+func (w *dirEntryWrapper) Type() os.FileMode { return w.entry.Type() }
+func (w *dirEntryWrapper) Info() (fs.FileInfo, error) {
+	info, err := w.entry.Info()
 	if err != nil {
-		// Log but continue - orphan detection is best-effort
-		s.logger.Warn(ctx, "scan_directory_failed", "dir", dir, "error", err)
+		return nil, err
 	}
+	return &fileInfoWrapper{info: info}, nil
 }
 
-// scanForOrphanedLinksWithLimits wraps scanForOrphanedLinks with depth and skip checks.
-func (s *DoctorService) scanForOrphanedLinksWithLimits(
-	ctx context.Context,
-	dir string,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	depth := calculateDepth(dir, s.targetDir)
-	if scanCfg.MaxDepth > 0 && depth > scanCfg.MaxDepth {
-		return nil
-	}
-
-	if shouldSkipDirectory(dir, scanCfg.SkipPatterns) {
-		return nil
-	}
-
-	return s.scanForOrphanedLinks(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
+// doctorFSAdapter adapts pkg/dot/FS to internal/doctor/FS.
+type doctorFSAdapter struct {
+	fs FS
 }
 
-// scanForOrphanedLinks recursively scans for symlinks not in the manifest.
-// Optimized to check symlink type from DirEntry without extra syscalls.
-func (s *DoctorService) scanForOrphanedLinks(
-	ctx context.Context,
-	dir string,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) error {
-	entries, err := s.fs.ReadDir(ctx, dir)
+func (a *doctorFSAdapter) Exists(ctx context.Context, path string) (bool, error) {
+	return a.fs.Exists(ctx, path), nil
+}
+
+func (a *doctorFSAdapter) IsDir(ctx context.Context, path string) (bool, error) {
+	return a.fs.IsDir(ctx, path)
+}
+
+func (a *doctorFSAdapter) Lstat(ctx context.Context, name string) (fs.FileInfo, error) {
+	info, err := a.fs.Lstat(ctx, name)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	for _, entry := range entries {
-		if s.shouldSkipEntry(entry) {
-			continue
-		}
-
-		// Check MaxIssues limit
-		if s.shouldStopScan(scanCfg, issues) {
-			return nil
-		}
-
-		fullPath := filepath.Join(dir, entry.Name())
-
-		// Performance optimization: check type from DirEntry (no Lstat syscall)
-		entryType := entry.Type()
-
-		if entryType&os.ModeSymlink != 0 {
-			// It's a symlink - check if orphaned
-			s.checkForOrphanedLink(ctx, fullPath, m, linkSet, ignoreSet, issues, stats)
-		} else if entry.IsDir() {
-			// It's a directory - recurse
-			s.scanDirectoryRecursive(ctx, fullPath, m, linkSet, ignoreSet, scanCfg, issues, stats)
-		}
-		// Regular files are ignored (no need to check)
-	}
-	return nil
+	return &fileInfoWrapper{info: info}, nil
 }
 
-// shouldSkipEntry checks if directory entry should be skipped.
-func (s *DoctorService) shouldSkipEntry(entry DirEntry) bool {
-	return entry.Name() == ".dot-manifest.json"
-}
-
-// scanDirectoryRecursive recursively scans subdirectory.
-func (s *DoctorService) scanDirectoryRecursive(
-	ctx context.Context,
-	dir string,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	scanCfg ScanConfig,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) {
-	err := s.scanForOrphanedLinksWithLimits(ctx, dir, m, linkSet, ignoreSet, scanCfg, issues, stats)
+func (a *doctorFSAdapter) ReadDir(ctx context.Context, name string) ([]fs.DirEntry, error) {
+	entries, err := a.fs.ReadDir(ctx, name)
 	if err != nil {
-		// Continue on error - best effort scanning
-		s.logger.Warn(ctx, "recursive_scan_failed", "dir", dir, "error", err)
+		return nil, err
 	}
+
+	fsEntries := make([]fs.DirEntry, len(entries))
+	for i, e := range entries {
+		fsEntries[i] = &dirEntryWrapper{entry: e}
+	}
+	return fsEntries, nil
 }
 
-// checkForOrphanedLink checks if symlink is orphaned (not in manifest) and validates target.
-// Note: This function assumes fullPath is already confirmed to be a symlink by the caller.
-func (s *DoctorService) checkForOrphanedLink(
-	ctx context.Context,
-	fullPath string,
-	m *manifest.Manifest,
-	linkSet map[string]bool,
-	ignoreSet *ignore.IgnoreSet,
-	issues *[]Issue,
-	stats *DiagnosticStats,
-) {
-	relPath, err := filepath.Rel(s.targetDir, fullPath)
+func (a *doctorFSAdapter) ReadFile(ctx context.Context, name string) ([]byte, error) {
+	return a.fs.ReadFile(ctx, name)
+}
+
+func (a *doctorFSAdapter) ReadLink(ctx context.Context, name string) (string, error) {
+	return a.fs.ReadLink(ctx, name)
+}
+
+func (a *doctorFSAdapter) WriteFile(ctx context.Context, name string, data []byte, perm os.FileMode) error {
+	return a.fs.WriteFile(ctx, name, data, perm)
+}
+
+func (a *doctorFSAdapter) Remove(ctx context.Context, name string) error {
+	return a.fs.Remove(ctx, name)
+}
+
+func (a *doctorFSAdapter) MkdirAll(ctx context.Context, path string, perm os.FileMode) error {
+	return a.fs.MkdirAll(ctx, path, perm)
+}
+
+func (a *doctorFSAdapter) Stat(ctx context.Context, name string) (fs.FileInfo, error) {
+	info, err := a.fs.Stat(ctx, name)
 	if err != nil {
-		relPath = fullPath
+		return nil, err
 	}
-
-	normalizedRel := filepath.ToSlash(relPath)
-	normalizedFull := filepath.ToSlash(fullPath)
-	managed := linkSet[normalizedRel] || linkSet[normalizedFull]
-
-	if !managed {
-		// Check if this link is explicitly ignored
-		if m.Doctor != nil {
-			if _, ignored := m.Doctor.IgnoredLinks[relPath]; ignored {
-				return // Skip ignored link
-			}
-		}
-
-		// Check if this link matches an ignore pattern
-		if ignoreSet != nil && ignoreSet.ShouldIgnore(relPath) {
-			return // Skip link matching ignore pattern
-		}
-
-		stats.TotalLinks++
-		stats.OrphanedLinks++
-
-		// Check if the orphaned symlink's target exists
-		target, err := s.fs.ReadLink(ctx, fullPath)
-		if err == nil {
-			// Resolve target to absolute path
-			var absTarget string
-			if filepath.IsAbs(target) {
-				absTarget = target
-			} else {
-				absTarget = filepath.Join(filepath.Dir(fullPath), target)
-			}
-
-			// Check if target exists
-			_, err = s.fs.Stat(ctx, absTarget)
-			if err != nil {
-				if os.IsNotExist(err) {
-					// Orphaned and broken - still classify as orphaned since it's unmanaged
-					stats.BrokenLinks++
-					*issues = append(*issues, Issue{
-						Severity:   SeverityError,
-						Type:       IssueOrphanedLink,
-						Path:       relPath,
-						Message:    "Unmanaged symlink with broken target: " + target,
-						Suggestion: "Remove manually or fix target, then use 'dot adopt' to manage",
-					})
-					return
-				}
-			}
-		}
-
-		// Orphaned but target exists (or couldn't check)
-		*issues = append(*issues, Issue{
-			Severity:   SeverityWarning,
-			Type:       IssueOrphanedLink,
-			Path:       relPath,
-			Message:    "Symlink not managed by dot",
-			Suggestion: "Remove manually or use 'dot adopt' to bring under management",
-		})
-	}
-}
-
-// extractManagedDirectories returns unique directories containing managed links.
-func extractManagedDirectories(m *manifest.Manifest) []string {
-	dirSet := make(map[string]bool)
-	for _, pkgInfo := range m.Packages {
-		for _, link := range pkgInfo.Links {
-			dir := filepath.Dir(link)
-			for dir != "." && dir != "/" && dir != "" {
-				dirSet[dir] = true
-				dir = filepath.Dir(dir)
-			}
-			dirSet["."] = true
-		}
-	}
-	dirs := make([]string, 0, len(dirSet))
-	for dir := range dirSet {
-		dirs = append(dirs, dir)
-	}
-	return dirs
-}
-
-// filterDescendants removes directories that are descendants of other directories.
-func filterDescendants(dirs []string) []string {
-	if len(dirs) <= 1 {
-		return dirs
-	}
-	cleaned := make([]string, len(dirs))
-	for i, dir := range dirs {
-		cleaned[i] = filepath.Clean(dir)
-	}
-	roots := make([]string, 0, len(cleaned))
-	for _, dir := range cleaned {
-		isDescendant := false
-		for _, other := range cleaned {
-			if dir == other {
-				continue
-			}
-			rel, err := filepath.Rel(other, dir)
-			if err == nil && rel != "." && !filepath.IsAbs(rel) && rel[0] != '.' {
-				isDescendant = true
-				break
-			}
-		}
-		if !isDescendant {
-			roots = append(roots, dir)
-		}
-	}
-	return roots
-}
-
-// buildManagedLinkSet creates a set for O(1) link lookup.
-func buildManagedLinkSet(m *manifest.Manifest) map[string]bool {
-	linkSet := make(map[string]bool)
-	for _, pkgInfo := range m.Packages {
-		for _, link := range pkgInfo.Links {
-			normalized := filepath.ToSlash(link)
-			linkSet[normalized] = true
-		}
-	}
-	return linkSet
-}
-
-// buildIgnoreSet creates an ignore set from manifest doctor state.
-func (s *DoctorService) buildIgnoreSet(m *manifest.Manifest) *ignore.IgnoreSet {
-	ignoreSet := ignore.NewIgnoreSet()
-
-	if m.Doctor == nil {
-		return ignoreSet
-	}
-
-	// Add patterns from manifest
-	for _, pattern := range m.Doctor.IgnoredPatterns {
-		// Ignore errors - best effort matching
-		_ = ignoreSet.Add(pattern)
-	}
-
-	return ignoreSet
-}
-
-// calculateDepth returns the directory depth relative to target directory.
-func calculateDepth(path, targetDir string) int {
-	path = filepath.Clean(path)
-	targetDir = filepath.Clean(targetDir)
-	if path == targetDir {
-		return 0
-	}
-	rel, err := filepath.Rel(targetDir, path)
-	if err != nil || rel == "." {
-		return 0
-	}
-	depth := 0
-	for _, c := range rel {
-		if c == filepath.Separator {
-			depth++
-		}
-	}
-	if rel != "" && rel != "." {
-		depth++
-	}
-	return depth
-}
-
-// shouldSkipDirectory checks if a directory should be skipped based on patterns.
-func shouldSkipDirectory(path string, skipPatterns []string) bool {
-	base := filepath.Base(path)
-	for _, pattern := range skipPatterns {
-		if base == pattern {
-			return true
-		}
-		if filepath.Base(filepath.Dir(path)) == pattern {
-			return true
-		}
-	}
-	return false
+	return &fileInfoWrapper{info: info}, nil
 }

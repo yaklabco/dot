@@ -2,131 +2,251 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/jamesainslie/dot/internal/cli/pretty"
 	"github.com/jamesainslie/dot/internal/cli/render"
 	"github.com/jamesainslie/dot/internal/cli/renderer"
+	"github.com/jamesainslie/dot/internal/config"
 	"github.com/jamesainslie/dot/pkg/dot"
 )
+
+// doctorFlags holds parsed flags.
+type doctorFlags struct {
+	format, color, scanMode, mode string
+	maxDepth                      int
+	triage, autoIgnore, verbose   bool
+}
+
+// parseDoctorFlags extracts flags from command.
+func parseDoctorFlags(cmd *cobra.Command) doctorFlags {
+	format, _ := cmd.Flags().GetString("format")
+	color, _ := cmd.Flags().GetString("color")
+	scanMode, _ := cmd.Flags().GetString("scan-mode")
+	maxDepth, _ := cmd.Flags().GetInt("max-depth")
+	triage, _ := cmd.Flags().GetBool("triage")
+	autoIgnore, _ := cmd.Flags().GetBool("auto-ignore")
+	mode, _ := cmd.Flags().GetString("mode")
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	return doctorFlags{format, color, scanMode, mode, maxDepth, triage, autoIgnore, verbose}
+}
+
+// buildScanConfig creates scan configuration from flags.
+func buildScanConfig(scanMode string, maxDepth int) (dot.ScanConfig, error) {
+	switch scanMode {
+	case "off":
+		return dot.ScanConfig{
+			Mode:         dot.ScanOff,
+			MaxDepth:     10,
+			ScopeToDirs:  nil,
+			SkipPatterns: []string{".git", "node_modules", ".cache", ".npm", ".cargo", ".rustup"},
+		}, nil
+	case "scoped", "":
+		return dot.ScopedScanConfig(), nil
+	case "deep":
+		return dot.DeepScanConfig(maxDepth), nil
+	default:
+		return dot.ScanConfig{}, fmt.Errorf("invalid scan-mode: %s (must be off, scoped, or deep)", scanMode)
+	}
+}
+
+// parseDoctorMode converts mode string to DiagnosticMode.
+func parseDoctorMode(mode string) (dot.DiagnosticMode, error) {
+	switch mode {
+	case "fast", "":
+		return dot.DiagnosticFast, nil
+	case "deep":
+		return dot.DiagnosticDeep, nil
+	default:
+		return dot.DiagnosticFast, fmt.Errorf("invalid mode: %s (must be fast or deep)", mode)
+	}
+}
+
+// renderDoctorOutput renders the report.
+func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags doctorFlags, extCfg *config.ExtendedConfig) error {
+	colorize := shouldColorize(flags.color)
+	tableStyle := ""
+	if extCfg != nil {
+		tableStyle = extCfg.Output.TableStyle
+	}
+
+	switch flags.format {
+	case "json":
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(report)
+	case "yaml":
+		return yaml.NewEncoder(cmd.OutOrStdout()).Encode(report)
+	case "text", "table":
+		// For verbose text output, render more details
+		// Since we don't have access to internal CheckResults here,
+		// we'll enhance the succinct rendering when verbose is enabled
+		var buf bytes.Buffer
+		if flags.verbose {
+			renderVerboseDiagnostics(&buf, report, colorize)
+		} else {
+			renderSuccinctDiagnostics(&buf, report, colorize, tableStyle)
+		}
+		pager := pretty.NewPager(pretty.PagerConfig{PageSize: 0, Output: cmd.OutOrStdout()})
+		return pager.PageLines(strings.Split(buf.String(), "\n"))
+	default:
+		r, err := renderer.NewRenderer(flags.format, colorize, tableStyle)
+		if err != nil {
+			return fmt.Errorf("invalid format: %w", err)
+		}
+		return r.RenderDiagnostics(cmd.OutOrStdout(), report)
+	}
+}
+
+// checkHealthStatus returns error if health check failed.
+func checkHealthStatus(report dot.DiagnosticReport) error {
+	if report.OverallHealth == dot.HealthErrors {
+		return fmt.Errorf("health check detected errors")
+	} else if report.OverallHealth == dot.HealthWarnings {
+		return fmt.Errorf("health check detected warnings")
+	}
+	return nil
+}
 
 // newDoctorCommand creates the doctor command with configuration from global flags.
 func newDoctorCommand() *cobra.Command {
 	cmd := NewDoctorCommand(&dot.Config{})
 
-	// Override RunE to build config from global flags
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cfg, err := buildConfigWithCmd(cmd)
 		if err != nil {
 			return err
 		}
 
-		// Load extended config for table_style
-		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(configPath)
-
-		// Get flags
-		format, _ := cmd.Flags().GetString("format")
-		color, _ := cmd.Flags().GetString("color")
-		scanMode, _ := cmd.Flags().GetString("scan-mode")
-		maxDepth, _ := cmd.Flags().GetInt("max-depth")
-		triage, _ := cmd.Flags().GetBool("triage")
-		autoIgnore, _ := cmd.Flags().GetBool("auto-ignore")
-
-		// Create client
+		flags := parseDoctorFlags(cmd)
 		client, err := dot.NewClient(cfg)
 		if err != nil {
 			return formatError(err)
 		}
 
-		// Build scan config based on flags
-		var scanCfg dot.ScanConfig
-		switch scanMode {
-		case "off":
-			scanCfg = dot.ScanConfig{
-				Mode:         dot.ScanOff,
-				MaxDepth:     10,
-				ScopeToDirs:  nil,
-				SkipPatterns: []string{".git", "node_modules", ".cache", ".npm", ".cargo", ".rustup"},
-			}
-		case "scoped", "":
-			scanCfg = dot.ScopedScanConfig()
-		case "deep":
-			scanCfg = dot.DeepScanConfig(maxDepth)
-		default:
-			return fmt.Errorf("invalid scan-mode: %s (must be off, scoped, or deep)", scanMode)
+		scanCfg, err := buildScanConfig(flags.scanMode, flags.maxDepth)
+		if err != nil {
+			return err
 		}
 
-		// Run triage if requested
-		if triage {
-			return runTriage(cmd, client, scanCfg, autoIgnore)
+		if flags.triage {
+			return runTriage(cmd, client, scanCfg, flags.autoIgnore)
 		}
 
-		// Run diagnostics
-		report, err := client.DoctorWithScan(cmd.Context(), scanCfg)
+		doctorMode, err := parseDoctorMode(flags.mode)
+		if err != nil {
+			return err
+		}
+
+		report, err := client.DoctorWithMode(cmd.Context(), doctorMode, scanCfg)
 		if err != nil {
 			return formatError(err)
 		}
 
-		// Determine colorization
-		colorize := shouldColorize(color)
+		configPath := getConfigFilePath()
+		extCfg, _ := loadConfigWithRepoPriority(configPath)
 
-		// Create renderer with table_style from config
-		tableStyle := ""
-		if extCfg != nil {
-			tableStyle = extCfg.Output.TableStyle
-		}
-		r, err := renderer.NewRenderer(format, colorize, tableStyle)
-		if err != nil {
-			return fmt.Errorf("invalid format: %w", err)
+		if err := renderDoctorOutput(cmd, report, flags, extCfg); err != nil {
+			return err
 		}
 
-		// Render diagnostics - use succinct output for text format with pagination
-		if format == "text" {
-			// Render to buffer first to enable pagination
-			var buf bytes.Buffer
-			renderSuccinctDiagnostics(&buf, report)
-
-			// Use pager for output (auto-detects terminal size)
-			pager := pretty.NewPager(pretty.PagerConfig{
-				PageSize: 0, // 0 = auto-detect from terminal height
-				Output:   cmd.OutOrStdout(),
-			})
-			if err := pager.PageLines(strings.Split(buf.String(), "\n")); err != nil {
-				return fmt.Errorf("failed to display output: %w", err)
-			}
-		} else {
-			// For non-text formats, render directly without pagination
-			if err := r.RenderDiagnostics(cmd.OutOrStdout(), report); err != nil {
-				return fmt.Errorf("render failed: %w", err)
-			}
-		}
-
-		// Return error to set exit code based on health status
-		// The main function will handle converting this to an exit code
-		if report.OverallHealth == dot.HealthErrors {
-			return fmt.Errorf("health check detected errors")
-		} else if report.OverallHealth == dot.HealthWarnings {
-			return fmt.Errorf("health check detected warnings")
-		}
-
-		return nil
+		return checkHealthStatus(report)
 	}
 
 	return cmd
 }
 
-// renderSuccinctDiagnostics outputs diagnostics in a succinct, colorized format.
-func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
-	colorize := shouldUseColor()
+// renderVerboseDiagnostics outputs detailed diagnostics with all issue information.
+func renderVerboseDiagnostics(w io.Writer, report dot.DiagnosticReport, colorize bool) {
 	c := render.NewColorizer(colorize)
 
 	// Health status header
-	healthIcon, healthText, healthColor := getHealthDisplay(report.OverallHealth)
+	healthIcon, healthText, healthColor := getHealthDisplay(report.OverallHealth, c)
+	fmt.Fprintf(w, "%s %s\n", healthIcon, healthColor(healthText))
+	fmt.Fprintf(w, "%s\n\n", strings.Repeat("=", 60))
+
+	// Detailed statistics
+	if report.Statistics.TotalLinks > 0 {
+		fmt.Fprintf(w, "Statistics:\n")
+		fmt.Fprintf(w, "  Total links: %d\n", report.Statistics.TotalLinks)
+		fmt.Fprintf(w, "  Managed links: %d\n", report.Statistics.ManagedLinks)
+		fmt.Fprintf(w, "  Broken links: %d\n", report.Statistics.BrokenLinks)
+		fmt.Fprintf(w, "  Orphaned links: %d\n", report.Statistics.OrphanedLinks)
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Issues grouped by severity
+	errors := filterIssuesBySeverity(report.Issues, dot.SeverityError)
+	warnings := filterIssuesBySeverity(report.Issues, dot.SeverityWarning)
+	infos := filterIssuesBySeverity(report.Issues, dot.SeverityInfo)
+
+	if len(errors) > 0 {
+		fmt.Fprintf(w, "%s Errors (%d):\n", c.Error("✗"), len(errors))
+		renderDetailedIssueList(w, errors, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	if len(warnings) > 0 {
+		fmt.Fprintf(w, "%s Warnings (%d):\n", c.Warning("⚠"), len(warnings))
+		renderDetailedIssueList(w, warnings, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	if len(infos) > 0 {
+		fmt.Fprintf(w, "%s Info (%d):\n", c.Info("ℹ"), len(infos))
+		renderDetailedIssueList(w, infos, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Clean summary if no issues
+	if len(report.Issues) == 0 {
+		fmt.Fprintf(w, "%s\n", c.Success("No issues found"))
+	}
+
+	fmt.Fprintf(w, "%s\n", strings.Repeat("-", 60))
+	fmt.Fprintf(w, "Summary: %d total issues\n", len(report.Issues))
+}
+
+// renderDetailedIssueList renders issues with full details including suggestions.
+func renderDetailedIssueList(w io.Writer, issues []dot.Issue, c *render.Colorizer) {
+	for _, issue := range issues {
+		severityIcon := getSeverityIcon(issue.Severity, c)
+		fmt.Fprintf(w, "\n  %s [%s] %s\n", severityIcon, issue.Type, issue.Message)
+		if issue.Path != "" {
+			fmt.Fprintf(w, "     Path: %s\n", c.Dim(issue.Path))
+		}
+		if issue.Suggestion != "" {
+			fmt.Fprintf(w, "     Suggestion: %s\n", c.Info(issue.Suggestion))
+		}
+	}
+}
+
+// getSeverityIcon returns the icon for an issue severity.
+func getSeverityIcon(severity dot.IssueSeverity, c *render.Colorizer) string {
+	switch severity {
+	case dot.SeverityError:
+		return c.Error("✗")
+	case dot.SeverityWarning:
+		return c.Warning("!")
+	case dot.SeverityInfo:
+		return c.Info("ℹ")
+	default:
+		return "?"
+	}
+}
+
+// renderSuccinctDiagnostics outputs diagnostics in a succinct, colorized format.
+func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport, colorize bool, tableStyle string) {
+	c := render.NewColorizer(colorize)
+
+	// Health status header
+	healthIcon, healthText, healthColor := getHealthDisplay(report.OverallHealth, c)
 	fmt.Fprintf(w, "%s %s\n",
 		healthIcon,
 		healthColor(healthText),
@@ -151,17 +271,17 @@ func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
 
 	if len(errors) > 0 {
 		fmt.Fprintf(w, "\n%s %s\n", c.Error("✗"), c.Error(fmt.Sprintf("%d errors:", len(errors))))
-		renderIssueList(w, errors, c.Error)
+		renderIssueList(w, errors, c)
 	}
 
 	if len(warnings) > 0 {
 		fmt.Fprintf(w, "\n%s %s\n", c.Warning("⚠"), c.Warning(fmt.Sprintf("%d warnings:", len(warnings))))
-		renderIssueList(w, warnings, c.Warning)
+		renderIssueList(w, warnings, c)
 	}
 
 	if len(infos) > 0 {
 		fmt.Fprintf(w, "\n%s %s\n", c.Info("ℹ"), c.Info(fmt.Sprintf("%d info:", len(infos))))
-		renderIssueList(w, infos, c.Dim)
+		renderIssueList(w, infos, c)
 	}
 
 	// Clean summary if no issues
@@ -171,10 +291,7 @@ func renderSuccinctDiagnostics(w io.Writer, report dot.DiagnosticReport) {
 }
 
 // getHealthDisplay returns icon, text, and color for health status
-func getHealthDisplay(health dot.HealthStatus) (string, string, func(string) string) {
-	colorize := shouldUseColor()
-	c := render.NewColorizer(colorize)
-
+func getHealthDisplay(health dot.HealthStatus, c *render.Colorizer) (string, string, func(string) string) {
 	switch health {
 	case dot.HealthOK:
 		return c.Success("✓"), "Healthy", c.Success
@@ -199,10 +316,7 @@ func filterIssuesBySeverity(issues []dot.Issue, severity dot.IssueSeverity) []do
 }
 
 // renderIssueList renders a list of issues succinctly
-func renderIssueList(w io.Writer, issues []dot.Issue, colorFunc func(string) string) {
-	colorize := shouldUseColor()
-	c := render.NewColorizer(colorize)
-
+func renderIssueList(w io.Writer, issues []dot.Issue, c *render.Colorizer) {
 	for _, issue := range issues {
 		fmt.Fprintf(w, "  %s %s",
 			c.Dim("•"),
@@ -212,6 +326,12 @@ func renderIssueList(w io.Writer, issues []dot.Issue, colorFunc func(string) str
 			fmt.Fprintf(w, " %s %s",
 				c.Dim("—"),
 				c.Dim(issue.Message),
+			)
+		}
+		if issue.Suggestion != "" {
+			fmt.Fprintf(w, "\n    %s %s",
+				c.Dim("└─"),
+				c.Accent("Fix: "+issue.Suggestion),
 			)
 		}
 		fmt.Fprintln(w)
@@ -351,6 +471,8 @@ Exit codes:
 	cmd.Flags().Int("max-depth", 10, "Maximum recursion depth for deep scan")
 	cmd.Flags().Bool("triage", false, "Interactive triage mode for orphaned symlinks")
 	cmd.Flags().Bool("auto-ignore", false, "Automatically ignore high-confidence categories in triage mode")
+	cmd.Flags().String("mode", "fast", "Diagnostic mode (fast, deep)")
+	cmd.Flags().Bool("verbose", false, "Show detailed diagnostic output")
 
 	return cmd
 }

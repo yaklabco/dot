@@ -1,4 +1,4 @@
-.PHONY: build test test-tparse lint clean install uninstall check qa help version version-major version-minor version-patch release release-tag changelog-update coverage-summary cs
+.PHONY: build test test-tparse lint clean install uninstall check qa help version changelog-update coverage-summary cs build-all
 
 # Build variables
 BINARY_NAME := dot
@@ -270,9 +270,8 @@ deps-verify:
 ## version: Display current version
 version:
 	@echo "Current version: $(CURRENT_VERSION)"
-	@echo "Next version (patch): v$(MAJOR).$(MINOR).$(shell expr $(PATCH) + 1)"
 
-## changelog: Generate CHANGELOG.md from git commits
+## changelog: Generate CHANGELOG.md locally for preview
 changelog:
 	@command -v git-chglog >/dev/null 2>&1 || { echo "Installing git-chglog..."; go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest; }
 	git-chglog -o CHANGELOG.md
@@ -284,77 +283,6 @@ changelog-next:
 	@echo "Preview of changelog for $(NEXT_VERSION):"
 	@echo ""
 	git-chglog --next-tag $(NEXT_VERSION) $(CURRENT_VERSION)..
-
-## changelog-update: Update changelog and commit it (internal target)
-changelog-update:
-	@command -v git-chglog >/dev/null 2>&1 || { echo "Installing git-chglog..."; go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest; }
-	@echo "Generating changelog..."
-	@git-chglog -o CHANGELOG.md
-	@echo "Committing changelog and configuration..."
-	@git add CHANGELOG.md .chglog/
-	@git commit -m "docs(changelog): update for $(VERSION) release" || true
-
-## version-major: Bump major version and create release
-version-major:
-	$(eval NEW_VERSION := v$(shell expr $(MAJOR) + 1).0.0)
-	@echo "Bumping major version: $(CURRENT_VERSION) -> $(NEW_VERSION)"
-	@$(MAKE) release-tag VERSION=$(NEW_VERSION)
-
-## version-minor: Bump minor version and create release
-version-minor:
-	$(eval NEW_VERSION := v$(MAJOR).$(shell expr $(MINOR) + 1).0)
-	@echo "Bumping minor version: $(CURRENT_VERSION) -> $(NEW_VERSION)"
-	@$(MAKE) release-tag VERSION=$(NEW_VERSION)
-
-## version-patch: Bump patch version and create release
-version-patch:
-	$(eval NEW_VERSION := v$(MAJOR).$(MINOR).$(shell expr $(PATCH) + 1))
-	@echo "Bumping patch version: $(CURRENT_VERSION) -> $(NEW_VERSION)"
-	@$(MAKE) release-tag VERSION=$(NEW_VERSION)
-
-## release: Verify release readiness (requires VERSION variable)
-release:
-	@if [ -z "$(VERSION)" ]; then echo "VERSION not set. Use: make release VERSION=v1.2.3"; exit 1; fi
-	@echo "Verifying release $(VERSION) readiness..."
-	@$(MAKE) check
-	@echo "✓ All quality checks passed"
-	@echo "Release $(VERSION) verified and ready"
-
-## release-tag: Complete release workflow with changelog and tagging
-release-tag:
-	@if [ -z "$(VERSION)" ]; then echo "VERSION not set. Use: make release-tag VERSION=v1.2.3"; exit 1; fi
-	@echo "Starting release workflow for $(VERSION)..."
-	@echo ""
-	@echo "Step 1: Running quality checks..."
-	@$(MAKE) check
-	@echo "✓ Quality checks passed"
-	@echo ""
-	@echo "Step 2: Updating changelog..."
-	@$(MAKE) changelog-update VERSION=$(VERSION)
-	@echo "✓ Changelog updated"
-	@echo ""
-	@echo "Step 3: Creating git tag..."
-	@git tag -a $(VERSION) -m "Release $(VERSION)"
-	@echo "✓ Tag $(VERSION) created"
-	@echo ""
-	@echo "Step 4: Regenerating changelog with new tag..."
-	@$(MAKE) changelog
-	@git add CHANGELOG.md
-	@git commit --amend --no-edit
-	@echo "✓ Changelog finalized"
-	@echo ""
-	@echo "Step 5: Moving tag to amended commit..."
-	@git tag -f $(VERSION)
-	@echo "✓ Tag moved to final commit"
-	@echo ""
-	@echo "══════════════════════════════════════════════════════════"
-	@echo "Release $(VERSION) ready to push!"
-	@echo "══════════════════════════════════════════════════════════"
-	@echo ""
-	@echo "Push with:"
-	@echo "  git push origin main"
-	@echo "  git push --force origin $(VERSION)"
-	@echo ""
 
 ## build-all: Build for all platforms
 build-all:

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jamesainslie/dot/internal/doctor"
+	"github.com/jamesainslie/dot/internal/ignore"
 	"github.com/jamesainslie/dot/internal/manifest"
 )
 
@@ -65,7 +66,7 @@ func (s *DoctorService) Triage(ctx context.Context, scanCfg ScanConfig, opts Tri
 	orphanedIssues := filterIssuesByType(report.Issues, IssueOrphanedLink)
 
 	// Filter out already-ignored items
-	orphanedIssues = s.filterAlreadyIgnored(orphanedIssues, &m)
+	orphanedIssues = s.filterAlreadyIgnored(ctx, orphanedIssues, &m)
 
 	if len(orphanedIssues) == 0 {
 		return result, nil
@@ -175,13 +176,26 @@ func (s *DoctorService) confirmTriageChanges(result TriageResult) bool {
 	return response == "" || response == "y" || response == "yes"
 }
 
+// buildIgnoreSet creates an IgnoreSet from manifest's ignored patterns.
+func (s *DoctorService) buildIgnoreSet(ctx context.Context, m *manifest.Manifest) *ignore.IgnoreSet {
+	ignoreSet := ignore.NewIgnoreSet()
+	if m.Doctor != nil {
+		for _, pattern := range m.Doctor.IgnoredPatterns {
+			if err := ignoreSet.Add(pattern); err != nil {
+				s.logger.Warn(ctx, "invalid_ignore_pattern", "pattern", pattern, "error", err)
+			}
+		}
+	}
+	return ignoreSet
+}
+
 // filterAlreadyIgnored filters out issues that are already ignored.
-func (s *DoctorService) filterAlreadyIgnored(issues []Issue, m *manifest.Manifest) []Issue {
+func (s *DoctorService) filterAlreadyIgnored(ctx context.Context, issues []Issue, m *manifest.Manifest) []Issue {
 	if m.Doctor == nil {
 		return issues
 	}
 
-	ignoreSet := s.buildIgnoreSet(m)
+	ignoreSet := s.buildIgnoreSet(ctx, m)
 	filtered := []Issue{}
 
 	for _, issue := range issues {

@@ -232,6 +232,11 @@ func (c *Client) DoctorWithScan(ctx context.Context, scanCfg ScanConfig) (Diagno
 	return c.doctorSvc.DoctorWithScan(ctx, scanCfg)
 }
 
+// DoctorWithMode performs health checks with explicit mode and scan configuration.
+func (c *Client) DoctorWithMode(ctx context.Context, mode DiagnosticMode, scanCfg ScanConfig) (DiagnosticReport, error) {
+	return c.doctorSvc.DoctorWithMode(ctx, mode, scanCfg)
+}
+
 // Triage performs interactive triage of orphaned symlinks.
 func (c *Client) Triage(ctx context.Context, scanCfg ScanConfig, opts TriageOptions) (TriageResult, error) {
 	return c.doctorSvc.Triage(ctx, scanCfg, opts)

@@ -2,334 +2,87 @@
 
 ## Overview
 
-This document describes the release process for the `dot` project, including automated changelog generation, versioning, and deployment.
+The dot project uses [Release Please](https://github.com/googleapis/release-please) for automated versioning and changelog generation. This ensures that:
+
+1. Releases are created automatically via Pull Requests
+2. Changelogs are accurate and generated from [Conventional Commits](https://www.conventionalcommits.org/)
+3. Versions strictly follow [Semantic Versioning](https://semver.org/)
 
 ## Prerequisites
 
-- Git commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) specification
-- All tests pass (`make test`)
-- All linters pass (`make lint`)
-- Working branch is clean and up to date with `main`
-
-## Automated Changelog
-
-The project uses `git-chglog` to automatically generate `CHANGELOG.md` from git commit history. The changelog includes only commits that impact users:
-
-**Included commit types:**
-- `feat`: New features
-- `fix`: Bug fixes
-- `perf`: Performance improvements
-- `refactor`: Code refactoring
-- `build`: Build system changes
-- `revert`: Reverted changes
-
-**Excluded commit types:**
-- `docs`: Documentation updates
-- `test`: Test changes
-- `chore`: Maintenance tasks
-- `ci`: CI/CD changes
-- `style`: Code formatting
-
-### Configuration
-
-Changelog configuration is stored in `.chglog/`:
-- `config.yml`: Defines filters, commit groups, and repository metadata
-- `CHANGELOG.tpl.md`: Template for changelog output
-
-Both files must be committed to the repository for consistent changelog generation across all environments.
-
-### Makefile Targets
-
-#### Automated Release Targets
-
-- `make version-patch`: Complete patch release workflow
-- `make version-minor`: Complete minor release workflow
-- `make version-major`: Complete major release workflow
-- `make release-tag VERSION=v1.2.3`: Create release with specific version
-
-#### Changelog Targets
-
-- `make changelog`: Generate CHANGELOG.md from all git commits
-- `make changelog-next`: Preview next version changelog without modifying files
-- `make changelog-update`: Update and commit changelog (internal use)
-
-#### Verification Targets
-
-- `make release VERSION=v1.2.3`: Verify release readiness without creating tags
-- `make check`: Run tests and linting
+- Git commit messages **must** follow the Conventional Commits specification.
+- All tests (`make test`) and linters (`make lint`) must pass before merging.
 
 ## Release Process
 
-### Automated Release (Recommended)
+### 1. Develop and Merge Features
 
-The project includes automated release targets that handle the complete workflow, including changelog generation, quality checks, and git tagging.
+Work on features or fixes in feature branches. When committing, use conventional commit messages:
 
-#### Patch Release
+- `feat: add new capability` (triggers minor version bump)
+- `fix: resolve issue` (triggers patch version bump)
+- `feat!: breaking change` (triggers major version bump)
+- `chore: maintenance` (no release trigger usually)
 
-```bash
-make version-patch
-```
+Merge these PRs into the `main` branch.
 
-This single command:
-1. Runs all quality checks (tests, linting)
-2. Generates and commits changelog
-3. Creates git tag
-4. Displays push instructions
+### 2. Automated Release PR
 
-#### Minor Release
+When changes are pushed to `main`, the Release Please workflow runs.
 
-```bash
-make version-minor
-```
+- It analyzes the commits since the last release.
+- It creates or updates a **Release PR**.
+- This PR contains:
+- The calculated next version.
+- The generated `CHANGELOG.md` updates.
+- Updates to `.release-please-manifest.json`.
 
-#### Major Release
+### 3. Review and Release
 
-```bash
-make version-major
-```
+1. **Review the Release PR**: Check the changelog and version bump.
+2. **Merge the Release PR**: When you are ready to release, simply merge this PR into `main`.
 
-#### Push Release
+### 4. Automated Tagging and Publishing
 
-After running any version command above:
-```bash
-git push origin main
-git push origin v0.1.1  # Replace with your version
-```
+Once the Release PR is merged:
 
-GitHub Actions will automatically:
-- Build binaries for all platforms
-- Create GitHub Release with notes
-- Update Homebrew tap
-- Upload release artifacts
+1. Release Please automatically creates a git tag (e.g., `v1.2.3`).
+2. This tag push triggers the **Release** workflow (`.github/workflows/release.yml`).
+3. GoReleaser builds the binaries and publishes the GitHub Release.
+4. Homebrew taps are updated automatically.
 
-### Manual Release (Advanced)
+## Local Verification
 
-For more control over the release process, use individual steps:
-
-1. **Preview changelog:**
-   ```bash
-   make changelog-next
-   ```
-
-2. **Run quality checks:**
-   ```bash
-   make check
-   ```
-
-3. **Generate changelog:**
-   ```bash
-   make changelog
-   ```
-
-4. **Review changes:**
-   ```bash
-   git diff CHANGELOG.md
-   ```
-
-5. **Commit changelog:**
-   ```bash
-   git add CHANGELOG.md .chglog/
-   git commit -m "docs(changelog): update for v0.1.1 release"
-   ```
-
-6. **Tag release:**
-   ```bash
-   git tag -a v0.1.1 -m "Release v0.1.1"
-   ```
-
-7. **Regenerate changelog with tag:**
-   ```bash
-   make changelog
-   git add CHANGELOG.md
-   git commit --amend --no-edit
-   ```
-
-8. **Push changes:**
-   ```bash
-   git push origin main
-   git push origin v0.1.1
-   ```
-
-## Version Bump Examples
-
-### Current version: v0.1.0
+You can verify the state of the repository locally using:
 
 ```bash
-# Patch (v0.1.0 → v0.1.1): Bug fixes, small improvements
-make version-patch
-
-# Minor (v0.1.0 → v0.2.0): New features, backward compatible
-make version-minor
-
-# Major (v0.1.0 → v1.0.0): Breaking changes
-make version-major
+make check
 ```
 
-## Breaking Changes
+To preview the changelog for the next version locally (optional):
 
-For releases with breaking changes:
-
-1. Ensure commit messages include `BREAKING CHANGE:` footer
-2. Update migration documentation if needed
-3. Use major version bump
-4. Document migration path in release notes
-
-Example commit:
+```bash
+make changelog-next
 ```
-feat(api): restructure configuration interface
-
-The configuration API now uses a builder pattern for improved
-type safety and flexibility.
-
-BREAKING CHANGE: Configuration loading API changed.
-
-Replace config.Load() with config.NewLoader().Load().
-See docs/migration/v2.0.0.md for complete guide.
-```
-
-## Hotfix Process
-
-For emergency fixes to released versions:
-
-1. **Create hotfix branch from tag:**
-   ```bash
-   git checkout -b hotfix-v0.1.1 v0.1.0
-   ```
-
-2. **Make fix and commit:**
-   ```bash
-   git commit -m "fix(critical): resolve security vulnerability"
-   ```
-
-3. **Create hotfix release:**
-   ```bash
-   make release-tag VERSION=v0.1.1
-   ```
-
-4. **Push hotfix:**
-   ```bash
-   git push origin hotfix-v0.1.1
-   git push origin v0.1.1
-   ```
-
-5. **Merge back to main:**
-   ```bash
-   git checkout main
-   git merge hotfix-v0.1.1
-   git push origin main
-   git branch -d hotfix-v0.1.1
-   ```
-
-## Release Checklist
-
-### Pre-Release
-- [ ] All feature branches merged to main
-- [ ] Working tree clean (`git status`)
-- [ ] Local main up to date with origin (`git pull`)
-- [ ] All tests pass locally (`make test`)
-- [ ] All linters pass locally (`make lint`)
-- [ ] Dependencies verified (`make deps-verify`)
-- [ ] Breaking changes documented in commit messages
-
-### Release Execution
-- [ ] Run version bump command (`make version-patch/minor/major`)
-- [ ] Verify changelog accuracy
-- [ ] Push main branch (`git push origin main`)
-- [ ] Push release tag (`git push origin vX.Y.Z`)
-
-### Post-Release Verification
-- [ ] GitHub Actions workflow completed successfully
-- [ ] GitHub Release created with correct notes
-- [ ] Binaries available for all platforms
-- [ ] Homebrew formula updated (if applicable)
-- [ ] Test installation from release artifacts
-- [ ] Documentation reflects new version
 
 ## Troubleshooting
 
-### Changelog Missing Commits
+### Release PR not created
 
-**Problem:** Expected commits not appearing in changelog.
+- Check if the workflow `.github/workflows/release-please.yml` failed.
+- Ensure your commits on `main` contain releasable types (feat, fix). `chore` or `docs` might not trigger a release depending on configuration.
 
-**Solution:** Check commit message format:
-```bash
-git log --oneline --format="%s" v0.1.0..HEAD
-```
+### Release not published
 
-Ensure commits match pattern: `type(scope): description`
+- Check the `Release` workflow in GitHub Actions.
+- Ensure the tag was created successfully by Release Please.
 
-Commits must use valid types: `feat`, `fix`, `refactor`, `perf`, `build`, `revert`.
+## Manual Hotfixes
 
-### Changelog Shows "Unreleased"
+Ideally, hotfixes should follow the normal PR process:
+1. Create a branch `fix/critical-issue`.
+2. Commit `fix: resolve critical issue`.
+3. Merge to `main`.
+4. Merge the resulting Release PR.
 
-**Problem:** CHANGELOG.md shows all recent changes under "Unreleased".
-
-**Solution:** Regenerate changelog after creating tags:
-```bash
-make changelog
-git add CHANGELOG.md .chglog/
-git commit -m "docs(changelog): regenerate with current tags"
-```
-
-### Tag Already Exists
-
-**Problem:** Cannot create tag because version already exists.
-
-**Solution:** Delete local and remote tag:
-```bash
-git tag -d v0.1.1
-git push origin :refs/tags/v0.1.1
-```
-
-Then recreate release with corrected version.
-
-### Release Failed Quality Checks
-
-**Problem:** `make version-patch` fails during quality checks.
-
-**Solution:**
-1. Fix failing tests or linter errors
-2. Commit fixes
-3. Re-run version command
-
-### Release Failed in CI
-
-**Problem:** GitHub Actions workflow failed after pushing tag.
-
-**Solution:**
-1. Navigate to repository Actions tab on GitHub
-2. Select failed workflow run
-3. Review error logs
-4. Fix issue locally
-5. Delete failed tag (local and remote)
-6. Recreate release
-
-### git-chglog Not Found
-
-**Problem:** `make changelog` fails with command not found.
-
-**Solution:** Install git-chglog:
-```bash
-go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
-```
-
-Or let Makefile auto-install on first run.
-
-### Commits in Wrong Order
-
-**Problem:** Changelog entries appear in unexpected order.
-
-**Solution:** This is normal. git-chglog orders by commit type and scope, not chronological order. Each type section shows commits grouped by scope.
-
-## References
-
-- [Conventional Commits](https://www.conventionalcommits.org/)
-- [Semantic Versioning](https://semver.org/)
-- [Keep a Changelog](https://keepachangelog.com/)
-- [git-chglog Documentation](https://github.com/git-chglog/git-chglog)
-- [GoReleaser Documentation](https://goreleaser.com/)
-
-## Navigation
-
-**[↑ Back to Main README](../../README.md)** | [Documentation Index](../README.md)
-
+If a manual override is absolutely required, you can manually tag `main`, but this is discouraged as it desyncs the Release Please manifest.
