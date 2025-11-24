@@ -97,30 +97,10 @@ func (c *PlatformCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 			continue
 		}
 
-		// For now, skip parsing metadata as we don't have the Metadata type defined
-		// This is a placeholder check
+		// TODO: Implement metadata parsing and platform compatibility checking
+		// The metadata format and platform constraints are not yet defined.
+		// For now, assume all packages are compatible.
 		_ = data
-
-		// Check platform compatibility (simplified for now)
-		// In a full implementation, we would parse metadata and check platform
-		// For now, assume all packages are compatible
-		if false {
-			incompatibleCount++
-			result.Status = domain.CheckStatusWarning
-			result.Issues = append(result.Issues, domain.Issue{
-				Code:     "PLATFORM_INCOMPATIBLE",
-				Message:  fmt.Sprintf("Package %s may not be compatible with %s/%s", pkg.Name, currentOS, currentArch),
-				Severity: domain.IssueSeverityWarning,
-				Context: map[string]any{
-					"package":      pkg.Name,
-					"current_os":   currentOS,
-					"current_arch": currentArch,
-				},
-				Remediation: &domain.Remediation{
-					Description: fmt.Sprintf("Review package %s for platform-specific issues or check with package maintainer", pkg.Name),
-				},
-			})
-		}
 	}
 
 	result.Stats["packages_checked"] = packagesChecked

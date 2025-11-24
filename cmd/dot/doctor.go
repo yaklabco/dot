@@ -84,8 +84,15 @@ func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags d
 	case "yaml":
 		return yaml.NewEncoder(cmd.OutOrStdout()).Encode(report)
 	case "text", "table":
+		// For verbose text output, render more details
+		// Since we don't have access to internal CheckResults here,
+		// we'll enhance the succinct rendering when verbose is enabled
 		var buf bytes.Buffer
-		renderSuccinctDiagnostics(&buf, report, colorize, tableStyle)
+		if flags.verbose {
+			renderVerboseDiagnostics(&buf, report, colorize)
+		} else {
+			renderSuccinctDiagnostics(&buf, report, colorize, tableStyle)
+		}
 		pager := pretty.NewPager(pretty.PagerConfig{PageSize: 0, Output: cmd.OutOrStdout()})
 		return pager.PageLines(strings.Split(buf.String(), "\n"))
 	default:
@@ -153,6 +160,85 @@ func newDoctorCommand() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// renderVerboseDiagnostics outputs detailed diagnostics with all issue information.
+func renderVerboseDiagnostics(w io.Writer, report dot.DiagnosticReport, colorize bool) {
+	c := render.NewColorizer(colorize)
+
+	// Health status header
+	healthIcon, healthText, healthColor := getHealthDisplay(report.OverallHealth, c)
+	fmt.Fprintf(w, "%s %s\n", healthIcon, healthColor(healthText))
+	fmt.Fprintf(w, "%s\n\n", strings.Repeat("=", 60))
+
+	// Detailed statistics
+	if report.Statistics.TotalLinks > 0 {
+		fmt.Fprintf(w, "Statistics:\n")
+		fmt.Fprintf(w, "  Total links: %d\n", report.Statistics.TotalLinks)
+		fmt.Fprintf(w, "  Managed links: %d\n", report.Statistics.ManagedLinks)
+		fmt.Fprintf(w, "  Broken links: %d\n", report.Statistics.BrokenLinks)
+		fmt.Fprintf(w, "  Orphaned links: %d\n", report.Statistics.OrphanedLinks)
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Issues grouped by severity
+	errors := filterIssuesBySeverity(report.Issues, dot.SeverityError)
+	warnings := filterIssuesBySeverity(report.Issues, dot.SeverityWarning)
+	infos := filterIssuesBySeverity(report.Issues, dot.SeverityInfo)
+
+	if len(errors) > 0 {
+		fmt.Fprintf(w, "%s Errors (%d):\n", c.Error("✗"), len(errors))
+		renderDetailedIssueList(w, errors, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	if len(warnings) > 0 {
+		fmt.Fprintf(w, "%s Warnings (%d):\n", c.Warning("⚠"), len(warnings))
+		renderDetailedIssueList(w, warnings, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	if len(infos) > 0 {
+		fmt.Fprintf(w, "%s Info (%d):\n", c.Info("ℹ"), len(infos))
+		renderDetailedIssueList(w, infos, c)
+		fmt.Fprintf(w, "\n")
+	}
+
+	// Clean summary if no issues
+	if len(report.Issues) == 0 {
+		fmt.Fprintf(w, "%s\n", c.Success("No issues found"))
+	}
+
+	fmt.Fprintf(w, "%s\n", strings.Repeat("-", 60))
+	fmt.Fprintf(w, "Summary: %d total issues\n", len(report.Issues))
+}
+
+// renderDetailedIssueList renders issues with full details including suggestions.
+func renderDetailedIssueList(w io.Writer, issues []dot.Issue, c *render.Colorizer) {
+	for _, issue := range issues {
+		severityIcon := getSeverityIcon(issue.Severity, c)
+		fmt.Fprintf(w, "\n  %s [%s] %s\n", severityIcon, issue.Type, issue.Message)
+		if issue.Path != "" {
+			fmt.Fprintf(w, "     Path: %s\n", c.Dim(issue.Path))
+		}
+		if issue.Suggestion != "" {
+			fmt.Fprintf(w, "     Suggestion: %s\n", c.Info(issue.Suggestion))
+		}
+	}
+}
+
+// getSeverityIcon returns the icon for an issue severity.
+func getSeverityIcon(severity dot.IssueSeverity, c *render.Colorizer) string {
+	switch severity {
+	case dot.SeverityError:
+		return c.Error("✗")
+	case dot.SeverityWarning:
+		return c.Warning("!")
+	case dot.SeverityInfo:
+		return c.Info("ℹ")
+	default:
+		return "?"
+	}
 }
 
 // renderSuccinctDiagnostics outputs diagnostics in a succinct, colorized format.

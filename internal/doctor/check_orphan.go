@@ -195,11 +195,23 @@ func (c *OrphanCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 
 	result.Issues = convertIssuesToDomain(localIssues)
 	result.Stats["orphaned_links"] = stats.OrphanedLinks
-	result.Stats["scanned_links"] = stats.TotalLinks
+	result.Stats["total_links"] = stats.TotalLinks
 	result.Stats["broken_links"] = stats.BrokenLinks
 
+	// Set status based on issue severity
 	if len(result.Issues) > 0 {
-		result.Status = domain.CheckStatusWarning
+		hasError := false
+		for _, issue := range result.Issues {
+			if issue.Severity == domain.IssueSeverityError {
+				hasError = true
+				break
+			}
+		}
+		if hasError {
+			result.Status = domain.CheckStatusFail
+		} else {
+			result.Status = domain.CheckStatusWarning
+		}
 	}
 
 	return result, nil

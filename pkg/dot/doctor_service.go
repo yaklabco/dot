@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jamesainslie/dot/internal/doctor"
@@ -200,6 +201,9 @@ func convertSeverity(severity domain.IssueSeverity) IssueSeverity {
 
 // convertIssueType converts code string to IssueType.
 func convertIssueType(code string) IssueType {
+	// Normalize to lowercase for consistent mapping
+	code = strings.ToLower(code)
+
 	switch code {
 	case "broken_link":
 		return IssueBrokenLink
@@ -207,11 +211,17 @@ func convertIssueType(code string) IssueType {
 		return IssueOrphanedLink
 	case "wrong_target":
 		return IssueWrongTarget
-	case "permission":
+	case "permission", "permission_denied", "target_dir_not_writable", "target_dir_not_readable", "write_test_failed":
 		return IssuePermission
 	case "circular":
 		return IssueCircular
-	case "manifest_inconsistency":
+	case "manifest_inconsistency", "no_manifest", "manifest_inconsistent", "check_execution_error":
+		return IssueManifestInconsistency
+	case "conflict_detected", "access_error":
+		// Map conflict/access issues to a reasonable existing type
+		return IssueManifestInconsistency
+	case "metadata_read_error", "platform_incompatible", "test_fail", "test_issue", "target_dir_missing", "cleanup_failed":
+		// Map additional error codes
 		return IssueManifestInconsistency
 	default:
 		return IssueManifestInconsistency
