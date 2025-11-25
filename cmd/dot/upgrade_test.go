@@ -21,6 +21,8 @@ func TestNewUpgradeCommand(t *testing.T) {
 	// Check flags
 	assert.NotNil(t, cmd.Flags().Lookup("yes"))
 	assert.NotNil(t, cmd.Flags().Lookup("check-only"))
+	assert.NotNil(t, cmd.Flags().Lookup("dry-run"))
+	assert.NotNil(t, cmd.Flags().Lookup("release-notes"))
 
 	// Verify flag defaults
 	yesFlag := cmd.Flags().Lookup("yes")
@@ -28,6 +30,12 @@ func TestNewUpgradeCommand(t *testing.T) {
 
 	checkOnlyFlag := cmd.Flags().Lookup("check-only")
 	assert.Equal(t, "false", checkOnlyFlag.DefValue)
+
+	dryRunFlag := cmd.Flags().Lookup("dry-run")
+	assert.Equal(t, "false", dryRunFlag.DefValue)
+
+	releaseNotesFlag := cmd.Flags().Lookup("release-notes")
+	assert.Equal(t, "false", releaseNotesFlag.DefValue)
 }
 
 func TestUpgradeCommand_Help(t *testing.T) {
@@ -35,17 +43,18 @@ func TestUpgradeCommand_Help(t *testing.T) {
 
 	// Verify help text includes key information
 	assert.Contains(t, cmd.Long, "package manager")
-	assert.Contains(t, cmd.Long, "GitHub")
+	assert.Contains(t, cmd.Long, "Homebrew")
 	assert.Contains(t, cmd.Long, "update:")
 
 	// Verify examples exist
 	assert.Contains(t, cmd.Example, "dot upgrade")
 	assert.Contains(t, cmd.Example, "--check-only")
 	assert.Contains(t, cmd.Example, "--yes")
+	assert.Contains(t, cmd.Example, "--dry-run")
+	assert.Contains(t, cmd.Example, "--release-notes")
 
 	// Verify config documentation
 	assert.Contains(t, cmd.Long, "~/.config/dot/config.yaml")
-	assert.Contains(t, cmd.Long, "package_manager")
 	assert.Contains(t, cmd.Long, "repository")
 	assert.Contains(t, cmd.Long, "include_prerelease")
 }
