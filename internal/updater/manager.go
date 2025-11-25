@@ -1,3 +1,8 @@
+// Package updater provides version checking and upgrade functionality.
+//
+// Deprecated: The PackageManager types in this file are deprecated.
+// Use the github.com/yaklabco/dot/internal/updater/install package
+// for installation detection and upgrade functionality.
 package updater
 
 import (
@@ -8,6 +13,8 @@ import (
 )
 
 // PackageManager represents a system package manager.
+//
+// Deprecated: Use github.com/yaklabco/dot/internal/updater/install.Upgrader instead.
 type PackageManager interface {
 	// Name returns the package manager name
 	Name() string

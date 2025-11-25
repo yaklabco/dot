@@ -20,9 +20,15 @@ func (v *VersionChecker) CheckForUpdate(currentVersion string, includePrerelease
 }
 
 // PackageManager represents a package manager for upgrades.
+//
+// Deprecated: Use NewUpgradeOrchestrator instead for automatic installation
+// detection and upgrade functionality.
 type PackageManager = updater.PackageManager
 
 // ResolvePackageManager resolves the package manager based on configuration.
+//
+// Deprecated: Use NewUpgradeOrchestrator instead for automatic installation
+// detection and upgrade functionality.
 func ResolvePackageManager(configured string) (PackageManager, error) {
 	return updater.ResolvePackageManager(configured)
 }
