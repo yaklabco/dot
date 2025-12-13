@@ -36,12 +36,23 @@ type CLIFlags struct {
 	batch          bool
 }
 
-// Package-level variable for flag storage during initialization.
-// Functions accept explicit *CLIFlags parameters rather than reading this directly.
+// cliFlags is the global flags instance used during command execution.
+// While package-level, it is only mutated during flag parsing in NewRootCommand
+// and all functions access it via explicit parameters (e.g., buildConfigWithFlags).
+// This is initialized by NewRootCommand.
 var cliFlags CLIFlags
 
+// GetCLIFlags returns a pointer to the CLI flags for use by main.go.
+// This function makes the dependency on flags explicit.
+func GetCLIFlags() *CLIFlags {
+	return &cliFlags
+}
+
 // NewRootCommand creates the root cobra command.
+// Returns the command and a pointer to the CLI flags for use by main.go.
 func NewRootCommand(version, commit, date string) *cobra.Command {
+	// Reset flags for clean initialization (important for tests)
+	cliFlags = CLIFlags{}
 	rootCmd := &cobra.Command{
 		Use:   "dot",
 		Short: "Modern symlink manager for dotfiles",
@@ -132,7 +143,7 @@ comprehensive conflict detection, and incremental updates.`,
 // buildConfig creates a dot.Config from CLI flags and adapters.
 // Precedence: flags (if set) > config file > defaults
 func buildConfig() (dot.Config, error) {
-	return buildConfigWithFlags(&cliFlags, nil)
+	return buildConfigWithFlags(GetCLIFlags(), nil)
 }
 
 // buildIgnoreConfig builds the ignore configuration from extended config and CLI flags.
@@ -307,7 +318,7 @@ func buildConfigWithFlags(flags *CLIFlags, cmd *cobra.Command) (dot.Config, erro
 // buildConfigWithCmd is a bridge function for compatibility with existing command handlers.
 // It passes the current CLI flags to buildConfigWithFlags.
 func buildConfigWithCmd(cmd *cobra.Command) (dot.Config, error) {
-	return buildConfigWithFlags(&cliFlags, cmd)
+	return buildConfigWithFlags(GetCLIFlags(), cmd)
 }
 
 // loadConfigWithRepoPriority loads config checking repository location first.
@@ -355,7 +366,7 @@ func loadConfigWithRepoPriority(packageDirFlag, xdgConfigPath string) (*dot.Exte
 
 // createLogger creates appropriate logger based on CLI flags (legacy wrapper).
 func createLogger() dot.Logger {
-	return createLoggerWithFlags(&cliFlags)
+	return createLoggerWithFlags(GetCLIFlags())
 }
 
 // createLoggerWithFlags creates appropriate logger from explicit CLI flags.
@@ -415,7 +426,7 @@ func argsWithUsage(validator cobra.PositionalArgs) cobra.PositionalArgs {
 
 // shouldUseColor determines if color should be enabled based on CLI flags and terminal detection.
 func shouldUseColor() bool {
-	return shouldUseColorWithFlags(&cliFlags)
+	return shouldUseColorWithFlags(GetCLIFlags())
 }
 
 // shouldUseColorWithFlags determines color usage from explicit CLI flags.
@@ -437,7 +448,7 @@ func shouldUseColorWithFlags(flags *CLIFlags) bool {
 // shouldColorize determines if output should be colorized based on the color flag.
 // Precedence: --no-color flag > NO_COLOR env > --color flag > auto
 func shouldColorize(color string) bool {
-	return shouldColorizeWithFlags(&cliFlags, color)
+	return shouldColorizeWithFlags(GetCLIFlags(), color)
 }
 
 // shouldColorizeWithFlags determines colorization from explicit CLI flags and color preference.

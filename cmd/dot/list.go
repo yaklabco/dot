@@ -26,7 +26,7 @@ func newListCommand() *cobra.Command {
 
 		// Load extended config for table_style
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
+		extCfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath)
 
 		// Get flags
 		format, _ := cmd.Flags().GetString("format")

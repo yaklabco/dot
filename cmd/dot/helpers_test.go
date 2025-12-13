@@ -35,7 +35,7 @@ func TestShouldColorize(t *testing.T) {
 			t.Cleanup(func() {
 				cliFlags = previous
 			})
-			cliFlags.noColor = false
+			GetCLIFlags().noColor = false
 
 			// Unset NO_COLOR for this test to ensure it doesn't interfere
 			original := os.Getenv("NO_COLOR")
@@ -58,7 +58,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 		t.Cleanup(func() {
 			cliFlags = previous
 		})
-		cliFlags.noColor = true
+		GetCLIFlags().noColor = true
 
 		result := shouldColorize("always")
 		assert.False(t, result, "--no-color should disable colors even with --color=always")
@@ -69,7 +69,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 		t.Cleanup(func() {
 			cliFlags = previous
 		})
-		cliFlags.noColor = true
+		GetCLIFlags().noColor = true
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")
@@ -88,7 +88,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 		t.Cleanup(func() {
 			cliFlags = previous
 		})
-		cliFlags.noColor = false
+		GetCLIFlags().noColor = false
 
 		original := os.Getenv("NO_COLOR")
 		os.Setenv("NO_COLOR", "1")
@@ -109,7 +109,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 		t.Cleanup(func() {
 			cliFlags = previous
 		})
-		cliFlags.noColor = false
+		GetCLIFlags().noColor = false
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")

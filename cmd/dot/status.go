@@ -22,7 +22,7 @@ func newStatusCommand() *cobra.Command {
 
 		// Load extended config for table_style
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
+		extCfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath)
 
 		// Get format and color from local flags
 		format, _ := cmd.Flags().GetString("format")

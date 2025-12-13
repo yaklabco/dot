@@ -40,7 +40,7 @@ func resolvePackageDirectory(explicitDir string) (string, error) {
 
 	// 5. Config file: directories.package
 	configPath := getConfigFilePath()
-	cfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
+	cfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath)
 	if cfg != nil && cfg.Directories.Package != "" {
 		abs, err := filepath.Abs(cfg.Directories.Package)
 		if err == nil {

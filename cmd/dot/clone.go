@@ -114,7 +114,7 @@ func runClone(cmd *cobra.Command, args []string, profile string, interactive boo
 			return formatError(fmt.Errorf("get current directory: %w", err))
 		}
 		// Override the CLI flags packageDir with repo-based directory in current working directory
-		cliFlags.packageDir = filepath.Join(cwd, repoName)
+		GetCLIFlags().packageDir = filepath.Join(cwd, repoName)
 	}
 
 	// Build config (will use the modified packageDir if set above)
