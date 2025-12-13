@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	"github.com/yaklabco/dot/internal/domain"
 	"github.com/yaklabco/dot/internal/ignore"
@@ -232,6 +233,18 @@ func isUnderPath(path, basePath string) bool {
 		return false
 	}
 
-	// If relative path doesn't go up (..), it's under basePath
-	return rel != "." && !filepath.IsAbs(rel) && len(rel) > 0 && rel[0] != '.'
+	// Path is under basePath when:
+	// - rel is not "." (same path)
+	// - rel is not absolute
+	// - rel does not traverse upward (does not start with "..")
+	if rel == "." || filepath.IsAbs(rel) {
+		return false
+	}
+
+	// Check for parent traversal: rel starts with ".." followed by separator or end
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+
+	return true
 }

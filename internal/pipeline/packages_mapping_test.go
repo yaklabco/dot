@@ -51,6 +51,56 @@ func TestIsUnderPath(t *testing.T) {
 			basePath: "/packages/vim",
 			want:     false,
 		},
+		// Tests for dot-prefixed paths (e.g. .config directories)
+		{
+			name:     "dot-prefixed direct child",
+			path:     "/a/pkg/.config",
+			basePath: "/a/pkg",
+			want:     true,
+		},
+		{
+			name:     "dot-prefixed nested child",
+			path:     "/a/pkg/.config/nvim/init.vim",
+			basePath: "/a/pkg",
+			want:     true,
+		},
+		{
+			name:     "hidden file in package",
+			path:     "/packages/vim/.vimrc",
+			basePath: "/packages/vim",
+			want:     true,
+		},
+		{
+			name:     "deeply nested dot directory",
+			path:     "/packages/config/.config/systemd/user/service.conf",
+			basePath: "/packages/config",
+			want:     true,
+		},
+		// Edge cases for parent traversal
+		{
+			name:     "parent traversal one level",
+			path:     "/packages/vim/..",
+			basePath: "/packages/vim",
+			want:     false,
+		},
+		{
+			name:     "parent traversal multiple levels",
+			path:     "/packages/vim/../..",
+			basePath: "/packages/vim",
+			want:     false,
+		},
+		{
+			name:     "parent traversal then child",
+			path:     "/packages/vim/../other/file",
+			basePath: "/packages/vim",
+			want:     false,
+		},
+		{
+			name:     "dotdot as directory name (not traversal)",
+			path:     "/packages/vim/..hidden/file",
+			basePath: "/packages/vim",
+			want:     true,
+		},
 	}
 
 	for _, tt := range tests {
