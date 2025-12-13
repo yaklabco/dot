@@ -103,6 +103,20 @@ func createLoggerWithFlags(flags *CLIFlags) dot.Logger {
 6. Command handler invokes client methods (e.g., `client.Manage()`)
 7. Results are rendered using `internal/cli/render` helpers
 
+### Doctor Exit Code Propagation
+
+The doctor command uses a structured mechanism to communicate health status to `main()` for exit code determination, rather than relying on error message string matching.
+
+**Implementation**:
+- Doctor command stores its result via `setDoctorResult(status)` after rendering output
+- `main.run()` checks for doctor result via `GetDoctorResult()` after command execution
+- Exit codes are determined by `DoctorExitCode(status)`:
+  - `HealthOK` returns exit code 0
+  - `HealthWarnings` returns exit code 1
+  - `HealthErrors` returns exit code 2
+
+**Rationale**: This avoids fragile string matching on error messages and ensures exit codes are derived from the structured `DiagnosticReport.OverallHealth` field. The doctor command returns `nil` from its `RunE` even when warnings or errors are detected; success/failure is communicated through the health status, not through Go errors.
+
 ## CLI-Specific Helpers
 
 The `internal/cli/` packages provide rendering and UI helpers:

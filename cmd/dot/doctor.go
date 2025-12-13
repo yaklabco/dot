@@ -16,6 +16,53 @@ import (
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
+// doctorResult holds the result of the doctor command execution.
+// This is used to communicate health status to main without relying on error strings.
+type doctorResult struct {
+	executed bool
+	status   dot.HealthStatus
+}
+
+// lastDoctorResult stores the result of the most recent doctor command execution.
+// This is set by the doctor command and read by main.go for exit code determination.
+var lastDoctorResult doctorResult
+
+// setDoctorResult stores the doctor command result for exit code determination.
+func setDoctorResult(status dot.HealthStatus) {
+	lastDoctorResult = doctorResult{
+		executed: true,
+		status:   status,
+	}
+}
+
+// GetDoctorResult returns the last doctor result if doctor was executed.
+// Returns (status, true) if doctor was executed, or (HealthOK, false) otherwise.
+func GetDoctorResult() (dot.HealthStatus, bool) {
+	if lastDoctorResult.executed {
+		return lastDoctorResult.status, true
+	}
+	return dot.HealthOK, false
+}
+
+// ResetDoctorResult clears the doctor result state (for testing).
+func ResetDoctorResult() {
+	lastDoctorResult = doctorResult{}
+}
+
+// DoctorExitCode returns the exit code for a given health status.
+func DoctorExitCode(status dot.HealthStatus) int {
+	switch status {
+	case dot.HealthOK:
+		return 0
+	case dot.HealthWarnings:
+		return 1
+	case dot.HealthErrors:
+		return 2
+	default:
+		return 0
+	}
+}
+
 // doctorFlags holds parsed flags.
 type doctorFlags struct {
 	format, color, scanMode, mode string
@@ -103,14 +150,10 @@ func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags d
 	}
 }
 
-// checkHealthStatus returns error if health check failed.
-func checkHealthStatus(report dot.DiagnosticReport) error {
-	if report.OverallHealth == dot.HealthErrors {
-		return fmt.Errorf("health check detected errors")
-	} else if report.OverallHealth == dot.HealthWarnings {
-		return fmt.Errorf("health check detected warnings")
-	}
-	return nil
+// storeDoctorStatus stores the health status for exit code determination.
+// This replaces the previous error-based approach with structured status propagation.
+func storeDoctorStatus(report dot.DiagnosticReport) {
+	setDoctorResult(report.OverallHealth)
 }
 
 // newDoctorCommand creates the doctor command with configuration from global flags.
@@ -149,13 +192,15 @@ func newDoctorCommand() *cobra.Command {
 		}
 
 		configPath := getConfigFilePath()
-		extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
+		extCfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath)
 
 		if err := renderDoctorOutput(cmd, report, flags, extCfg); err != nil {
 			return err
 		}
 
-		return checkHealthStatus(report)
+		// Store health status for exit code determination (no error for warnings/errors)
+		storeDoctorStatus(report)
+		return nil
 	}
 
 	return cmd

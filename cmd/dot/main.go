@@ -48,8 +48,12 @@ func run() int {
 	// Execute command with fang for enhanced output
 	err := fang.Execute(ctx, rootCmd)
 	if err != nil {
-		// Handle doctor-specific exit codes
-		return getDoctorExitCode(err)
+		return 1
+	}
+
+	// Check for doctor command result (exit codes based on health status)
+	if status, ok := GetDoctorResult(); ok {
+		return DoctorExitCode(status)
 	}
 
 	return 0
@@ -58,7 +62,7 @@ func run() int {
 // setupProfiling initializes CPU profiling, memory profiling, and pprof HTTP server based on flags.
 // Returns a cleanup function that should be deferred.
 func setupProfiling() func() {
-	return setupProfilingWithFlags(&cliFlags)
+	return setupProfilingWithFlags(GetCLIFlags())
 }
 
 // setupProfilingWithFlags initializes profiling from explicit CLI flags.
@@ -213,24 +217,4 @@ func isArgValidationError(err error) bool {
 	}
 
 	return false
-}
-
-// getDoctorExitCode returns the appropriate exit code for doctor command errors.
-func getDoctorExitCode(err error) int {
-	if err == nil {
-		return 0
-	}
-
-	errMsg := err.Error()
-
-	// Doctor command uses specific error messages for different health states
-	if strings.Contains(errMsg, "health check detected errors") {
-		return 2
-	}
-	if strings.Contains(errMsg, "health check detected warnings") {
-		return 1
-	}
-
-	// Default error exit code
-	return 1
 }

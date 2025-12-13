@@ -988,9 +988,9 @@ Health check failed: 3 issues found
 ```
 
 **Exit Codes**:
-- `0`: No issues found
-- `1`: Issues detected
-- `2`: Invalid arguments
+- `0`: Healthy (no issues found)
+- `1`: Warnings detected (e.g., orphaned links)
+- `2`: Errors detected (e.g., broken links)
 
 ### list
 
