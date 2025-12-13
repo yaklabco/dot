@@ -5,16 +5,18 @@ package executor
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/yaklabco/dot/internal/domain"
 )
 
 // Executor executes validated plans with transaction safety.
 type Executor struct {
-	fs         domain.FS
-	log        domain.Logger
-	tracer     domain.Tracer
-	checkpoint CheckpointStore
+	fs          domain.FS
+	log         domain.Logger
+	tracer      domain.Tracer
+	checkpoint  CheckpointStore
+	concurrency int
 }
 
 // Opts configures executor creation.
@@ -24,6 +26,10 @@ type Opts struct {
 	Tracer     domain.Tracer
 	Metrics    domain.Metrics
 	Checkpoint CheckpointStore
+	// Concurrency limits the number of concurrent operations within a batch.
+	// If zero, defaults to runtime.NumCPU().
+	// If negative, no limit is applied (all operations in batch run concurrently).
+	Concurrency int
 }
 
 // New creates a new Executor with the given options.
@@ -35,10 +41,11 @@ func New(opts Opts) *Executor {
 	}
 
 	return &Executor{
-		fs:         opts.FS,
-		log:        opts.Logger,
-		tracer:     opts.Tracer,
-		checkpoint: opts.Checkpoint,
+		fs:          opts.FS,
+		log:         opts.Logger,
+		tracer:      opts.Tracer,
+		checkpoint:  opts.Checkpoint,
+		concurrency: opts.Concurrency,
 	}
 }
 
@@ -479,7 +486,7 @@ func (e *Executor) executeParallel(ctx context.Context, plan domain.Plan, checkp
 	return result
 }
 
-// executeBatch executes a batch of operations concurrently.
+// executeBatch executes a batch of operations concurrently, respecting the concurrency limit.
 func (e *Executor) executeBatch(ctx context.Context, batch []domain.Operation, checkpoint *Checkpoint) ExecutionResult {
 	result := ExecutionResult{
 		Executed:   []domain.OperationID{},
@@ -511,16 +518,30 @@ func (e *Executor) executeBatch(ctx context.Context, batch []domain.Operation, c
 		return result
 	}
 
-	// Execute multiple operations concurrently
+	// Determine effective concurrency limit
+	limit := e.concurrency
+	if limit == 0 {
+		limit = runtime.NumCPU()
+	}
+	// Negative means no limit; also cap at batch size
+	if limit < 0 || limit > len(batch) {
+		limit = len(batch)
+	}
+
+	// Execute multiple operations concurrently with limited parallelism
 	type opResult struct {
 		id  domain.OperationID
 		err error
 	}
 
 	resultCh := make(chan opResult, len(batch))
+	semaphore := make(chan struct{}, limit) // Limits concurrent goroutines
 
 	for _, op := range batch {
+		semaphore <- struct{}{} // Acquire semaphore slot
 		go func(operation domain.Operation) {
+			defer func() { <-semaphore }() // Release semaphore slot
+
 			opID := operation.ID()
 
 			e.log.Debug(ctx, "executing_operation_parallel",

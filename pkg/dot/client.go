@@ -102,9 +102,10 @@ func NewClient(cfg Config) (*Client, error) {
 
 	// Create executor
 	exec := executor.New(executor.Opts{
-		FS:     cfg.FS,
-		Logger: cfg.Logger,
-		Tracer: cfg.Tracer,
+		FS:          cfg.FS,
+		Logger:      cfg.Logger,
+		Tracer:      cfg.Tracer,
+		Concurrency: cfg.Concurrency,
 	})
 
 	// Create manifest store and service
