@@ -7,11 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/yaklabco/dot/internal/domain"
 )
 
 func TestDotOperationalPaths(t *testing.T) {
-	paths := DotOperationalPaths()
+	paths, err := DotOperationalPaths()
+	require.NoError(t, err)
 
 	// Should return at least config and data paths
 	assert.GreaterOrEqual(t, len(paths), 2)
