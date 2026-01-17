@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,11 +11,13 @@ import (
 )
 
 // setupGlobalCfg initializes cliFlags with deterministic test values and registers cleanup.
+// It sets up both the package-level cliFlags and cliContext for backward compatibility.
 func setupGlobalCfg(t *testing.T) {
 	t.Helper()
 
-	// Save previous cliFlags and environment
-	previous := cliFlags
+	// Save previous cliFlags, cliContext, and environment
+	previousFlags := cliFlags
+	previousCtx := cliContext
 	oldXDGData := os.Getenv("XDG_DATA_HOME")
 	oldXDGConfig := os.Getenv("XDG_CONFIG_HOME")
 	oldXDGState := os.Getenv("XDG_STATE_HOME")
@@ -35,9 +38,13 @@ func setupGlobalCfg(t *testing.T) {
 		logJSON:    false,
 	}
 
-	// Restore previous cliFlags and environment on cleanup
+	// Set up context with flags for context-based access
+	cliContext = WithCLIFlags(context.Background(), &cliFlags)
+
+	// Restore previous cliFlags, cliContext, and environment on cleanup
 	t.Cleanup(func() {
-		cliFlags = previous
+		cliFlags = previousFlags
+		cliContext = previousCtx
 		if oldXDGData != "" {
 			os.Setenv("XDG_DATA_HOME", oldXDGData)
 		} else {

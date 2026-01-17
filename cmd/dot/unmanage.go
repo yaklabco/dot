@@ -159,6 +159,13 @@ func runUnmanage(cmd *cobra.Command, args []string, purge, noRestore, cleanup, a
 
 // runUnmanageAll handles the unmanage --all command execution with confirmation.
 func runUnmanageAll(cmd *cobra.Command, cfg dot.Config, client *dot.Client, ctx context.Context, opts dot.UnmanageOptions, skipConfirm bool) error {
+	// Get flags from context for passing to helper functions.
+	// Fall back to package-level cliFlags if context doesn't have flags (e.g., in tests).
+	flags := CLIFlagsFromContext(ctx)
+	if flags == nil {
+		flags = getPackageLevelCLIFlags()
+	}
+
 	// Get current status to show what will be removed
 	status, err := client.Status(ctx)
 	if err != nil {
@@ -173,7 +180,7 @@ func runUnmanageAll(cmd *cobra.Command, cfg dot.Config, client *dot.Client, ctx 
 
 	// Show detailed summary in dry-run mode or when confirming
 	if cfg.DryRun || !skipConfirm {
-		displayUnmanageAllSummary(status.Packages, opts, cfg.PackageDir)
+		displayUnmanageAllSummary(status.Packages, opts, cfg.PackageDir, flags)
 	}
 
 	// Request confirmation unless --yes/--force/--dry-run
@@ -194,19 +201,19 @@ func runUnmanageAll(cmd *cobra.Command, cfg dot.Config, client *dot.Client, ctx 
 	}
 
 	// Report results
-	reportUnmanageAllResults(count, opts, cfg.DryRun)
+	reportUnmanageAllResults(count, opts, cfg.DryRun, flags)
 	return nil
 }
 
 // displayUnmanageAllSummary shows what will be unmanaged.
-func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOptions, packageDir string) {
-	colorize := shouldUseColor()
+func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOptions, packageDir string, flags *CLIFlags) {
+	colorize := shouldUseColorWithFlags(flags)
 	c := render.NewColorizer(colorize)
 
 	fmt.Printf("This will unmanage %s:\n", c.Accent(fmt.Sprintf("%d package(s)", len(packages))))
 	for _, pkg := range packages {
 		operation := getUnmanageOperation(pkg, opts)
-		operationColor := getOperationColor(operation)
+		operationColor := getOperationColorWithFlags(operation, flags)
 		// Format: package (operation, N links: link1, link2, ... | pkg-dir)
 		linkList := formatLinkList(pkg.Links)
 		pkgPath := filepath.Join(packageDir, pkg.Name)
@@ -222,9 +229,14 @@ func displayUnmanageAllSummary(packages []dot.PackageInfo, opts dot.UnmanageOpti
 	fmt.Println()
 }
 
-// getOperationColor returns the appropriate color function for an operation
+// getOperationColor returns the appropriate color function for an operation.
 func getOperationColor(operation string) func(string) string {
-	colorize := shouldUseColor()
+	return getOperationColorWithFlags(operation, GetCLIFlags())
+}
+
+// getOperationColorWithFlags returns the appropriate color function for an operation using explicit flags.
+func getOperationColorWithFlags(operation string, flags *CLIFlags) func(string) string {
+	colorize := shouldUseColorWithFlags(flags)
 	c := render.NewColorizer(colorize)
 
 	switch operation {
@@ -260,8 +272,8 @@ func getUnmanageOperation(pkg dot.PackageInfo, opts dot.UnmanageOptions) string 
 }
 
 // reportUnmanageAllResults displays the final results.
-func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool) {
-	colorize := shouldUseColor()
+func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool, flags *CLIFlags) {
+	colorize := shouldUseColorWithFlags(flags)
 	colorizer := render.NewColorizer(colorize)
 
 	operation := "unmanage"

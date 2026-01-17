@@ -59,7 +59,8 @@ func TestReportUnmanageAllResults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Capture output (function prints to stdout)
 			// We just verify it doesn't panic
-			reportUnmanageAllResults(tt.count, tt.opts, tt.dryRun)
+			flags := &CLIFlags{}
+			reportUnmanageAllResults(tt.count, tt.opts, tt.dryRun, flags)
 		})
 	}
 }
@@ -79,9 +80,10 @@ func TestDisplayUnmanageAllSummary(t *testing.T) {
 	}
 	opts := dot.UnmanageOptions{}
 	packageDir := "/home/user/.dotfiles"
+	flags := &CLIFlags{}
 
 	// Function prints to stdout, just verify it doesn't panic
-	displayUnmanageAllSummary(packages, opts, packageDir)
+	displayUnmanageAllSummary(packages, opts, packageDir, flags)
 }
 
 func TestIsTerminal(t *testing.T) {

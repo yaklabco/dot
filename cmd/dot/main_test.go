@@ -86,41 +86,29 @@ func TestSetupSignalHandler(t *testing.T) {
 
 func TestSetupProfiling(t *testing.T) {
 	t.Run("returns no-op cleanup when no profiling flags set", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		cliFlags = CLIFlags{} // All profiling flags empty
+		flags := &CLIFlags{} // All profiling flags empty
 
-		cleanup := setupProfiling()
+		cleanup := setupProfilingWithFlags(flags)
 		require.NotNil(t, cleanup)
 		cleanup() // Should not panic
 	})
 
 	t.Run("handles invalid CPU profile path gracefully", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		cliFlags = CLIFlags{
+		flags := &CLIFlags{
 			cpuProfile: "/invalid/path/that/does/not/exist/cpu.prof",
 		}
 
-		cleanup := setupProfiling()
+		cleanup := setupProfilingWithFlags(flags)
 		require.NotNil(t, cleanup)
 		cleanup() // Should not panic
 	})
 
 	t.Run("handles invalid memory profile path gracefully", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		cliFlags = CLIFlags{
+		flags := &CLIFlags{
 			memProfile: "/invalid/path/that/does/not/exist/mem.prof",
 		}
 
-		cleanup := setupProfiling()
+		cleanup := setupProfilingWithFlags(flags)
 		require.NotNil(t, cleanup)
 		cleanup() // Should not panic even with invalid path
 	})
@@ -129,15 +117,11 @@ func TestSetupProfiling(t *testing.T) {
 		tmpDir := t.TempDir()
 		cpuFile := tmpDir + "/cpu.prof"
 
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		cliFlags = CLIFlags{
+		flags := &CLIFlags{
 			cpuProfile: cpuFile,
 		}
 
-		cleanup := setupProfiling()
+		cleanup := setupProfilingWithFlags(flags)
 		require.NotNil(t, cleanup)
 
 		// CPU profiling should be active
@@ -154,15 +138,11 @@ func TestSetupProfiling(t *testing.T) {
 		tmpDir := t.TempDir()
 		memFile := tmpDir + "/mem.prof"
 
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		cliFlags = CLIFlags{
+		flags := &CLIFlags{
 			memProfile: memFile,
 		}
 
-		cleanup := setupProfiling()
+		cleanup := setupProfilingWithFlags(flags)
 		require.NotNil(t, cleanup)
 
 		cleanup() // Write memory profile

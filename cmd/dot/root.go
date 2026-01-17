@@ -36,15 +36,33 @@ type CLIFlags struct {
 	batch          bool
 }
 
-// cliFlags is the global flags instance used during command execution.
-// While package-level, it is only mutated during flag parsing in NewRootCommand
-// and all functions access it via explicit parameters (e.g., buildConfigWithFlags).
-// This is initialized by NewRootCommand.
+// cliFlags is the package-level flags instance used during command execution.
+// This is initialized by NewRootCommand and stored in context via PersistentPreRunE.
+// For test isolation, use WithCLIFlags to set flags in context instead of mutating this directly.
 var cliFlags CLIFlags
 
-// GetCLIFlags returns a pointer to the CLI flags for use by main.go.
-// This function makes the dependency on flags explicit.
+// cliContext holds the root context with CLI flags for use by GetCLIFlags.
+// This is set during command execution and provides backward compatibility.
+var cliContext context.Context
+
+// GetCLIFlags returns a pointer to the CLI flags.
+// This function makes the dependency on flags explicit and supports both
+// context-based access (preferred) and direct access (for backward compatibility).
 func GetCLIFlags() *CLIFlags {
+	// Try context first (preferred path)
+	if cliContext != nil {
+		if flags := CLIFlagsFromContext(cliContext); flags != nil {
+			return flags
+		}
+	}
+	// Fall back to package-level variable
+	return &cliFlags
+}
+
+// getPackageLevelCLIFlags returns a direct pointer to the package-level cliFlags.
+// This is used as a fallback when context doesn't have flags (e.g., in tests).
+// It bypasses context lookup to avoid contextcheck linter issues.
+func getPackageLevelCLIFlags() *CLIFlags {
 	return &cliFlags
 }
 
@@ -58,13 +76,24 @@ func NewRootCommand(version, commit, date string) *cobra.Command {
 		Short: "Modern symlink manager for dotfiles",
 		Long: `dot is a type-safe dotfile manager written in Go.
 
-dot manages dotfiles by creating symlinks from a source directory 
+dot manages dotfiles by creating symlinks from a source directory
 (package directory) to a target directory. It provides atomic operations,
 comprehensive conflict detection, and incremental updates.`,
 		Version:       fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Store flags in context for commands to access
+			ctx := cmd.Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			ctx = WithCLIFlags(ctx, &cliFlags)
+			cmd.SetContext(ctx)
+
+			// Update package-level context for GetCLIFlags() backward compatibility
+			cliContext = ctx
+
 			// Perform startup version check (async, non-blocking)
 			performStartupVersionCheckAsync(version)
 			return nil

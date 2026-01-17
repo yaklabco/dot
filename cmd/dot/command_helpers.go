@@ -50,7 +50,7 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 
 // getAvailablePackages returns list of available packages from the package directory.
 func getAvailablePackages() []string {
-	return getAvailablePackagesWithFlags(&cliFlags)
+	return getAvailablePackagesWithFlags(GetCLIFlags())
 }
 
 // getAvailablePackagesWithFlags returns packages from explicit CLI flags.

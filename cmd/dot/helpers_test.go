@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +11,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// setupHelpersTestFlags sets up cliFlags and cliContext for a test.
+func setupHelpersTestFlags(t *testing.T, flags CLIFlags) {
+	t.Helper()
+
+	previousFlags := cliFlags
+	previousCtx := cliContext
+
+	cliFlags = flags
+	cliContext = WithCLIFlags(context.Background(), &cliFlags)
+
+	t.Cleanup(func() {
+		cliFlags = previousFlags
+		cliContext = previousCtx
+	})
+}
 
 func TestFormatError(t *testing.T) {
 	err := errors.New("test error")
@@ -30,12 +47,7 @@ func TestShouldColorize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore cliFlags
-			previous := cliFlags
-			t.Cleanup(func() {
-				cliFlags = previous
-			})
-			GetCLIFlags().noColor = false
+			setupHelpersTestFlags(t, CLIFlags{noColor: false})
 
 			// Unset NO_COLOR for this test to ensure it doesn't interfere
 			original := os.Getenv("NO_COLOR")
@@ -54,22 +66,14 @@ func TestShouldColorize(t *testing.T) {
 
 func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	t.Run("--no-color takes precedence over always", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		GetCLIFlags().noColor = true
+		setupHelpersTestFlags(t, CLIFlags{noColor: true})
 
 		result := shouldColorize("always")
 		assert.False(t, result, "--no-color should disable colors even with --color=always")
 	})
 
 	t.Run("--no-color takes precedence over NO_COLOR unset", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		GetCLIFlags().noColor = true
+		setupHelpersTestFlags(t, CLIFlags{noColor: true})
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")
@@ -84,11 +88,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	})
 
 	t.Run("NO_COLOR env takes precedence over --color=always when --no-color is false", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		GetCLIFlags().noColor = false
+		setupHelpersTestFlags(t, CLIFlags{noColor: false})
 
 		original := os.Getenv("NO_COLOR")
 		os.Setenv("NO_COLOR", "1")
@@ -105,11 +105,7 @@ func TestShouldColorizeWithNoColorFlag(t *testing.T) {
 	})
 
 	t.Run("colors enabled when neither flag nor env set", func(t *testing.T) {
-		previous := cliFlags
-		t.Cleanup(func() {
-			cliFlags = previous
-		})
-		GetCLIFlags().noColor = false
+		setupHelpersTestFlags(t, CLIFlags{noColor: false})
 
 		original := os.Getenv("NO_COLOR")
 		os.Unsetenv("NO_COLOR")
@@ -133,15 +129,10 @@ func TestShouldColorize_Auto(t *testing.T) {
 }
 
 func TestBuildConfig_ValidatesPackageDir(t *testing.T) {
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: ".",
 		targetDir:  ".",
-	}
+	})
 
 	cfg, err := buildConfig()
 	assert.NoError(t, err)
@@ -163,16 +154,11 @@ func TestCreateLogger_AllModes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			previous := cliFlags
-			t.Cleanup(func() {
-				cliFlags = previous
-			})
-
-			cliFlags = CLIFlags{
+			setupHelpersTestFlags(t, CLIFlags{
 				quiet:   tt.quiet,
 				logJSON: tt.logJSON,
 				verbose: tt.verbose,
-			}
+			})
 
 			logger := createLogger()
 			assert.NotNil(t, logger)
@@ -206,14 +192,9 @@ func TestIsHiddenOrIgnored(t *testing.T) {
 func TestGetAvailablePackages(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: tmpDir,
-	}
+	})
 
 	// Create some test package directories
 	assert.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "vim"), 0755))
@@ -233,14 +214,9 @@ func TestGetAvailablePackages(t *testing.T) {
 func TestPackageCompletion_Available(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: tmpDir,
-	}
+	})
 
 	// Create test packages
 	assert.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "vim"), 0755))
@@ -265,15 +241,10 @@ func TestGetInstalledPackages(t *testing.T) {
 }
 
 func TestPackageCompletion_Installed(t *testing.T) {
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: t.TempDir(),
 		targetDir:  t.TempDir(),
-	}
+	})
 
 	completionFunc := packageCompletion(true)
 	cmd := &cobra.Command{}
@@ -314,15 +285,10 @@ func TestDerivePackageName(t *testing.T) {
 func TestGetAvailablePackages_WithFlags(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
 	// Test with explicit package dir
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: tmpDir,
-	}
+	})
 
 	// Create test packages
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "package1"), 0755))
@@ -339,28 +305,18 @@ func TestGetAvailablePackages_WithFlags(t *testing.T) {
 func TestGetAvailablePackages_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: tmpDir,
-	}
+	})
 
 	packages := getAvailablePackages()
 	assert.Empty(t, packages)
 }
 
 func TestGetAvailablePackages_InvalidDir(t *testing.T) {
-	previous := cliFlags
-	t.Cleanup(func() {
-		cliFlags = previous
-	})
-
-	cliFlags = CLIFlags{
+	setupHelpersTestFlags(t, CLIFlags{
 		packageDir: "/this/path/definitely/does/not/exist/anywhere",
-	}
+	})
 
 	packages := getAvailablePackages()
 	assert.Nil(t, packages)

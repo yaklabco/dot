@@ -96,7 +96,7 @@ The status includes installation timestamp, number of links, and link paths.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load extended config for table_style
 			configPath := getConfigFilePath()
-			extCfg, _ := loadConfigWithRepoPriority(cliFlags.packageDir, configPath)
+			extCfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath)
 
 			// Create client
 			client, err := dot.NewClient(*cfg)
