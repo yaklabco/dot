@@ -2,6 +2,7 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -211,5 +212,100 @@ func TestManageService_Remanage(t *testing.T) {
 		// Verify symlink still exists
 		linkExists := fs.Exists(ctx, targetDir+"/.ssh")
 		assert.True(t, linkExists)
+	})
+}
+
+func TestManageService_ConflictReturnsTypedError(t *testing.T) {
+	t.Run("returns typed ErrConflict when conflicts detected", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with a file
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config"), 0644))
+
+		// Create existing file at target to cause conflict
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.vimrc", []byte("existing file"), 0644))
+
+		// Use PolicyFail to ensure conflicts are detected
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "test-pkg")
+
+		// Verify error occurred
+		require.Error(t, err)
+
+		// Verify error is typed as ErrConflict using errors.As
+		var conflictErr ErrConflict
+		require.True(t, errors.As(err, &conflictErr), "expected error to be ErrConflict, got %T: %v", err, err)
+
+		// Verify the error message contains conflict details
+		assert.Contains(t, err.Error(), "conflict")
+		assert.Contains(t, err.Error(), ".vimrc")
+	})
+
+	t.Run("ErrConflict contains first conflict path", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with multiple files
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-bashrc", []byte("bash config"), 0644))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config"), 0644))
+
+		// Create existing files at target to cause multiple conflicts
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.bashrc", []byte("existing bashrc"), 0644))
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.vimrc", []byte("existing vimrc"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "test-pkg")
+
+		require.Error(t, err)
+
+		var conflictErr ErrConflict
+		require.True(t, errors.As(err, &conflictErr), "expected error to be ErrConflict, got %T", err)
+
+		// The Path field should be set to the first conflict's path
+		assert.NotEmpty(t, conflictErr.Path, "ErrConflict.Path should not be empty")
+
+		// The Reason field should contain the full error message with all conflicts
+		assert.Contains(t, conflictErr.Reason, "conflict")
 	})
 }

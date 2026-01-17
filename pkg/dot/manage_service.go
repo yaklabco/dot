@@ -2,7 +2,6 @@ package dot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,7 +76,10 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		if len(plan.Metadata.Conflicts) > 3 {
 			conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
 		}
-		return errors.New(conflictMsg)
+		return ErrConflict{
+			Path:   plan.Metadata.Conflicts[0].Path,
+			Reason: conflictMsg,
+		}
 	}
 
 	// If plan is empty (no operations needed), consider it success
