@@ -2,23 +2,16 @@ package scanner
 
 import "strings"
 
-// IsReservedPackageName checks if the given package name is reserved for dot's internal use.
-// Reserved names cannot be managed as packages.
+var reservedNames = map[string]struct{}{
+	"dot":        {},
+	".dot":       {},
+	"dot-config": {},
+}
+
+// IsReservedPackageName checks if a package name is reserved for dot's use.
 func IsReservedPackageName(name string) bool {
-	reserved := []string{
-		"dot",
-		".dot",
-		"dot-config",
-	}
-
-	nameLower := strings.ToLower(name)
-	for _, r := range reserved {
-		if nameLower == r {
-			return true
-		}
-	}
-
-	return false
+	_, exists := reservedNames[strings.ToLower(name)]
+	return exists
 }
 
 // GetReservedPackageReason returns a human-readable reason why a package name is reserved.

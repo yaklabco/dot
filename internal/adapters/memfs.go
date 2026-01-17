@@ -12,7 +12,7 @@ import (
 )
 
 // MemFS implements an in-memory filesystem for testing.
-// It is not thread-safe and should only be used in tests.
+// It is thread-safe and can be used in concurrent tests.
 type MemFS struct {
 	files map[string]*memFile
 	mu    sync.RWMutex
