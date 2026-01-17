@@ -206,8 +206,9 @@ func TestConfigCommand_Structure(t *testing.T) {
 func TestConfigCommand_HasRequiredSubcommands(t *testing.T) {
 	cmd := newConfigCommand()
 
-	subcommandNames := make([]string, 0)
-	for _, subcmd := range cmd.Commands() {
+	commands := cmd.Commands()
+	subcommandNames := make([]string, 0, len(commands))
+	for _, subcmd := range commands {
 		subcommandNames = append(subcommandNames, subcmd.Name())
 	}
 

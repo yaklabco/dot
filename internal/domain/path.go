@@ -103,7 +103,37 @@ func (p Path[K]) String() string {
 	return p.path
 }
 
+// JoinSafe appends a path element with validation to prevent traversal attacks.
+// Returns an error if the resulting path would escape the base path.
+func (p Path[K]) JoinSafe(elem string) Result[Path[K]] {
+	cleanedElem := filepath.Clean(elem)
+
+	// Check for traversal sequences in the cleaned element
+	if strings.HasPrefix(cleanedElem, "..") || strings.Contains(cleanedElem, string(filepath.Separator)+"..") {
+		return Err[Path[K]](ErrInvalidPath{
+			Path:   elem,
+			Reason: "path contains traversal sequence",
+		})
+	}
+
+	joined := filepath.Join(p.path, elem)
+	cleanedJoined := filepath.Clean(joined)
+
+	// Verify the joined path stays within the base directory
+	basePath := filepath.Clean(p.path)
+	if !strings.HasPrefix(cleanedJoined, basePath) {
+		return Err[Path[K]](ErrInvalidPath{
+			Path:   elem,
+			Reason: "path escapes base directory",
+		})
+	}
+
+	return Ok(Path[K]{path: cleanedJoined})
+}
+
 // Join appends a path component, returning a FilePath.
+//
+// Deprecated: Use JoinSafe for user-provided paths to prevent path traversal attacks.
 func (p Path[K]) Join(elem string) Path[K] {
 	joined := filepath.Join(p.path, elem)
 	return Path[K]{path: joined}

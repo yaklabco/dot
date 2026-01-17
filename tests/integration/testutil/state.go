@@ -89,7 +89,9 @@ func CompareStates(t *testing.T, before, after *StateSnapshot) []string {
 	beforeMap := createStateMap(before)
 	afterMap := createStateMap(after)
 
-	var diffs []string
+	// Estimate capacity: worst case each file could be added, removed, or modified
+	estimatedCap := len(beforeMap) + len(afterMap)
+	diffs := make([]string, 0, estimatedCap)
 	diffs = append(diffs, findAddedFiles(beforeMap, afterMap)...)
 	diffs = append(diffs, findRemovedFiles(beforeMap, afterMap)...)
 	diffs = append(diffs, findModifiedFiles(beforeMap, afterMap)...)

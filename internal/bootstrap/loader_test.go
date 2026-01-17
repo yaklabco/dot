@@ -256,7 +256,7 @@ func TestFilterPackagesByPlatform(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filtered := FilterPackagesByPlatform(packages, tt.platform)
-			var names []string
+			names := make([]string, 0, len(filtered))
 			for _, pkg := range filtered {
 				names = append(names, pkg.Name)
 			}

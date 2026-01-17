@@ -152,3 +152,31 @@ func TestFilePath(t *testing.T) {
 	require.True(t, parent.IsOk())
 	assert.Contains(t, parent.Unwrap().String(), "vim")
 }
+
+func TestPath_JoinSafe_RejectsTraversal(t *testing.T) {
+	tests := []struct {
+		name    string
+		base    string
+		elem    string
+		wantErr bool
+	}{
+		{"simple join", "/home/user", "file.txt", false},
+		{"nested join", "/home/user", "dir/file.txt", false},
+		{"traversal attack", "/home/user", "../../../etc/passwd", true},
+		{"hidden traversal", "/home/user", "foo/../../../etc/passwd", true},
+		{"double dot only", "/home/user", "..", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := domain.NewPackagePath(tt.base)
+			require.True(t, base.IsOk())
+
+			result := base.Unwrap().JoinSafe(tt.elem)
+			if tt.wantErr {
+				assert.True(t, result.IsErr(), "expected error for %s", tt.elem)
+			} else {
+				assert.True(t, result.IsOk(), "expected success for %s", tt.elem)
+			}
+		})
+	}
+}

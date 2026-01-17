@@ -261,7 +261,13 @@ func determineOverallHealth(status domain.CheckStatus) HealthStatus {
 
 // transformReport converts internal engine report to public DiagnosticReport.
 func (s *DoctorService) transformReport(internal doctor.DiagnosticReport) DiagnosticReport {
-	issues := make([]Issue, 0)
+	// Count total issues for preallocation
+	totalIssues := 0
+	for _, res := range internal.Results {
+		totalIssues += len(res.Issues)
+	}
+
+	issues := make([]Issue, 0, totalIssues)
 	stats := DiagnosticStats{}
 
 	for _, res := range internal.Results {

@@ -226,13 +226,13 @@ func checkPackagesForSecrets(ctx context.Context, client *dot.Client, packages [
 // checkFilesForSecrets scans individual files for potential secrets.
 // Used by the adopt command to warn before adopting sensitive files.
 func checkFilesForSecrets(files []string) []secretWarning {
-	warnings := make([]secretWarning, 0)
 	patterns := dot.DefaultSensitivePatterns()
 
 	// Detect secrets in the file list
 	detections := dot.DetectSecrets(files, patterns)
 
 	// Convert detections to warnings
+	warnings := make([]secretWarning, 0, len(detections))
 	for _, detection := range detections {
 		warnings = append(warnings, secretWarning{
 			Path:   detection.Path,
