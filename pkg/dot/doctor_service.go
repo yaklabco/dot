@@ -408,11 +408,7 @@ func (w *fileInfoWrapper) Mode() os.FileMode { return w.info.Mode() }
 func (w *fileInfoWrapper) IsDir() bool       { return w.info.IsDir() }
 func (w *fileInfoWrapper) Sys() any          { return w.info.Sys() }
 func (w *fileInfoWrapper) ModTime() time.Time {
-	t, ok := w.info.ModTime().(time.Time)
-	if !ok {
-		return time.Time{}
-	}
-	return t
+	return w.info.ModTime()
 }
 
 // dirEntryWrapper adapts domain.DirEntry to fs.DirEntry

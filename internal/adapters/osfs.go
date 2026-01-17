@@ -5,6 +5,7 @@ import (
 	"context"
 	"io/fs"
 	"os"
+	"time"
 
 	"github.com/yaklabco/dot/internal/domain"
 )
@@ -195,12 +196,12 @@ func WrapFileInfo(info fs.FileInfo) domain.FileInfo {
 	return osFileInfo{info: info}
 }
 
-func (i osFileInfo) Name() string      { return i.info.Name() }
-func (i osFileInfo) Size() int64       { return i.info.Size() }
-func (i osFileInfo) Mode() fs.FileMode { return i.info.Mode() }
-func (i osFileInfo) ModTime() any      { return i.info.ModTime() }
-func (i osFileInfo) IsDir() bool       { return i.info.IsDir() }
-func (i osFileInfo) Sys() any          { return i.info.Sys() }
+func (i osFileInfo) Name() string       { return i.info.Name() }
+func (i osFileInfo) Size() int64        { return i.info.Size() }
+func (i osFileInfo) Mode() fs.FileMode  { return i.info.Mode() }
+func (i osFileInfo) ModTime() time.Time { return i.info.ModTime() }
+func (i osFileInfo) IsDir() bool        { return i.info.IsDir() }
+func (i osFileInfo) Sys() any           { return i.info.Sys() }
 
 // DirEntry adapters
 

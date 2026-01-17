@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"os"
+	"time"
 )
 
 // FS defines the filesystem abstraction interface.
@@ -30,11 +31,12 @@ type FS interface {
 }
 
 // FileInfo provides information about a file.
+// This interface matches the standard library fs.FileInfo interface.
 type FileInfo interface {
 	Name() string
 	Size() int64
 	Mode() os.FileMode
-	ModTime() any
+	ModTime() time.Time
 	IsDir() bool
 	Sys() any
 }

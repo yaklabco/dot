@@ -362,12 +362,12 @@ type memFileInfo struct {
 	isDir   bool
 }
 
-func (i *memFileInfo) Name() string      { return i.name }
-func (i *memFileInfo) Size() int64       { return i.size }
-func (i *memFileInfo) Mode() fs.FileMode { return i.mode }
-func (i *memFileInfo) ModTime() any      { return i.modTime }
-func (i *memFileInfo) IsDir() bool       { return i.isDir }
-func (i *memFileInfo) Sys() any          { return nil }
+func (i *memFileInfo) Name() string       { return i.name }
+func (i *memFileInfo) Size() int64        { return i.size }
+func (i *memFileInfo) Mode() fs.FileMode  { return i.mode }
+func (i *memFileInfo) ModTime() time.Time { return i.modTime }
+func (i *memFileInfo) IsDir() bool        { return i.isDir }
+func (i *memFileInfo) Sys() any           { return nil }
 
 // memDirEntry implements domain.DirEntry
 type memDirEntry struct {

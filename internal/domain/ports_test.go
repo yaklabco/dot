@@ -24,6 +24,14 @@ func (m *MockFS) Stat(ctx context.Context, name string) (domain.FileInfo, error)
 	return args.Get(0).(domain.FileInfo), args.Error(1)
 }
 
+func (m *MockFS) Lstat(ctx context.Context, name string) (domain.FileInfo, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(domain.FileInfo), args.Error(1)
+}
+
 func (m *MockFS) ReadDir(ctx context.Context, name string) ([]domain.DirEntry, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
@@ -331,4 +339,33 @@ func TestMockFileInfo(t *testing.T) {
 	assert.Equal(t, int64(100), info.Size())
 	assert.Equal(t, fs.FileMode(0644), info.Mode())
 	assert.False(t, info.IsDir())
+}
+
+// TestFileInfoStdlibCompatibility verifies that domain.FileInfo is compatible
+// with the standard library fs.FileInfo interface signature.
+func TestFileInfoStdlibCompatibility(t *testing.T) {
+	// Create a MockFileInfo that implements domain.FileInfo
+	info := MockFileInfo{
+		name:    "test.txt",
+		size:    100,
+		mode:    0644,
+		modTime: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		isDir:   false,
+	}
+
+	// Verify it implements domain.FileInfo
+	var domainInfo domain.FileInfo = info
+	assert.NotNil(t, domainInfo)
+
+	// Verify it also implements fs.FileInfo (stdlib compatibility)
+	var stdInfo fs.FileInfo = info
+	assert.NotNil(t, stdInfo)
+
+	// Verify ModTime returns time.Time (not any)
+	modTime := domainInfo.ModTime()
+	assert.Equal(t, time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC), modTime)
+
+	// Verify the stdlib interface works the same way
+	stdModTime := stdInfo.ModTime()
+	assert.Equal(t, modTime, stdModTime)
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/yaklabco/dot/internal/domain"
 	"github.com/yaklabco/dot/pkg/dot"
@@ -182,16 +181,12 @@ func createCandidate(name, fullPath, targetDir string, info domain.FileInfo, isD
 // createCandidateWithSize creates a DotfileCandidate with a specific size.
 func createCandidateWithSize(name, fullPath, targetDir string, info domain.FileInfo, isDir bool, actualSize int64) DotfileCandidate {
 	relPath := strings.TrimPrefix(fullPath, targetDir+string(filepath.Separator))
-	modTime, ok := info.ModTime().(time.Time)
-	if !ok {
-		modTime = time.Time{} // Zero time if assertion fails
-	}
 
 	candidate := DotfileCandidate{
 		Path:    fullPath,
 		RelPath: relPath,
 		Size:    actualSize,
-		ModTime: modTime,
+		ModTime: info.ModTime(),
 		IsDir:   isDir,
 	}
 
