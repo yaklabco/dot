@@ -2,6 +2,8 @@ package dot
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"runtime"
 )
@@ -73,6 +75,14 @@ type Config struct {
 	// InteractiveLargeFiles enables prompting for large files in TTY mode.
 	// Default: true
 	InteractiveLargeFiles bool
+
+	// Stdin is the input reader for interactive prompts.
+	// Defaults to os.Stdin if nil.
+	Stdin io.Reader
+
+	// Stdout is the output writer for interactive prompts.
+	// Defaults to os.Stdout if nil.
+	Stdout io.Writer
 
 	// Infrastructure dependencies (required)
 	FS      FS
@@ -152,4 +162,20 @@ func (c Config) WithDefaults() Config {
 	// the caller should set this explicitly. For WithDefaults, we don't override.
 
 	return cfg
+}
+
+// GetStdin returns the configured stdin or os.Stdin.
+func (c *Config) GetStdin() io.Reader {
+	if c.Stdin != nil {
+		return c.Stdin
+	}
+	return os.Stdin
+}
+
+// GetStdout returns the configured stdout or os.Stdout.
+func (c *Config) GetStdout() io.Writer {
+	if c.Stdout != nil {
+		return c.Stdout
+	}
+	return os.Stdout
 }

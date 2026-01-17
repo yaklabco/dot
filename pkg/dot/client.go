@@ -126,7 +126,7 @@ func NewClient(cfg Config) (*Client, error) {
 
 	// Create git cloner and package selector for clone service
 	gitCloner := adapters.NewGoGitCloner()
-	packageSelector := selector.NewInteractiveSelector(os.Stdin, os.Stdout)
+	packageSelector := selector.NewInteractiveSelector(cfg.GetStdin(), cfg.GetStdout())
 	cloneSvc := newCloneService(cfg.FS, cfg.Logger, manageSvc, gitCloner, packageSelector, cfg.PackageDir, cfg.TargetDir, cfg.DryRun)
 
 	// Create bootstrap service
