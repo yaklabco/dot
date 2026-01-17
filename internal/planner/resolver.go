@@ -245,7 +245,20 @@ func detectLinkCreateConflicts(op domain.LinkCreate, current CurrentState) Resol
 			}
 		}
 		// Symlink exists but points elsewhere
-		targetFilePath := domain.NewFilePath(op.Target.String()).Unwrap()
+		targetFilePathResult := domain.NewFilePath(op.Target.String())
+		if targetFilePathResult.IsErr() {
+			// If we cannot create a FilePath, return a generic conflict
+			conflict := NewConflict(
+				ConflictWrongLink,
+				domain.FilePath{}, // Empty path as fallback
+				fmt.Sprintf("Symlink points to %s, expected %s (invalid path: %v)", link.Target, op.Source.String(), targetFilePathResult.UnwrapErr()),
+			)
+			return ResolutionOutcome{
+				Status:   ResolveConflict,
+				Conflict: &conflict,
+			}
+		}
+		targetFilePath := targetFilePathResult.Unwrap()
 		conflict := NewConflict(
 			ConflictWrongLink,
 			targetFilePath,
@@ -259,7 +272,20 @@ func detectLinkCreateConflicts(op domain.LinkCreate, current CurrentState) Resol
 
 	// Check if regular file exists at target
 	if fileInfo, exists := current.Files[targetKey]; exists {
-		targetFilePath := domain.NewFilePath(op.Target.String()).Unwrap()
+		targetFilePathResult := domain.NewFilePath(op.Target.String())
+		if targetFilePathResult.IsErr() {
+			// If we cannot create a FilePath, return a generic conflict
+			conflict := NewConflict(
+				ConflictFileExists,
+				domain.FilePath{}, // Empty path as fallback
+				fmt.Sprintf("File exists at target (size=%d, invalid path: %v)", fileInfo.Size, targetFilePathResult.UnwrapErr()),
+			)
+			return ResolutionOutcome{
+				Status:   ResolveConflict,
+				Conflict: &conflict,
+			}
+		}
+		targetFilePath := targetFilePathResult.Unwrap()
 		conflict := NewConflict(
 			ConflictFileExists,
 			targetFilePath,

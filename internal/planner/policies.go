@@ -93,7 +93,12 @@ func applyBackupPolicy(
 
 	// Generate backup path: <backupDir>/<filename>.<timestamp>
 	backupPath := filepath.Join(backupDir, fmt.Sprintf("%s.%s", filename, timestamp))
-	backupFilePath := domain.NewFilePath(backupPath).Unwrap()
+	backupFilePathResult := domain.NewFilePath(backupPath)
+	if backupFilePathResult.IsErr() {
+		// If backup path is invalid, fall back to fail policy
+		return applyFailPolicy(conflict)
+	}
+	backupFilePath := backupFilePathResult.Unwrap()
 
 	// Create operations:
 	// 1. FileBackup: backs up the conflicting file

@@ -144,7 +144,11 @@ func addParentDirs(path domain.TargetPath, target domain.TargetPath, state *Desi
 		// Add directory spec if not already present
 		if _, exists := state.Dirs[parentStr]; !exists {
 			// Convert TargetPath to FilePath for DirSpec storage
-			dirPath := domain.NewFilePath(parentStr).Unwrap()
+			dirPathResult := domain.NewFilePath(parentStr)
+			if dirPathResult.IsErr() {
+				return fmt.Errorf("invalid path %s: %w", parentStr, dirPathResult.UnwrapErr())
+			}
+			dirPath := dirPathResult.Unwrap()
 			state.Dirs[parentStr] = DirSpec{Path: dirPath}
 		}
 
