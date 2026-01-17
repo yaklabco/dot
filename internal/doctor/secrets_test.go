@@ -31,7 +31,7 @@ func TestDefaultSensitivePatterns(t *testing.T) {
 			break
 		}
 	}
-	assert.Equal(t, "critical", sshPattern.Severity)
+	assert.Equal(t, doctor.SeverityCritical, sshPattern.Severity)
 	assert.NotEmpty(t, sshPattern.Patterns)
 }
 
@@ -192,22 +192,41 @@ func TestDetectSecretsWithTargets(t *testing.T) {
 	}
 }
 
-func TestGetSeverityLevel(t *testing.T) {
+func TestSeverityLevelString(t *testing.T) {
 	tests := []struct {
-		severity string
-		expected int
+		severity doctor.SeverityLevel
+		expected string
 	}{
-		{"critical", 3},
-		{"high", 2},
-		{"medium", 1},
-		{"low", 0},
-		{"unknown", 0},
-		{"", 0},
+		{doctor.SeverityLow, "low"},
+		{doctor.SeverityMedium, "medium"},
+		{doctor.SeverityHigh, "high"},
+		{doctor.SeverityCritical, "critical"},
+		{doctor.SeverityLevel(99), "unknown"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.severity, func(t *testing.T) {
-			level := doctor.GetSeverityLevel(tt.severity)
+		t.Run(tt.expected, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.severity.String())
+		})
+	}
+}
+
+func TestParseSeverityLevel(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected doctor.SeverityLevel
+	}{
+		{"critical", doctor.SeverityCritical},
+		{"high", doctor.SeverityHigh},
+		{"medium", doctor.SeverityMedium},
+		{"low", doctor.SeverityLow},
+		{"unknown", doctor.SeverityLow},
+		{"", doctor.SeverityLow},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			level := doctor.ParseSeverityLevel(tt.input)
 			assert.Equal(t, tt.expected, level)
 		})
 	}
@@ -215,9 +234,9 @@ func TestGetSeverityLevel(t *testing.T) {
 
 func TestFilterBySeverity(t *testing.T) {
 	patterns := []doctor.SensitivePattern{
-		{Name: "critical-pattern", Severity: "critical"},
-		{Name: "high-pattern", Severity: "high"},
-		{Name: "medium-pattern", Severity: "medium"},
+		{Name: "critical-pattern", Severity: doctor.SeverityCritical},
+		{Name: "high-pattern", Severity: doctor.SeverityHigh},
+		{Name: "medium-pattern", Severity: doctor.SeverityMedium},
 	}
 
 	detections := []doctor.SecretDetection{
@@ -228,31 +247,31 @@ func TestFilterBySeverity(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		minSeverity   string
+		minSeverity   doctor.SeverityLevel
 		expectedCount int
 		expectedNames []string
 	}{
 		{
 			name:          "filter critical only",
-			minSeverity:   "critical",
+			minSeverity:   doctor.SeverityCritical,
 			expectedCount: 1,
 			expectedNames: []string{"critical-pattern"},
 		},
 		{
 			name:          "filter high and above",
-			minSeverity:   "high",
+			minSeverity:   doctor.SeverityHigh,
 			expectedCount: 2,
 			expectedNames: []string{"critical-pattern", "high-pattern"},
 		},
 		{
 			name:          "filter medium and above",
-			minSeverity:   "medium",
+			minSeverity:   doctor.SeverityMedium,
 			expectedCount: 3,
 			expectedNames: []string{"critical-pattern", "high-pattern", "medium-pattern"},
 		},
 		{
 			name:          "filter low (all)",
-			minSeverity:   "low",
+			minSeverity:   doctor.SeverityLow,
 			expectedCount: 3,
 		},
 	}

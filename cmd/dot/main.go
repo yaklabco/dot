@@ -43,6 +43,10 @@ func run() int {
 	cleanup := setupProfiling()
 	defer cleanup()
 
+	// Create a result holder for doctor command exit code determination
+	doctorResult := &DoctorResultHolder{}
+	ctx = WithDoctorResultHolder(ctx, doctorResult)
+
 	rootCmd := NewRootCommand(version, commit, date)
 
 	// Execute command with fang for enhanced output
@@ -52,8 +56,8 @@ func run() int {
 	}
 
 	// Check for doctor command result (exit codes based on health status)
-	if status, ok := GetDoctorResult(); ok {
-		return DoctorExitCode(status)
+	if doctorResult.Executed {
+		return DoctorExitCode(doctorResult.Status)
 	}
 
 	return 0

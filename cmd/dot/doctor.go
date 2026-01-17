@@ -16,39 +16,6 @@ import (
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
-// doctorResult holds the result of the doctor command execution.
-// This is used to communicate health status to main without relying on error strings.
-type doctorResult struct {
-	executed bool
-	status   dot.HealthStatus
-}
-
-// lastDoctorResult stores the result of the most recent doctor command execution.
-// This is set by the doctor command and read by main.go for exit code determination.
-var lastDoctorResult doctorResult
-
-// setDoctorResult stores the doctor command result for exit code determination.
-func setDoctorResult(status dot.HealthStatus) {
-	lastDoctorResult = doctorResult{
-		executed: true,
-		status:   status,
-	}
-}
-
-// GetDoctorResult returns the last doctor result if doctor was executed.
-// Returns (status, true) if doctor was executed, or (HealthOK, false) otherwise.
-func GetDoctorResult() (dot.HealthStatus, bool) {
-	if lastDoctorResult.executed {
-		return lastDoctorResult.status, true
-	}
-	return dot.HealthOK, false
-}
-
-// ResetDoctorResult clears the doctor result state (for testing).
-func ResetDoctorResult() {
-	lastDoctorResult = doctorResult{}
-}
-
 // DoctorExitCode returns the exit code for a given health status.
 func DoctorExitCode(status dot.HealthStatus) int {
 	switch status {
@@ -150,10 +117,13 @@ func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags d
 	}
 }
 
-// storeDoctorStatus stores the health status for exit code determination.
-// This replaces the previous error-based approach with structured status propagation.
-func storeDoctorStatus(report dot.DiagnosticReport) {
-	setDoctorResult(report.OverallHealth)
+// storeDoctorStatus stores the health status in the context for exit code determination.
+// The result is stored in the DoctorResultHolder from the context.
+func storeDoctorStatus(cmd *cobra.Command, report dot.DiagnosticReport) {
+	if holder := DoctorResultHolderFromContext(cmd.Context()); holder != nil {
+		holder.Executed = true
+		holder.Status = report.OverallHealth
+	}
 }
 
 // newDoctorCommand creates the doctor command with configuration from global flags.
@@ -199,7 +169,7 @@ func newDoctorCommand() *cobra.Command {
 		}
 
 		// Store health status for exit code determination (no error for warnings/errors)
-		storeDoctorStatus(report)
+		storeDoctorStatus(cmd, report)
 		return nil
 	}
 

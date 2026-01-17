@@ -5,12 +5,59 @@ import (
 	"strings"
 )
 
+// SeverityLevel represents the severity of a detected secret or sensitive file.
+type SeverityLevel int
+
+const (
+	// SeverityLow indicates minimal risk.
+	SeverityLow SeverityLevel = iota
+	// SeverityMedium indicates moderate risk requiring attention.
+	SeverityMedium
+	// SeverityHigh indicates significant risk requiring prompt action.
+	SeverityHigh
+	// SeverityCritical indicates critical risk requiring immediate action.
+	SeverityCritical
+)
+
+// String returns the string representation of the severity level.
+func (s SeverityLevel) String() string {
+	switch s {
+	case SeverityLow:
+		return "low"
+	case SeverityMedium:
+		return "medium"
+	case SeverityHigh:
+		return "high"
+	case SeverityCritical:
+		return "critical"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseSeverityLevel converts a severity string to a SeverityLevel.
+// Returns SeverityLow for unrecognized strings.
+func ParseSeverityLevel(severity string) SeverityLevel {
+	switch severity {
+	case "critical":
+		return SeverityCritical
+	case "high":
+		return SeverityHigh
+	case "medium":
+		return SeverityMedium
+	case "low":
+		return SeverityLow
+	default:
+		return SeverityLow
+	}
+}
+
 // SensitivePattern defines patterns that indicate potential secrets.
 type SensitivePattern struct {
 	Name        string
 	Description string
 	Patterns    []string
-	Severity    string // "critical", "high", "medium"
+	Severity    SeverityLevel
 }
 
 // SecretDetection represents a detected potential secret.
@@ -38,7 +85,7 @@ func DefaultSensitivePatterns() []SensitivePattern {
 				"*/.ssh/*_ed25519",
 				"*/ssh/*_ed25519", // Without dot prefix
 			},
-			Severity: "critical",
+			Severity: SeverityCritical,
 		},
 		{
 			Name:        "gpg-keys",
@@ -49,7 +96,7 @@ func DefaultSensitivePatterns() []SensitivePattern {
 				"*/gnupg/*", // Without dot prefix
 				"*/gnupg",   // Without dot prefix
 			},
-			Severity: "critical",
+			Severity: SeverityCritical,
 		},
 		{
 			Name:        "credentials",
@@ -59,7 +106,7 @@ func DefaultSensitivePatterns() []SensitivePattern {
 				"*/.docker/config.json",
 				"*/secrets.*",
 			},
-			Severity: "high",
+			Severity: SeverityHigh,
 		},
 		{
 			Name:        "environment",
@@ -68,7 +115,7 @@ func DefaultSensitivePatterns() []SensitivePattern {
 				"*/.env",
 				"*/.env.*",
 			},
-			Severity: "high",
+			Severity: SeverityHigh,
 		},
 	}
 }
@@ -192,28 +239,12 @@ func pathContainsSegment(path, segment string) bool {
 	return strings.Contains(path, segment)
 }
 
-// GetSeverityLevel converts severity string to numeric level for comparison.
-// Higher numbers indicate more severe issues.
-func GetSeverityLevel(severity string) int {
-	switch severity {
-	case "critical":
-		return 3
-	case "high":
-		return 2
-	case "medium":
-		return 1
-	default:
-		return 0
-	}
-}
-
 // FilterBySeverity filters detections by minimum severity level.
-func FilterBySeverity(detections []SecretDetection, minSeverity string) []SecretDetection {
-	minLevel := GetSeverityLevel(minSeverity)
+func FilterBySeverity(detections []SecretDetection, minSeverity SeverityLevel) []SecretDetection {
 	filtered := make([]SecretDetection, 0)
 
 	for _, detection := range detections {
-		if GetSeverityLevel(detection.Pattern.Severity) >= minLevel {
+		if detection.Pattern.Severity >= minSeverity {
 			filtered = append(filtered, detection)
 		}
 	}

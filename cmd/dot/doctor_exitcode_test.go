@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,30 +39,46 @@ func TestDoctorExitCode(t *testing.T) {
 	}
 }
 
-func TestDoctorResultState(t *testing.T) {
-	// Reset state before test
-	ResetDoctorResult()
-
+func TestDoctorResultHolder(t *testing.T) {
 	t.Run("not executed returns false", func(t *testing.T) {
-		ResetDoctorResult()
-		_, ok := GetDoctorResult()
-		assert.False(t, ok, "should return false when doctor was not executed")
+		holder := &DoctorResultHolder{}
+		assert.False(t, holder.Executed, "should be false when not executed")
 	})
 
-	t.Run("executed returns true with status", func(t *testing.T) {
-		ResetDoctorResult()
-		setDoctorResult(dot.HealthWarnings)
-
-		status, ok := GetDoctorResult()
-		assert.True(t, ok, "should return true when doctor was executed")
-		assert.Equal(t, dot.HealthWarnings, status)
+	t.Run("executed has correct status", func(t *testing.T) {
+		holder := &DoctorResultHolder{
+			Executed: true,
+			Status:   dot.HealthWarnings,
+		}
+		assert.True(t, holder.Executed, "should be true when executed")
+		assert.Equal(t, dot.HealthWarnings, holder.Status)
 	})
 
-	t.Run("reset clears state", func(t *testing.T) {
-		setDoctorResult(dot.HealthErrors)
-		ResetDoctorResult()
+	t.Run("context storage and retrieval", func(t *testing.T) {
+		holder := &DoctorResultHolder{}
+		ctx := WithDoctorResultHolder(context.Background(), holder)
 
-		_, ok := GetDoctorResult()
-		assert.False(t, ok, "should return false after reset")
+		retrieved := DoctorResultHolderFromContext(ctx)
+		assert.NotNil(t, retrieved, "should retrieve holder from context")
+		assert.Same(t, holder, retrieved, "should be the same instance")
+
+		// Modify through retrieved pointer
+		retrieved.Executed = true
+		retrieved.Status = dot.HealthErrors
+
+		// Original should be modified too
+		assert.True(t, holder.Executed)
+		assert.Equal(t, dot.HealthErrors, holder.Status)
+	})
+
+	t.Run("nil context returns nil", func(t *testing.T) {
+		retrieved := DoctorResultHolderFromContext(nil)
+		assert.Nil(t, retrieved)
+	})
+
+	t.Run("context without holder returns nil", func(t *testing.T) {
+		ctx := context.Background()
+		retrieved := DoctorResultHolderFromContext(ctx)
+		assert.Nil(t, retrieved)
 	})
 }
