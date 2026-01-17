@@ -66,6 +66,12 @@ func (e ErrPackageDirNotEmpty) Unwrap() error {
 	return e.Cause
 }
 
+// Is implements errors.Is for ErrPackageDirNotEmpty.
+func (e ErrPackageDirNotEmpty) Is(target error) bool {
+	_, ok := target.(ErrPackageDirNotEmpty)
+	return ok
+}
+
 // ErrBootstrapNotFound indicates the bootstrap configuration file was not found.
 type ErrBootstrapNotFound struct {
 	Path string
@@ -73,6 +79,12 @@ type ErrBootstrapNotFound struct {
 
 func (e ErrBootstrapNotFound) Error() string {
 	return fmt.Sprintf("bootstrap configuration not found: %s", e.Path)
+}
+
+// Is implements errors.Is for ErrBootstrapNotFound.
+func (e ErrBootstrapNotFound) Is(target error) bool {
+	_, ok := target.(ErrBootstrapNotFound)
+	return ok
 }
 
 // ErrInvalidBootstrap indicates the bootstrap configuration is invalid.
@@ -92,6 +104,12 @@ func (e ErrInvalidBootstrap) Unwrap() error {
 	return e.Cause
 }
 
+// Is implements errors.Is for ErrInvalidBootstrap.
+func (e ErrInvalidBootstrap) Is(target error) bool {
+	_, ok := target.(ErrInvalidBootstrap)
+	return ok
+}
+
 // ErrAuthFailed indicates authentication failure during git clone.
 type ErrAuthFailed struct {
 	Cause error
@@ -103,6 +121,12 @@ func (e ErrAuthFailed) Error() string {
 
 func (e ErrAuthFailed) Unwrap() error {
 	return e.Cause
+}
+
+// Is implements errors.Is for ErrAuthFailed.
+func (e ErrAuthFailed) Is(target error) bool {
+	_, ok := target.(ErrAuthFailed)
+	return ok
 }
 
 // ErrCloneFailed indicates repository cloning failed.
@@ -119,6 +143,12 @@ func (e ErrCloneFailed) Unwrap() error {
 	return e.Cause
 }
 
+// Is implements errors.Is for ErrCloneFailed.
+func (e ErrCloneFailed) Is(target error) bool {
+	_, ok := target.(ErrCloneFailed)
+	return ok
+}
+
 // ErrProfileNotFound indicates the requested profile does not exist.
 type ErrProfileNotFound struct {
 	Profile string
@@ -128,6 +158,12 @@ func (e ErrProfileNotFound) Error() string {
 	return fmt.Sprintf("profile not found: %s", e.Profile)
 }
 
+// Is implements errors.Is for ErrProfileNotFound.
+func (e ErrProfileNotFound) Is(target error) bool {
+	_, ok := target.(ErrProfileNotFound)
+	return ok
+}
+
 // ErrBootstrapExists indicates the bootstrap file already exists.
 type ErrBootstrapExists struct {
 	Path string
@@ -135,6 +171,12 @@ type ErrBootstrapExists struct {
 
 func (e ErrBootstrapExists) Error() string {
 	return fmt.Sprintf("bootstrap file already exists: %s", e.Path)
+}
+
+// Is implements errors.Is for ErrBootstrapExists.
+func (e ErrBootstrapExists) Is(target error) bool {
+	_, ok := target.(ErrBootstrapExists)
+	return ok
 }
 
 // UserFacingError converts an error into a user-friendly message.

@@ -103,6 +103,127 @@ func TestErrorUnwrapping(t *testing.T) {
 	assert.Equal(t, innerErr, unwrapped2)
 }
 
+func TestCloneErrors_SupportsErrorsIs(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		target error
+		want   bool
+	}{
+		// ErrPackageDirNotEmpty
+		{
+			name:   "ErrPackageDirNotEmpty matches sentinel",
+			err:    ErrPackageDirNotEmpty{Path: "/test"},
+			target: ErrPackageDirNotEmpty{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrPackageDirNotEmpty matches",
+			err:    fmt.Errorf("context: %w", ErrPackageDirNotEmpty{Path: "/test"}),
+			target: ErrPackageDirNotEmpty{},
+			want:   true,
+		},
+		// ErrBootstrapNotFound
+		{
+			name:   "ErrBootstrapNotFound matches sentinel",
+			err:    ErrBootstrapNotFound{Path: "/test/.dotbootstrap.yaml"},
+			target: ErrBootstrapNotFound{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrBootstrapNotFound matches",
+			err:    fmt.Errorf("context: %w", ErrBootstrapNotFound{Path: "/test/.dotbootstrap.yaml"}),
+			target: ErrBootstrapNotFound{},
+			want:   true,
+		},
+		// ErrInvalidBootstrap
+		{
+			name:   "ErrInvalidBootstrap matches sentinel",
+			err:    ErrInvalidBootstrap{Reason: "missing field"},
+			target: ErrInvalidBootstrap{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrInvalidBootstrap matches",
+			err:    fmt.Errorf("context: %w", ErrInvalidBootstrap{Reason: "missing field"}),
+			target: ErrInvalidBootstrap{},
+			want:   true,
+		},
+		// ErrAuthFailed
+		{
+			name:   "ErrAuthFailed matches sentinel",
+			err:    ErrAuthFailed{Cause: errors.New("invalid token")},
+			target: ErrAuthFailed{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrAuthFailed matches",
+			err:    fmt.Errorf("context: %w", ErrAuthFailed{Cause: errors.New("invalid token")}),
+			target: ErrAuthFailed{},
+			want:   true,
+		},
+		// ErrCloneFailed
+		{
+			name:   "ErrCloneFailed matches sentinel",
+			err:    ErrCloneFailed{URL: "https://example.com", Cause: errors.New("timeout")},
+			target: ErrCloneFailed{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrCloneFailed matches",
+			err:    fmt.Errorf("context: %w", ErrCloneFailed{URL: "https://example.com", Cause: errors.New("timeout")}),
+			target: ErrCloneFailed{},
+			want:   true,
+		},
+		// ErrProfileNotFound
+		{
+			name:   "ErrProfileNotFound matches sentinel",
+			err:    ErrProfileNotFound{Profile: "test"},
+			target: ErrProfileNotFound{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrProfileNotFound matches",
+			err:    fmt.Errorf("context: %w", ErrProfileNotFound{Profile: "test"}),
+			target: ErrProfileNotFound{},
+			want:   true,
+		},
+		// ErrBootstrapExists
+		{
+			name:   "ErrBootstrapExists matches sentinel",
+			err:    ErrBootstrapExists{Path: "/test/.dotbootstrap.yaml"},
+			target: ErrBootstrapExists{},
+			want:   true,
+		},
+		{
+			name:   "wrapped ErrBootstrapExists matches",
+			err:    fmt.Errorf("context: %w", ErrBootstrapExists{Path: "/test/.dotbootstrap.yaml"}),
+			target: ErrBootstrapExists{},
+			want:   true,
+		},
+		// Cross-type negative cases
+		{
+			name:   "ErrProfileNotFound does not match ErrBootstrapNotFound",
+			err:    ErrProfileNotFound{Profile: "test"},
+			target: ErrBootstrapNotFound{},
+			want:   false,
+		},
+		{
+			name:   "ErrCloneFailed does not match ErrAuthFailed",
+			err:    ErrCloneFailed{URL: "https://example.com"},
+			target: ErrAuthFailed{},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := errors.Is(tt.err, tt.target)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestErrorMessages(t *testing.T) {
 	tests := []struct {
 		name     string
