@@ -93,14 +93,28 @@ func setupProfilingWithFlags(flags *CLIFlags) func() {
 	// pprof HTTP server
 	if flags.pprofAddr != "" {
 		addr := flags.pprofAddr // Capture for closure
+		// #nosec G114 -- pprof server is for diagnostics only, no timeout needed
+		pprofServer := &http.Server{
+			Addr:              addr,
+			ReadHeaderTimeout: 10 * time.Second, // Prevent Slowloris attacks
+		}
 		go func() {
 			slog.Info("starting pprof server", "addr", addr)
 			// The pprof handlers are automatically registered via the import
-			// #nosec G114 -- pprof server is for diagnostics only, no timeout needed
-			if err := http.ListenAndServe(addr, nil); err != nil {
+			if err := pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				slog.Error("pprof server failed", "error", err)
 			}
 		}()
+		cleanupFuncs = append(cleanupFuncs, func() {
+			slog.Info("shutting down pprof server")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := pprofServer.Shutdown(ctx); err != nil {
+				slog.Error("pprof server shutdown failed", "error", err)
+			} else {
+				slog.Info("pprof server stopped")
+			}
+		})
 	}
 
 	// Memory profile (written on exit)

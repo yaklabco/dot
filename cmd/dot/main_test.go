@@ -151,4 +151,39 @@ func TestSetupProfiling(t *testing.T) {
 		_, err := os.Stat(memFile)
 		assert.NoError(t, err, "memory profile file should exist")
 	})
+
+	t.Run("starts and gracefully shuts down pprof server", func(t *testing.T) {
+		// Use a random available port
+		flags := &CLIFlags{
+			pprofAddr: "localhost:0", // Port 0 lets OS assign available port
+		}
+
+		// Note: With port 0, we can't easily verify the server started,
+		// but we use a fixed high port to test the shutdown path
+		flags.pprofAddr = "localhost:56789"
+
+		cleanup := setupProfilingWithFlags(flags)
+		require.NotNil(t, cleanup)
+
+		// Give the server time to start
+		time.Sleep(50 * time.Millisecond)
+
+		// Cleanup should gracefully shutdown the server without panic
+		cleanup()
+	})
+
+	t.Run("handles pprof server on invalid address gracefully", func(t *testing.T) {
+		flags := &CLIFlags{
+			pprofAddr: "invalid-address-that-cannot-bind:99999",
+		}
+
+		cleanup := setupProfilingWithFlags(flags)
+		require.NotNil(t, cleanup)
+
+		// Give time for error to occur
+		time.Sleep(50 * time.Millisecond)
+
+		// Cleanup should not panic even if server failed to start
+		cleanup()
+	})
 }
