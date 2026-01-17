@@ -18,9 +18,18 @@ func (g *DependencyGraph) ParallelizationPlan() [][]domain.Operation {
 		return nil
 	}
 
-	// Compute level for each operation
-	levels := make(map[int][]domain.Operation)
+	// Compute level for each operation using a slice for contiguous levels
+	var levels [][]domain.Operation
 	opLevels := make(map[domain.Operation]int, len(g.ops))
+
+	// appendToLevel adds an operation to the specified level, growing the slice if needed
+	appendToLevel := func(level int, op domain.Operation) {
+		// Grow slice if needed
+		for len(levels) <= level {
+			levels = append(levels, nil)
+		}
+		levels[level] = append(levels[level], op)
+	}
 
 	// computeLevel recursively computes the level of an operation with memoization
 	var computeLevel func(domain.Operation) int
@@ -35,7 +44,7 @@ func (g *DependencyGraph) ParallelizationPlan() [][]domain.Operation {
 		if len(deps) == 0 {
 			// No dependencies = level 0
 			opLevels[op] = 0
-			levels[0] = append(levels[0], op)
+			appendToLevel(0, op)
 			return 0
 		}
 
@@ -50,7 +59,7 @@ func (g *DependencyGraph) ParallelizationPlan() [][]domain.Operation {
 
 		level := maxDepLevel + 1
 		opLevels[op] = level
-		levels[level] = append(levels[level], op)
+		appendToLevel(level, op)
 		return level
 	}
 
@@ -59,26 +68,5 @@ func (g *DependencyGraph) ParallelizationPlan() [][]domain.Operation {
 		computeLevel(op)
 	}
 
-	// Convert level map to ordered slice of batches
-	if len(levels) == 0 {
-		return nil
-	}
-
-	// Find max level
-	maxLevel := 0
-	for level := range levels {
-		if level > maxLevel {
-			maxLevel = level
-		}
-	}
-
-	// Build batches in order
-	batches := make([][]domain.Operation, maxLevel+1)
-	for level := 0; level <= maxLevel; level++ {
-		if ops, exists := levels[level]; exists {
-			batches[level] = ops
-		}
-	}
-
-	return batches
+	return levels
 }
