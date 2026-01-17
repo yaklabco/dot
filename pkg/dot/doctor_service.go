@@ -92,7 +92,7 @@ func (s *DoctorService) DoctorWithMode(ctx context.Context, mode DiagnosticMode,
 	newTargetPath := &doctorTargetPathCreatorAdapter{}
 
 	// Adapter for ManifestLoader interface
-	manifestLoader := &manifestLoaderAdapter{svc: s.manifestSvc, targetDir: s.targetDir}
+	manifestLoader := &manifestLoaderAdapter{svc: s.manifestSvc}
 
 	// Adapter for LinkHealthChecker interface
 	healthChecker := &linkHealthCheckerAdapter{checker: s.healthChecker}
@@ -121,11 +121,17 @@ func (s *DoctorService) DoctorWithMode(ctx context.Context, mode DiagnosticMode,
 	if mode == DiagnosticDeep {
 		// 3. Orphan Check (only if not disabled)
 		if scanCfg.Mode != ScanOff {
-			engine.RegisterCheck(doctor.NewOrphanCheck(fsAdapter, manifestLoader, s.targetDir, doctorScanCfg, newTargetPath))
+			engine.RegisterCheck(doctor.NewOrphanCheck(
+				doctor.WithFS(fsAdapter),
+				doctor.WithManifestLoader(manifestLoader),
+				doctor.WithTargetDir(s.targetDir),
+				doctor.WithScanConfig(doctorScanCfg),
+				doctor.WithTargetPathCreator(newTargetPath),
+			))
 		}
 
 		// 4. Platform Compatibility Check
-		engine.RegisterCheck(doctor.NewPlatformCheck(fsAdapter, manifestLoader, s.packageDir))
+		engine.RegisterCheck(doctor.NewPlatformCheck(fsAdapter, manifestLoader, s.packageDir, s.targetDir, newTargetPath))
 	}
 
 	// Execute checks with parallel execution for performance
@@ -336,27 +342,11 @@ func (s *DoctorService) loadManifestOrCreateDefault(ctx context.Context, targetP
 
 // manifestLoaderAdapter adapts ManifestService to doctor.ManifestLoader interface.
 type manifestLoaderAdapter struct {
-	svc       *ManifestService
-	targetDir string
+	svc *ManifestService
 }
 
 func (a *manifestLoaderAdapter) Load(ctx context.Context, targetPath domain.TargetPath) domain.Result[manifest.Manifest] {
 	return a.svc.Load(ctx, targetPath)
-}
-
-func (a *manifestLoaderAdapter) LoadManifest(ctx context.Context) (*manifest.Manifest, error) {
-	targetPathResult := NewTargetPath(a.targetDir)
-	if !targetPathResult.IsOk() {
-		return nil, fmt.Errorf("failed to create target path: %w", targetPathResult.UnwrapErr())
-	}
-	targetPath := targetPathResult.Unwrap()
-
-	manifestResult := a.svc.Load(ctx, targetPath)
-	if manifestResult.IsOk() {
-		m := manifestResult.Unwrap()
-		return &m, nil
-	}
-	return nil, fmt.Errorf("failed to load manifest: %w", manifestResult.UnwrapErr())
 }
 
 // linkHealthCheckerAdapter adapts HealthChecker to doctor.LinkHealthChecker interface.

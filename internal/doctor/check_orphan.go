@@ -22,20 +22,45 @@ type OrphanCheck struct {
 	newTargetPath TargetPathCreator
 }
 
-func NewOrphanCheck(
-	fs FS,
-	manifestSvc ManifestLoader,
-	targetDir string,
-	config ScanConfig,
-	newTargetPath TargetPathCreator,
-) *OrphanCheck {
-	return &OrphanCheck{
-		fs:            fs,
-		targetDir:     targetDir,
-		manifestSvc:   manifestSvc,
-		config:        config,
-		newTargetPath: newTargetPath,
+// OrphanCheckOption configures an OrphanCheck instance.
+type OrphanCheckOption func(*OrphanCheck)
+
+// WithFS sets the filesystem abstraction for OrphanCheck.
+func WithFS(fs FS) OrphanCheckOption {
+	return func(c *OrphanCheck) { c.fs = fs }
+}
+
+// WithManifestLoader sets the manifest loader for OrphanCheck.
+func WithManifestLoader(manifestSvc ManifestLoader) OrphanCheckOption {
+	return func(c *OrphanCheck) { c.manifestSvc = manifestSvc }
+}
+
+// WithTargetDir sets the target directory for OrphanCheck.
+func WithTargetDir(targetDir string) OrphanCheckOption {
+	return func(c *OrphanCheck) { c.targetDir = targetDir }
+}
+
+// WithScanConfig sets the scan configuration for OrphanCheck.
+func WithScanConfig(config ScanConfig) OrphanCheckOption {
+	return func(c *OrphanCheck) { c.config = config }
+}
+
+// WithTargetPathCreator sets the target path creator for OrphanCheck.
+func WithTargetPathCreator(newTargetPath TargetPathCreator) OrphanCheckOption {
+	return func(c *OrphanCheck) { c.newTargetPath = newTargetPath }
+}
+
+// NewOrphanCheck creates a new OrphanCheck with the provided options.
+func NewOrphanCheck(opts ...OrphanCheckOption) *OrphanCheck {
+	c := &OrphanCheck{
+		config: ScanConfig{
+			Mode: ScanScoped,
+		},
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 func (c *OrphanCheck) Name() string {
