@@ -4,6 +4,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -89,7 +90,8 @@ func (e *Executor) Execute(ctx context.Context, plan domain.Plan) domain.Result[
 		// Check if cancellation occurred
 		var isCancelled bool
 		for _, err := range result.Errors {
-			if _, ok := err.(domain.ErrExecutionCancelled); ok {
+			var cancelErr domain.ErrExecutionCancelled
+			if errors.As(err, &cancelErr) {
 				isCancelled = true
 				break
 			}
@@ -109,7 +111,8 @@ func (e *Executor) Execute(ctx context.Context, plan domain.Plan) domain.Result[
 		if isCancelled {
 			// Cancellation error takes precedence
 			for _, err := range result.Errors {
-				if cancelErr, ok := err.(domain.ErrExecutionCancelled); ok {
+				var cancelErr domain.ErrExecutionCancelled
+				if errors.As(err, &cancelErr) {
 					return domain.Err[ExecutionResult](cancelErr)
 				}
 			}
