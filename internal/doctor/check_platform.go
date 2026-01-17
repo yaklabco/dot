@@ -11,17 +11,27 @@ import (
 
 // PlatformCheck validates platform compatibility for packages.
 type PlatformCheck struct {
-	fs          FS
-	manifestSvc ManifestLoader
-	packageDir  string
+	fs            FS
+	manifestSvc   ManifestLoader
+	packageDir    string
+	targetDir     string
+	newTargetPath TargetPathCreator
 }
 
 // NewPlatformCheck creates a new platform compatibility check.
-func NewPlatformCheck(fs FS, manifestSvc ManifestLoader, packageDir string) *PlatformCheck {
+func NewPlatformCheck(
+	fs FS,
+	manifestSvc ManifestLoader,
+	packageDir string,
+	targetDir string,
+	newTargetPath TargetPathCreator,
+) *PlatformCheck {
 	return &PlatformCheck{
-		fs:          fs,
-		manifestSvc: manifestSvc,
-		packageDir:  packageDir,
+		fs:            fs,
+		manifestSvc:   manifestSvc,
+		packageDir:    packageDir,
+		targetDir:     targetDir,
+		newTargetPath: newTargetPath,
 	}
 }
 
@@ -41,12 +51,21 @@ func (c *PlatformCheck) Run(ctx context.Context) (domain.CheckResult, error) {
 		Stats:     make(map[string]any),
 	}
 
-	mf, err := c.manifestSvc.LoadManifest(ctx)
-	if err != nil {
-		return result, fmt.Errorf("failed to load manifest: %w", err)
+	// Construct target path using the TargetPathCreator
+	targetPathResult := c.newTargetPath.NewTargetPath(c.targetDir)
+	if !targetPathResult.IsOk() {
+		return result, targetPathResult.UnwrapErr()
+	}
+	targetPath := targetPathResult.Unwrap()
+
+	// Load manifest using the Result[T] pattern
+	manifestResult := c.manifestSvc.Load(ctx, targetPath)
+	if !manifestResult.IsOk() {
+		return result, fmt.Errorf("failed to load manifest: %w", manifestResult.UnwrapErr())
 	}
 
-	if mf == nil || len(mf.Packages) == 0 {
+	mf := manifestResult.Unwrap()
+	if len(mf.Packages) == 0 {
 		result.Stats["packages_checked"] = 0
 		return result, nil
 	}

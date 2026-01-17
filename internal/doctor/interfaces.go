@@ -24,9 +24,9 @@ type FS interface {
 }
 
 // ManifestLoader defines the interface for loading manifests.
+// It uses the Result[T] pattern for consistent error handling.
 type ManifestLoader interface {
 	Load(ctx context.Context, targetPath domain.TargetPath) domain.Result[manifest.Manifest]
-	LoadManifest(ctx context.Context) (*manifest.Manifest, error)
 }
 
 // LinkHealthChecker defines the interface for checking link health.
