@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -262,11 +261,6 @@ func loadExperimentalFromEnv(v *viper.Viper, cfg *ExperimentalConfig) {
 	if v.IsSet("experimental.profiling") {
 		cfg.Profiling = v.GetBool("experimental.profiling")
 	}
-}
-
-// getEnvWithPrefix gets an environment variable with the given prefix.
-func getEnvWithPrefix(prefix, key string) string {
-	return os.Getenv(prefix + key)
 }
 
 // bindEnvKeys binds all configuration keys to environment variables.
