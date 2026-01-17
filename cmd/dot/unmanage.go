@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
@@ -294,7 +296,7 @@ func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool, 
 	} else {
 		fmt.Printf("%s %s %s\n",
 			colorizer.Success("✓"),
-			strings.Title(operation),
+			cases.Title(language.English).String(operation),
 			packageText,
 		)
 	}

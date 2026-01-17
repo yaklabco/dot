@@ -5,6 +5,9 @@ import (
 	"io"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/yaklabco/dot/internal/cli/render"
 )
 
@@ -26,7 +29,7 @@ func NewFormatter(w io.Writer, colorEnabled bool) *Formatter {
 // Format: "✓ [verb] [count] [item]"
 // Example: "✓ Managed 2 packages"
 func (f *Formatter) Success(verb string, count int, singular, plural string) {
-	verb = strings.Title(verb)
+	verb = cases.Title(language.English).String(verb)
 	itemText := pluralize(count, singular, plural)
 	fmt.Fprintf(f.writer, "%s %s %d %s\n",
 		f.colorizer.Success("✓"),
