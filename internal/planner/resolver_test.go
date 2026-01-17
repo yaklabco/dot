@@ -680,3 +680,95 @@ func TestResolveWithWarnings(t *testing.T) {
 	assert.Empty(t, result.Operations)
 	assert.Empty(t, result.Warnings)
 }
+
+// Task 2.3: Test fluent API methods are immutable
+func TestConflict_WithContext_IsImmutable(t *testing.T) {
+	original := Conflict{
+		Context: map[string]string{"key1": "val1"},
+	}
+
+	modified := original.WithContext("key2", "val2")
+
+	// Original should be unchanged
+	assert.NotContains(t, original.Context, "key2")
+	assert.Contains(t, modified.Context, "key2")
+}
+
+func TestConflict_WithSuggestion_IsImmutable(t *testing.T) {
+	// Create slice with extra capacity to trigger aliasing bug
+	suggestions := make([]Suggestion, 1, 5)
+	suggestions[0] = Suggestion{Action: "first"}
+
+	original := Conflict{
+		Suggestions: suggestions,
+	}
+
+	modified := original.WithSuggestion(Suggestion{Action: "second"})
+	chained := original.WithSuggestion(Suggestion{Action: "third"})
+
+	// Original should be unchanged
+	assert.Len(t, original.Suggestions, 1)
+	assert.Len(t, modified.Suggestions, 2)
+	assert.Len(t, chained.Suggestions, 2)
+
+	// Key test: modified and chained should have independent copies
+	// If they share the underlying array, both will have "third" at index 1
+	// because chained's append overwrote modified's "second"
+	assert.Equal(t, "second", modified.Suggestions[1].Action, "modified should have 'second', not be overwritten by chained")
+	assert.Equal(t, "third", chained.Suggestions[1].Action)
+}
+
+func TestResolveResult_WithConflict_IsImmutable(t *testing.T) {
+	targetPath := domain.NewFilePath("/home/user/.bashrc").Unwrap()
+	conflict1 := NewConflict(ConflictFileExists, targetPath, "First conflict")
+
+	// Create slice with extra capacity to trigger aliasing bug
+	conflicts := make([]Conflict, 1, 5)
+	conflicts[0] = conflict1
+
+	original := ResolveResult{
+		Conflicts: conflicts,
+	}
+
+	conflict2 := NewConflict(ConflictWrongLink, targetPath, "Second conflict")
+	conflict3 := NewConflict(ConflictPermission, targetPath, "Third conflict")
+
+	modified := original.WithConflict(conflict2)
+	chained := original.WithConflict(conflict3)
+
+	// Original should be unchanged
+	assert.Len(t, original.Conflicts, 1)
+	assert.Len(t, modified.Conflicts, 2)
+	assert.Len(t, chained.Conflicts, 2)
+
+	// Key test: modified and chained should have independent copies
+	assert.Equal(t, ConflictWrongLink, modified.Conflicts[1].Type, "modified should have ConflictWrongLink, not be overwritten by chained")
+	assert.Equal(t, ConflictPermission, chained.Conflicts[1].Type)
+}
+
+func TestResolveResult_WithWarning_IsImmutable(t *testing.T) {
+	warning1 := Warning{Message: "First warning"}
+
+	// Create slice with extra capacity to trigger aliasing bug
+	warnings := make([]Warning, 1, 5)
+	warnings[0] = warning1
+
+	original := ResolveResult{
+		Warnings: warnings,
+	}
+
+	warning2 := Warning{Message: "Second warning"}
+	warning3 := Warning{Message: "Third warning"}
+
+	modified := original.WithWarning(warning2)
+	chained := original.WithWarning(warning3)
+
+	// Original should be unchanged
+	assert.Len(t, original.Warnings, 1)
+	assert.Len(t, modified.Warnings, 2)
+	assert.Len(t, chained.Warnings, 2)
+
+	// Key test: modified and chained should have independent copies
+	assert.Equal(t, "Second warning", modified.Warnings[1].Message, "modified should have 'Second warning', not be overwritten by chained")
+	assert.Equal(t, "Third warning", chained.Warnings[1].Message)
+}

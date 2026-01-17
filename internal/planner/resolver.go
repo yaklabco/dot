@@ -73,13 +73,21 @@ func NewConflict(ct ConflictType, path domain.FilePath, details string) Conflict
 
 // WithContext adds a context key-value pair to the conflict
 func (c Conflict) WithContext(key, value string) Conflict {
-	c.Context[key] = value
+	newContext := make(map[string]string, len(c.Context)+1)
+	for k, v := range c.Context {
+		newContext[k] = v
+	}
+	newContext[key] = value
+	c.Context = newContext
 	return c
 }
 
 // WithSuggestion adds a suggestion to the conflict
 func (c Conflict) WithSuggestion(s Suggestion) Conflict {
-	c.Suggestions = append(c.Suggestions, s)
+	newSuggestions := make([]Suggestion, len(c.Suggestions)+1)
+	copy(newSuggestions, c.Suggestions)
+	newSuggestions[len(c.Suggestions)] = s
+	c.Suggestions = newSuggestions
 	return c
 }
 
@@ -175,13 +183,19 @@ func NewResolveResult(ops []domain.Operation) ResolveResult {
 
 // WithConflict adds a conflict to the result
 func (r ResolveResult) WithConflict(c Conflict) ResolveResult {
-	r.Conflicts = append(r.Conflicts, c)
+	newConflicts := make([]Conflict, len(r.Conflicts)+1)
+	copy(newConflicts, r.Conflicts)
+	newConflicts[len(r.Conflicts)] = c
+	r.Conflicts = newConflicts
 	return r
 }
 
 // WithWarning adds a warning to the result
 func (r ResolveResult) WithWarning(w Warning) ResolveResult {
-	r.Warnings = append(r.Warnings, w)
+	newWarnings := make([]Warning, len(r.Warnings)+1)
+	copy(newWarnings, r.Warnings)
+	newWarnings[len(r.Warnings)] = w
+	r.Warnings = newWarnings
 	return r
 }
 
