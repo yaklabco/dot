@@ -10,11 +10,11 @@ import (
 
 // Validator checks manifest consistency with filesystem
 type Validator struct {
-	fs domain.FS
+	fs domain.FSReader
 }
 
 // NewValidator creates a new manifest validator
-func NewValidator(fs domain.FS) *Validator {
+func NewValidator(fs domain.FSReader) *Validator {
 	return &Validator{fs: fs}
 }
 

@@ -26,7 +26,7 @@ func (e ErrFileTooLarge) Error() string {
 // ScanTreeWithConfig recursively scans a filesystem tree with size filtering.
 // Returns a Node representing the tree structure.
 // Files exceeding maxSize are handled by the prompter (if provided).
-func ScanTreeWithConfig(ctx context.Context, fs domain.FS, path domain.FilePath, maxSize int64, prompter LargeFilePrompter) domain.Result[domain.Node] {
+func ScanTreeWithConfig(ctx context.Context, fs domain.FSReader, path domain.FilePath, maxSize int64, prompter LargeFilePrompter) domain.Result[domain.Node] {
 	// Check for symlinks first (symlinks are always leaves)
 	isLink, err := fs.IsSymlink(ctx, path.String())
 	if err != nil {
@@ -120,7 +120,7 @@ func ScanTreeWithConfig(ctx context.Context, fs domain.FS, path domain.FilePath,
 // 4. If file, return file node
 //
 // This is a pure function - all I/O goes through the FS interface.
-func ScanTree(ctx context.Context, fs domain.FS, path domain.FilePath) domain.Result[domain.Node] {
+func ScanTree(ctx context.Context, fs domain.FSReader, path domain.FilePath) domain.Result[domain.Node] {
 	// Check for symlinks first (symlinks are always leaves)
 	isLink, err := fs.IsSymlink(ctx, path.String())
 	if err != nil {

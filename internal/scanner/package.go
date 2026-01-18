@@ -28,7 +28,7 @@ type ScanConfig struct {
 // 2. Scans the directory tree
 // 3. Applies ignore patterns (filtered during tree scan)
 // 4. Returns Package with tree
-func ScanPackage(ctx context.Context, fs domain.FS, path domain.PackagePath, name string, ignoreSet *ignore.IgnoreSet) domain.Result[domain.Package] {
+func ScanPackage(ctx context.Context, fs domain.FSReader, path domain.PackagePath, name string, ignoreSet *ignore.IgnoreSet) domain.Result[domain.Package] {
 	// Check if package exists
 	if !fs.Exists(ctx, path.String()) {
 		return domain.Err[domain.Package](domain.ErrPackageNotFound{
@@ -57,7 +57,7 @@ func ScanPackage(ctx context.Context, fs domain.FS, path domain.PackagePath, nam
 
 // ScanPackageWithConfig scans a package with enhanced configuration options.
 // Supports per-package .dotignore files, size filtering, and interactive prompts.
-func ScanPackageWithConfig(ctx context.Context, fs domain.FS, path domain.PackagePath, name string, globalIgnoreSet *ignore.IgnoreSet, cfg ScanConfig) domain.Result[domain.Package] {
+func ScanPackageWithConfig(ctx context.Context, fs domain.FSReader, path domain.PackagePath, name string, globalIgnoreSet *ignore.IgnoreSet, cfg ScanConfig) domain.Result[domain.Package] {
 	// Check if package exists
 	if !fs.Exists(ctx, path.String()) {
 		return domain.Err[domain.Package](domain.ErrPackageNotFound{

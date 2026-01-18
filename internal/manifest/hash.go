@@ -13,11 +13,11 @@ import (
 
 // ContentHasher computes content hashes for packages
 type ContentHasher struct {
-	fs domain.FS
+	fs domain.FSReader
 }
 
 // NewContentHasher creates a new content hasher
-func NewContentHasher(fs domain.FS) *ContentHasher {
+func NewContentHasher(fs domain.FSReader) *ContentHasher {
 	return &ContentHasher{fs: fs}
 }
 

@@ -12,7 +12,7 @@ import (
 // LoadDotignoreFile loads patterns from a .dotignore file.
 // Returns nil patterns (no error) if the file does not exist.
 // Empty lines and lines starting with # are treated as comments and skipped.
-func LoadDotignoreFile(ctx context.Context, fs domain.FS, path string) ([]string, error) {
+func LoadDotignoreFile(ctx context.Context, fs domain.FSReader, path string) ([]string, error) {
 	// File not existing is acceptable
 	if !fs.Exists(ctx, path) {
 		return nil, nil
@@ -59,7 +59,7 @@ func LoadDotignoreFile(ctx context.Context, fs domain.FS, path string) ([]string
 //  1. /packages/vim/colors/.dotignore (highest priority)
 //  2. /packages/vim/.dotignore
 //  3. /packages/.dotignore (lowest priority, assuming rootPath=/packages)
-func LoadDotignoreWithInheritance(ctx context.Context, fs domain.FS, startPath, rootPath string) ([]string, error) {
+func LoadDotignoreWithInheritance(ctx context.Context, fs domain.FSReader, startPath, rootPath string) ([]string, error) {
 	var allPatterns []string
 	currentPath := startPath
 

@@ -13,7 +13,7 @@ import (
 // scanCurrentState scans only the specific paths relevant to the desired state.
 // This is vastly more efficient than recursively scanning the entire target directory,
 // especially when the target is a home directory with large subdirectories like node_modules.
-func scanCurrentState(ctx context.Context, fs domain.FS, desired planner.DesiredState) planner.CurrentState {
+func scanCurrentState(ctx context.Context, fs domain.FSReader, desired planner.DesiredState) planner.CurrentState {
 	current := planner.CurrentState{
 		Files: make(map[string]planner.FileInfo),
 		Links: make(map[string]planner.LinkTarget),
