@@ -11,7 +11,7 @@ import (
 
 // ConflictCheck detects filesystem conflicts before operations.
 type ConflictCheck struct {
-	fs        FS
+	fs        FSReader
 	targetDir string
 	// Packages to check. If empty, check all.
 	packages []string
@@ -19,7 +19,7 @@ type ConflictCheck struct {
 	packageLinks map[string][]string
 }
 
-func NewConflictCheck(fs FS, targetDir string, packageLinks map[string][]string) *ConflictCheck {
+func NewConflictCheck(fs FSReader, targetDir string, packageLinks map[string][]string) *ConflictCheck {
 	return &ConflictCheck{
 		fs:           fs,
 		targetDir:    targetDir,

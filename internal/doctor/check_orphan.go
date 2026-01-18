@@ -15,7 +15,7 @@ import (
 
 // OrphanCheck scans for symlinks not managed by dot.
 type OrphanCheck struct {
-	fs            FS
+	fs            FSReader
 	targetDir     string
 	manifestSvc   ManifestLoader
 	config        ScanConfig
@@ -26,7 +26,7 @@ type OrphanCheck struct {
 type OrphanCheckOption func(*OrphanCheck)
 
 // WithFS sets the filesystem abstraction for OrphanCheck.
-func WithFS(fs FS) OrphanCheckOption {
+func WithFS(fs FSReader) OrphanCheckOption {
 	return func(c *OrphanCheck) { c.fs = fs }
 }
 

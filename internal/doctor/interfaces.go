@@ -9,18 +9,28 @@ import (
 	"github.com/yaklabco/dot/internal/manifest"
 )
 
-// FS defines the filesystem abstraction interface needed by doctor checks.
-type FS interface {
+// FSReader provides read-only filesystem operations.
+type FSReader interface {
 	Exists(ctx context.Context, path string) (bool, error)
 	IsDir(ctx context.Context, path string) (bool, error)
 	Lstat(ctx context.Context, name string) (fs.FileInfo, error)
 	ReadDir(ctx context.Context, name string) ([]fs.DirEntry, error)
 	ReadFile(ctx context.Context, name string) ([]byte, error)
 	ReadLink(ctx context.Context, name string) (string, error)
+	Stat(ctx context.Context, name string) (fs.FileInfo, error)
+}
+
+// FSWriter provides write filesystem operations.
+type FSWriter interface {
 	WriteFile(ctx context.Context, name string, data []byte, perm os.FileMode) error
 	Remove(ctx context.Context, name string) error
 	MkdirAll(ctx context.Context, path string, perm os.FileMode) error
-	Stat(ctx context.Context, name string) (fs.FileInfo, error)
+}
+
+// FS combines all filesystem operations for checks that need both read and write access.
+type FS interface {
+	FSReader
+	FSWriter
 }
 
 // ManifestLoader defines the interface for loading manifests.

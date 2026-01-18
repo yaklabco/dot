@@ -11,7 +11,7 @@ import (
 
 // PlatformCheck validates platform compatibility for packages.
 type PlatformCheck struct {
-	fs            FS
+	fs            FSReader
 	manifestSvc   ManifestLoader
 	packageDir    string
 	targetDir     string
@@ -20,7 +20,7 @@ type PlatformCheck struct {
 
 // NewPlatformCheck creates a new platform compatibility check.
 func NewPlatformCheck(
-	fs FS,
+	fs FSReader,
 	manifestSvc ManifestLoader,
 	packageDir string,
 	targetDir string,

@@ -9,7 +9,7 @@ import (
 
 // ManagedPackageCheck validates all packages managed by dot.
 type ManagedPackageCheck struct {
-	fs                 FS
+	fs                 FSReader
 	manifestSvc        ManifestLoader
 	healthChecker      LinkHealthChecker
 	targetDir          string
@@ -18,7 +18,7 @@ type ManagedPackageCheck struct {
 }
 
 func NewManagedPackageCheck(
-	fs FS,
+	fs FSReader,
 	manifestSvc ManifestLoader,
 	healthChecker LinkHealthChecker,
 	targetDir string,
@@ -121,7 +121,7 @@ func (c *ManagedPackageCheck) Run(ctx context.Context) (domain.CheckResult, erro
 
 // ManifestIntegrityCheck validates the manifest file itself.
 type ManifestIntegrityCheck struct {
-	fs                 FS
+	fs                 FSReader
 	targetDir          string
 	manifestSvc        ManifestLoader
 	newTargetPath      TargetPathCreator
@@ -129,7 +129,7 @@ type ManifestIntegrityCheck struct {
 }
 
 func NewManifestIntegrityCheck(
-	fs FS,
+	fs FSReader,
 	manifestSvc ManifestLoader,
 	targetDir string,
 	newTargetPath TargetPathCreator,
