@@ -25,7 +25,13 @@ import "github.com/yaklabco/dot/internal/domain"
 // If internal interface changes are needed, they represent intentional API
 // evolution and should be reflected in the public types accordingly.
 
-// FS defines the filesystem abstraction interface.
+// FSReader provides read-only filesystem operations.
+type FSReader = domain.FSReader
+
+// FSWriter provides write filesystem operations.
+type FSWriter = domain.FSWriter
+
+// FS combines all filesystem operations (read and write).
 type FS = domain.FS
 
 // FileInfo provides information about a file.

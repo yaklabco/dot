@@ -5,7 +5,6 @@ import (
 	"context"
 	"io/fs"
 	"os"
-	"time"
 
 	"github.com/yaklabco/dot/internal/domain"
 )
@@ -19,50 +18,30 @@ func NewOSFilesystem() *OSFilesystem {
 }
 
 // Stat returns file information.
-func (f *OSFilesystem) Stat(ctx context.Context, name string) (domain.FileInfo, error) {
+func (f *OSFilesystem) Stat(ctx context.Context, name string) (fs.FileInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	info, err := os.Stat(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return WrapFileInfo(info), nil
+	return os.Stat(name)
 }
 
 // Lstat returns file information without following symlinks.
-func (f *OSFilesystem) Lstat(ctx context.Context, name string) (domain.FileInfo, error) {
+func (f *OSFilesystem) Lstat(ctx context.Context, name string) (fs.FileInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	info, err := os.Lstat(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return WrapFileInfo(info), nil
+	return os.Lstat(name)
 }
 
 // ReadDir lists directory contents.
-func (f *OSFilesystem) ReadDir(ctx context.Context, name string) ([]domain.DirEntry, error) {
+func (f *OSFilesystem) ReadDir(ctx context.Context, name string) ([]fs.DirEntry, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	entries, err := os.ReadDir(name)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]domain.DirEntry, len(entries))
-	for i, entry := range entries {
-		result[i] = WrapDirEntry(entry)
-	}
-
-	return result, nil
+	return os.ReadDir(name)
 }
 
 // ReadLink reads the target of a symbolic link.
@@ -184,47 +163,14 @@ func (f *OSFilesystem) IsSymlink(ctx context.Context, name string) (bool, error)
 	return info.Mode()&fs.ModeSymlink != 0, nil
 }
 
-// FileInfo adapters
-
-// osFileInfo wraps fs.FileInfo to implement domain.FileInfo.
-type osFileInfo struct {
-	info fs.FileInfo
-}
-
-// WrapFileInfo wraps a standard fs.FileInfo.
+// WrapFileInfo wraps a standard fs.FileInfo for backward compatibility.
+// Since domain.FileInfo is now a type alias for fs.FileInfo, this simply returns the input.
 func WrapFileInfo(info fs.FileInfo) domain.FileInfo {
-	return osFileInfo{info: info}
+	return info
 }
 
-func (i osFileInfo) Name() string       { return i.info.Name() }
-func (i osFileInfo) Size() int64        { return i.info.Size() }
-func (i osFileInfo) Mode() fs.FileMode  { return i.info.Mode() }
-func (i osFileInfo) ModTime() time.Time { return i.info.ModTime() }
-func (i osFileInfo) IsDir() bool        { return i.info.IsDir() }
-func (i osFileInfo) Sys() any           { return i.info.Sys() }
-
-// DirEntry adapters
-
-// osDirEntry wraps fs.DirEntry to implement domain.DirEntry.
-type osDirEntry struct {
-	entry fs.DirEntry
-}
-
-// WrapDirEntry wraps a standard fs.DirEntry.
+// WrapDirEntry wraps a standard fs.DirEntry for backward compatibility.
+// Since domain.DirEntry is now a type alias for fs.DirEntry, this simply returns the input.
 func WrapDirEntry(entry fs.DirEntry) domain.DirEntry {
-	return osDirEntry{entry: entry}
-}
-
-func (e osDirEntry) Name() string { return e.entry.Name() }
-func (e osDirEntry) IsDir() bool  { return e.entry.IsDir() }
-func (e osDirEntry) Type() fs.FileMode {
-	return e.entry.Type()
-}
-
-func (e osDirEntry) Info() (domain.FileInfo, error) {
-	info, err := e.entry.Info()
-	if err != nil {
-		return nil, err
-	}
-	return WrapFileInfo(info), nil
+	return entry
 }

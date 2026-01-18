@@ -2,20 +2,26 @@ package domain
 
 import (
 	"context"
+	"io/fs"
 	"os"
-	"time"
 )
 
-// FS defines the filesystem abstraction interface.
-type FS interface {
-	// Read operations
+// FSReader provides read-only filesystem operations.
+type FSReader interface {
 	Stat(ctx context.Context, path string) (FileInfo, error)
 	Lstat(ctx context.Context, path string) (FileInfo, error)
 	ReadDir(ctx context.Context, path string) ([]DirEntry, error)
 	ReadLink(ctx context.Context, path string) (string, error)
 	ReadFile(ctx context.Context, path string) ([]byte, error)
 
-	// Write operations
+	// Queries (read-only checks)
+	Exists(ctx context.Context, path string) bool
+	IsDir(ctx context.Context, path string) (bool, error)
+	IsSymlink(ctx context.Context, path string) (bool, error)
+}
+
+// FSWriter provides write filesystem operations.
+type FSWriter interface {
 	WriteFile(ctx context.Context, path string, data []byte, perm os.FileMode) error
 	Mkdir(ctx context.Context, path string, perm os.FileMode) error
 	MkdirAll(ctx context.Context, path string, perm os.FileMode) error
@@ -23,31 +29,24 @@ type FS interface {
 	RemoveAll(ctx context.Context, path string) error
 	Symlink(ctx context.Context, oldname, newname string) error
 	Rename(ctx context.Context, oldpath, newpath string) error
-
-	// Queries
-	Exists(ctx context.Context, path string) bool
-	IsDir(ctx context.Context, path string) (bool, error)
-	IsSymlink(ctx context.Context, path string) (bool, error)
 }
 
-// FileInfo provides information about a file.
-// This interface matches the standard library fs.FileInfo interface.
-type FileInfo interface {
-	Name() string
-	Size() int64
-	Mode() os.FileMode
-	ModTime() time.Time
-	IsDir() bool
-	Sys() any
+// FS combines all filesystem operations.
+// This is the full interface for components that need both read and write access.
+type FS interface {
+	FSReader
+	FSWriter
 }
 
-// DirEntry provides information about a directory entry.
-type DirEntry interface {
-	Name() string
-	IsDir() bool
-	Type() os.FileMode
-	Info() (FileInfo, error)
-}
+// FileInfo is a type alias for the standard library fs.FileInfo interface.
+// Using the stdlib type directly simplifies interoperability and eliminates
+// the need for wrapper types when interfacing with standard library functions.
+type FileInfo = fs.FileInfo
+
+// DirEntry is a type alias for the standard library fs.DirEntry interface.
+// Using the stdlib type directly simplifies interoperability and eliminates
+// the need for wrapper types when interfacing with standard library functions.
+type DirEntry = fs.DirEntry
 
 // Logger defines the logging abstraction interface.
 type Logger interface {

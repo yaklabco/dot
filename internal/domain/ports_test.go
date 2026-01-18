@@ -341,10 +341,10 @@ func TestMockFileInfo(t *testing.T) {
 	assert.False(t, info.IsDir())
 }
 
-// TestFileInfoStdlibCompatibility verifies that domain.FileInfo is compatible
-// with the standard library fs.FileInfo interface signature.
-func TestFileInfoStdlibCompatibility(t *testing.T) {
-	// Create a MockFileInfo that implements domain.FileInfo
+// TestFileInfoIsStdlibAlias verifies that domain.FileInfo is a type alias for fs.FileInfo.
+// Since domain.FileInfo = fs.FileInfo, any type implementing one automatically implements the other.
+func TestFileInfoIsStdlibAlias(t *testing.T) {
+	// Create a MockFileInfo that implements fs.FileInfo
 	info := MockFileInfo{
 		name:    "test.txt",
 		size:    100,
@@ -353,19 +353,14 @@ func TestFileInfoStdlibCompatibility(t *testing.T) {
 		isDir:   false,
 	}
 
-	// Verify it implements domain.FileInfo
+	// Since domain.FileInfo = fs.FileInfo, these are the same type
 	var domainInfo domain.FileInfo = info
-	assert.NotNil(t, domainInfo)
-
-	// Verify it also implements fs.FileInfo (stdlib compatibility)
 	var stdInfo fs.FileInfo = info
-	assert.NotNil(t, stdInfo)
 
-	// Verify ModTime returns time.Time (not any)
+	// They should be the same value
+	assert.Equal(t, domainInfo, stdInfo)
+
+	// Verify ModTime returns time.Time
 	modTime := domainInfo.ModTime()
 	assert.Equal(t, time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC), modTime)
-
-	// Verify the stdlib interface works the same way
-	stdModTime := stdInfo.ModTime()
-	assert.Equal(t, modTime, stdModTime)
 }

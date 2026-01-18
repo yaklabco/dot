@@ -353,7 +353,7 @@ func (f *MemFS) IsSymlink(ctx context.Context, name string) (bool, error) {
 	return file.symlink != "", nil
 }
 
-// memFileInfo implements domain.FileInfo
+// memFileInfo implements fs.FileInfo (domain.FileInfo is a type alias for fs.FileInfo).
 type memFileInfo struct {
 	name    string
 	size    int64
@@ -369,7 +369,7 @@ func (i *memFileInfo) ModTime() time.Time { return i.modTime }
 func (i *memFileInfo) IsDir() bool        { return i.isDir }
 func (i *memFileInfo) Sys() any           { return nil }
 
-// memDirEntry implements domain.DirEntry
+// memDirEntry implements fs.DirEntry (domain.DirEntry is a type alias for fs.DirEntry).
 type memDirEntry struct {
 	name  string
 	isDir bool

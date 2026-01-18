@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/yaklabco/dot/internal/doctor"
 	"github.com/yaklabco/dot/internal/domain"
@@ -387,37 +386,9 @@ func (a *doctorTargetPathCreatorAdapter) NewTargetPath(path string) domain.Resul
 	return domain.Ok(r.Unwrap())
 }
 
-// fileInfoWrapper adapts domain.FileInfo to fs.FileInfo
-type fileInfoWrapper struct {
-	info domain.FileInfo
-}
-
-func (w *fileInfoWrapper) Name() string      { return w.info.Name() }
-func (w *fileInfoWrapper) Size() int64       { return w.info.Size() }
-func (w *fileInfoWrapper) Mode() os.FileMode { return w.info.Mode() }
-func (w *fileInfoWrapper) IsDir() bool       { return w.info.IsDir() }
-func (w *fileInfoWrapper) Sys() any          { return w.info.Sys() }
-func (w *fileInfoWrapper) ModTime() time.Time {
-	return w.info.ModTime()
-}
-
-// dirEntryWrapper adapts domain.DirEntry to fs.DirEntry
-type dirEntryWrapper struct {
-	entry domain.DirEntry
-}
-
-func (w *dirEntryWrapper) Name() string      { return w.entry.Name() }
-func (w *dirEntryWrapper) IsDir() bool       { return w.entry.IsDir() }
-func (w *dirEntryWrapper) Type() os.FileMode { return w.entry.Type() }
-func (w *dirEntryWrapper) Info() (fs.FileInfo, error) {
-	info, err := w.entry.Info()
-	if err != nil {
-		return nil, err
-	}
-	return &fileInfoWrapper{info: info}, nil
-}
-
 // doctorFSAdapter adapts pkg/dot/FS to internal/doctor/FS.
+// Since domain.FileInfo and domain.DirEntry are now type aliases for fs.FileInfo
+// and fs.DirEntry, this adapter can return values directly without wrapping.
 type doctorFSAdapter struct {
 	fs FS
 }
@@ -431,24 +402,11 @@ func (a *doctorFSAdapter) IsDir(ctx context.Context, path string) (bool, error) 
 }
 
 func (a *doctorFSAdapter) Lstat(ctx context.Context, name string) (fs.FileInfo, error) {
-	info, err := a.fs.Lstat(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return &fileInfoWrapper{info: info}, nil
+	return a.fs.Lstat(ctx, name)
 }
 
 func (a *doctorFSAdapter) ReadDir(ctx context.Context, name string) ([]fs.DirEntry, error) {
-	entries, err := a.fs.ReadDir(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-
-	fsEntries := make([]fs.DirEntry, len(entries))
-	for i, e := range entries {
-		fsEntries[i] = &dirEntryWrapper{entry: e}
-	}
-	return fsEntries, nil
+	return a.fs.ReadDir(ctx, name)
 }
 
 func (a *doctorFSAdapter) ReadFile(ctx context.Context, name string) ([]byte, error) {
@@ -472,9 +430,5 @@ func (a *doctorFSAdapter) MkdirAll(ctx context.Context, path string, perm os.Fil
 }
 
 func (a *doctorFSAdapter) Stat(ctx context.Context, name string) (fs.FileInfo, error) {
-	info, err := a.fs.Stat(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return &fileInfoWrapper{info: info}, nil
+	return a.fs.Stat(ctx, name)
 }

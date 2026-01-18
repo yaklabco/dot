@@ -2,7 +2,6 @@ package adapters_test
 
 import (
 	"context"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -266,7 +265,9 @@ func TestOSFilesystem_ContextCancellation(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
-func TestOSFileInfoWrapper(t *testing.T) {
+func TestWrapFileInfoIsIdentity(t *testing.T) {
+	// WrapFileInfo is now an identity function since domain.FileInfo = fs.FileInfo.
+	// This test verifies backward compatibility for code using the wrapper.
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 	os.WriteFile(tmpFile, []byte("test content"), 0644)
@@ -276,15 +277,13 @@ func TestOSFileInfoWrapper(t *testing.T) {
 
 	wrapped := adapters.WrapFileInfo(osInfo)
 
-	assert.Equal(t, osInfo.Name(), wrapped.Name())
-	assert.Equal(t, osInfo.Size(), wrapped.Size())
-	assert.Equal(t, osInfo.Mode(), wrapped.Mode())
-	assert.Equal(t, osInfo.IsDir(), wrapped.IsDir())
-	assert.Equal(t, osInfo.ModTime(), wrapped.ModTime())
-	assert.Equal(t, osInfo.Sys(), wrapped.Sys())
+	// Since WrapFileInfo is now an identity function, wrapped should be the same object
+	assert.Same(t, osInfo, wrapped)
 }
 
-func TestOSDirEntryWrapper(t *testing.T) {
+func TestWrapDirEntryIsIdentity(t *testing.T) {
+	// WrapDirEntry is now an identity function since domain.DirEntry = fs.DirEntry.
+	// This test verifies backward compatibility for code using the wrapper.
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
 	os.WriteFile(tmpFile, []byte("test"), 0644)
@@ -295,13 +294,6 @@ func TestOSDirEntryWrapper(t *testing.T) {
 
 	wrapped := adapters.WrapDirEntry(entries[0])
 
-	assert.Equal(t, "test.txt", wrapped.Name())
-	assert.False(t, wrapped.IsDir())
-	assert.Equal(t, fs.FileMode(0), wrapped.Type())
-
-	// Test Info method
-	info, err := wrapped.Info()
-	require.NoError(t, err)
-	assert.Equal(t, "test.txt", info.Name())
-	assert.False(t, info.IsDir())
+	// Since WrapDirEntry is now an identity function, wrapped should be the same object
+	assert.Same(t, entries[0], wrapped)
 }
