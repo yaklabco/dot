@@ -2,7 +2,28 @@ package dot
 
 import "github.com/yaklabco/dot/internal/domain"
 
-// Port interfaces re-exported from internal/domain
+// Port interfaces re-exported from internal/domain.
+//
+// These types use type aliases (=) rather than type definitions for several reasons:
+//
+// 1. Interface contract stability: These are port interfaces defining contracts
+//    between the domain and external adapters. The contract IS the interface
+//    definition - whether defined here or in internal/domain makes no difference
+//    for API stability.
+//
+// 2. Zero-overhead interoperability: Adapters (OSFilesystem, MemFS, etc.) implement
+//    domain.* interfaces and are returned through the public API. Type aliases
+//    allow these to satisfy dot.* interfaces without wrapper types.
+//
+// 3. Go idiom: Type aliases for re-exporting types from internal packages is a
+//    standard Go pattern in hexagonal/ports-and-adapters architectures.
+//
+// 4. No real encapsulation benefit: Defining identical interfaces twice would
+//    not provide additional protection - interface changes are breaking changes
+//    regardless of the definition location.
+//
+// If internal interface changes are needed, they represent intentional API
+// evolution and should be reflected in the public types accordingly.
 
 // FS defines the filesystem abstraction interface.
 type FS = domain.FS
