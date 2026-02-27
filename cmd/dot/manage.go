@@ -74,7 +74,7 @@ func runManage(cmd *cobra.Command, args []string) error {
 		if extCfg != nil {
 			tableStyle = extCfg.Output.TableStyle
 		}
-		rend, err := renderer.NewRenderer("text", true, tableStyle)
+		rend, err := renderer.NewRenderer("text", shouldUseColor(), tableStyle)
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
 			return err

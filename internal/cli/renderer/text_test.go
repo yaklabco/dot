@@ -73,6 +73,63 @@ func TestTextRenderer_RenderDiagnostics_WithIssues(t *testing.T) {
 	assert.Contains(t, output, "Fix the link")
 }
 
+func TestTextRenderer_RenderPlan_NoColorOmitsANSICodes(t *testing.T) {
+	r := &TextRenderer{
+		colorize: false,
+		scheme:   DefaultColorScheme(),
+		width:    80,
+	}
+
+	plan := dot.Plan{
+		Operations: []dot.Operation{
+			dot.NewDirCreate("op1", dot.MustParsePath("/target/vim")),
+			dot.NewLinkCreate("op2", dot.MustParsePath("/src/vimrc"), dot.MustParseTargetPath("/target/.vimrc")),
+		},
+		Metadata: dot.PlanMetadata{
+			PackageCount:   1,
+			OperationCount: 2,
+			LinkCount:      1,
+			DirCount:       1,
+		},
+	}
+
+	var buf bytes.Buffer
+	err := r.RenderPlan(&buf, plan)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.NotContains(t, output, "\033[", "no-color output should not contain ANSI escape codes")
+	assert.Contains(t, output, "Dry run mode")
+	assert.Contains(t, output, "Create symlink")
+	assert.Contains(t, output, "Create directory")
+}
+
+func TestTextRenderer_RenderPlan_WithColorIncludesANSICodes(t *testing.T) {
+	r := &TextRenderer{
+		colorize: true,
+		scheme:   DefaultColorScheme(),
+		width:    80,
+	}
+
+	plan := dot.Plan{
+		Operations: []dot.Operation{
+			dot.NewLinkCreate("op1", dot.MustParsePath("/src/vimrc"), dot.MustParseTargetPath("/target/.vimrc")),
+		},
+		Metadata: dot.PlanMetadata{
+			PackageCount:   1,
+			OperationCount: 1,
+			LinkCount:      1,
+		},
+	}
+
+	var buf bytes.Buffer
+	err := r.RenderPlan(&buf, plan)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "\033[", "color output should contain ANSI escape codes")
+}
+
 func TestTextRenderer_RenderStatus_Empty(t *testing.T) {
 	r := &TextRenderer{
 		colorize: false,
