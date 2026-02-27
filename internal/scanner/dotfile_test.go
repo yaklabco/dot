@@ -181,6 +181,57 @@ func TestUntranslatePath(t *testing.T) {
 	}
 }
 
+func TestTranslatePathAll(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "all components translated",
+			input:    "dot-config/a/b/c/file.txt",
+			expected: ".config/a/b/c/file.txt",
+		},
+		{
+			name:     "multiple dot- components in deep path",
+			input:    "deep/dot-config/nested/dot-file",
+			expected: "deep/.config/nested/.file",
+		},
+		{
+			name:     "single file same as TranslatePath",
+			input:    "dot-vimrc",
+			expected: ".vimrc",
+		},
+		{
+			name:     "leaf only same as TranslatePath",
+			input:    "vim/dot-vimrc",
+			expected: "vim/.vimrc",
+		},
+		{
+			name:     "no translation needed",
+			input:    "a/b/c/file.txt",
+			expected: "a/b/c/file.txt",
+		},
+		{
+			name:     "empty path component edge case",
+			input:    "dot-only",
+			expected: ".only",
+		},
+		{
+			name:     "all components are dot- prefixed",
+			input:    "dot-a/dot-b/dot-c",
+			expected: ".a/.b/.c",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := scanner.TranslatePathAll(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestTranslatePackageName(t *testing.T) {
 	tests := []struct {
 		name     string

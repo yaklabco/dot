@@ -51,6 +51,38 @@ func TranslatePath(path string) string {
 	return filepath.Join(dir, translated)
 }
 
+// TranslatePathAll translates ALL components of a path that have the dot- prefix.
+// Unlike TranslatePath which only translates the leaf (base name), this function
+// translates every path component, including intermediate directories.
+//
+// Examples:
+//   - "dot-config/a/b/c/file.txt" -> ".config/a/b/c/file.txt"
+//   - "deep/dot-config/nested/dot-file" -> "deep/.config/nested/.file"
+//   - "dot-vimrc" -> ".vimrc"
+func TranslatePathAll(path string) string {
+	components := splitPathComponents(path)
+	for i, comp := range components {
+		components[i] = TranslateDotfile(comp)
+	}
+	return filepath.Join(components...)
+}
+
+// splitPathComponents splits a file path into its individual components.
+func splitPathComponents(path string) []string {
+	var components []string
+	for {
+		dir, file := filepath.Split(path)
+		if file != "" {
+			components = append([]string{file}, components...)
+		}
+		if dir == "" || dir == "/" {
+			break
+		}
+		path = filepath.Clean(dir)
+	}
+	return components
+}
+
 // UntranslatePath translates the last component of a path if it starts with dot.
 // This is the reverse of TranslatePath.
 func UntranslatePath(path string) string {

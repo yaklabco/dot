@@ -116,19 +116,20 @@ func (s *DoctorService) DoctorWithMode(ctx context.Context, mode DiagnosticMode,
 	// 2. Managed Packages Check
 	engine.RegisterCheck(doctor.NewManagedPackageCheck(fsAdapter, manifestLoader, healthChecker, s.targetDir, newTargetPath, IsManifestNotFoundError))
 
+	// 3. Orphan Check - registered when scan mode enables it, regardless of diagnostic mode.
+	// Users set --scan-mode to control orphan detection independently from --mode.
+	if scanCfg.Mode != ScanOff {
+		engine.RegisterCheck(doctor.NewOrphanCheck(
+			doctor.WithFS(fsAdapter),
+			doctor.WithManifestLoader(manifestLoader),
+			doctor.WithTargetDir(s.targetDir),
+			doctor.WithScanConfig(doctorScanCfg),
+			doctor.WithTargetPathCreator(newTargetPath),
+		))
+	}
+
 	// Deep mode: Additional comprehensive checks
 	if mode == DiagnosticDeep {
-		// 3. Orphan Check (only if not disabled)
-		if scanCfg.Mode != ScanOff {
-			engine.RegisterCheck(doctor.NewOrphanCheck(
-				doctor.WithFS(fsAdapter),
-				doctor.WithManifestLoader(manifestLoader),
-				doctor.WithTargetDir(s.targetDir),
-				doctor.WithScanConfig(doctorScanCfg),
-				doctor.WithTargetPathCreator(newTargetPath),
-			))
-		}
-
 		// 4. Platform Compatibility Check
 		engine.RegisterCheck(doctor.NewPlatformCheck(fsAdapter, manifestLoader, s.packageDir, s.targetDir, newTargetPath))
 	}

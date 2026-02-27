@@ -180,7 +180,7 @@ func relativePath(base domain.PackagePath, target domain.FilePath) domain.Result
 }
 
 func translatePath(path string) string {
-	return scanner.TranslatePath(path)
+	return scanner.TranslatePathAll(path)
 }
 
 // ComputeOperationsFromDesiredState converts desired state into operations

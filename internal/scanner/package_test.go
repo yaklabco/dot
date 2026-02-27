@@ -141,6 +141,43 @@ func TestScanPackageWithConfig_WithDotignore(t *testing.T) {
 	assert.True(t, hasConfigFile, ".txt files should not be ignored")
 }
 
+func TestScanPackageWithConfig_DotignoreNegation(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+
+	packagePath := "/test/package"
+	require.NoError(t, fs.Mkdir(ctx, packagePath, 0755))
+
+	// .dotignore: ignore all .log files EXCEPT important.log
+	dotignoreContent := []byte("*.log\n!important.log\n")
+	require.NoError(t, fs.WriteFile(ctx, packagePath+"/.dotignore", dotignoreContent, 0644))
+
+	require.NoError(t, fs.WriteFile(ctx, packagePath+"/debug.log", []byte("debug"), 0644))
+	require.NoError(t, fs.WriteFile(ctx, packagePath+"/important.log", []byte("keep"), 0644))
+	require.NoError(t, fs.WriteFile(ctx, packagePath+"/dot-config", []byte("data"), 0644))
+
+	globalIgnoreSet := ignore.NewIgnoreSet()
+	cfg := scanner.ScanConfig{
+		PerPackageIgnore: true,
+		Interactive:      false,
+	}
+
+	pkgPath := domain.NewPackagePath(packagePath).Unwrap()
+	result := scanner.ScanPackageWithConfig(ctx, fs, pkgPath, "neg", globalIgnoreSet, cfg)
+
+	require.True(t, result.IsOk(), "scan should succeed")
+	pkg := result.Unwrap()
+
+	childNames := make(map[string]bool)
+	for _, child := range pkg.Tree.Children {
+		childNames[child.Path.String()] = true
+	}
+
+	assert.False(t, childNames[packagePath+"/debug.log"], "debug.log should be ignored by *.log")
+	assert.True(t, childNames[packagePath+"/important.log"], "important.log should be un-ignored by !important.log")
+	assert.True(t, childNames[packagePath+"/dot-config"], "dot-config should not be ignored")
+}
+
 func TestScanPackageWithConfig_WithMaxFileSize(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()

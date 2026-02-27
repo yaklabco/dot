@@ -187,6 +187,31 @@ func TestIgnoreSet_Negation(t *testing.T) {
 	}
 }
 
+func TestIgnoreSet_NegationWithAbsolutePaths(t *testing.T) {
+	// Regression: scanner passes absolute paths to ShouldIgnore.
+	// Negation patterns like !important.log must match via MatchBasename.
+	set := ignore.NewIgnoreSet()
+	set.Add("*.log")
+	set.Add("!important.log")
+
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{"/tmp/packages/neg/debug.log", true},      // Ignored by *.log
+		{"/tmp/packages/neg/important.log", false}, // Un-ignored by !important.log
+		{"important.log", false},                   // Un-ignored (basename only)
+		{"/tmp/packages/neg/error.log", true},      // Ignored by *.log
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			result := set.ShouldIgnore(tt.path)
+			assert.Equal(t, tt.expected, result, "ShouldIgnore(%q)", tt.path)
+		})
+	}
+}
+
 func TestIgnoreSet_ComplexNegation(t *testing.T) {
 	// Test a realistic scenario: ignore all cache files except .keep files
 	set := ignore.NewIgnoreSet()

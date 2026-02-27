@@ -214,3 +214,117 @@ func TestClient_Doctor_DefaultScanMode(t *testing.T) {
 	// Should detect orphaned link with default scoped scanning
 	assert.Equal(t, 1, report.Statistics.OrphanedLinks, "Expected default scoped scan to detect orphan")
 }
+
+func TestClient_DoctorWithMode_FastModeWithScanDeep_DetectsOrphans(t *testing.T) {
+	fs := adapters.NewMemFS()
+	ctx := context.Background()
+
+	// Setup managed package
+	require.NoError(t, fs.MkdirAll(ctx, "/test/packages/app", 0755))
+	require.NoError(t, fs.MkdirAll(ctx, "/test/target", 0755))
+	require.NoError(t, fs.WriteFile(ctx, "/test/packages/app/dot-config", []byte("cfg"), 0644))
+
+	cfg := dot.Config{
+		PackageDir: "/test/packages",
+		TargetDir:  "/test/target",
+		FS:         fs,
+		Logger:     adapters.NewNoopLogger(),
+	}
+
+	client, err := dot.NewClient(cfg)
+	require.NoError(t, err)
+
+	// Manage package to create manifest
+	err = client.Manage(ctx, "app")
+	require.NoError(t, err)
+
+	// Create orphaned symlink (not managed by any package)
+	require.NoError(t, fs.Symlink(ctx, "/nowhere", "/test/target/.orphaned"))
+
+	// Bug: --scan-mode=deep sets ScanDeep, but --mode defaults to "fast" (DiagnosticFast).
+	// The OrphanCheck should still run when scan mode is deep, regardless of diagnostic mode.
+	report, err := client.DoctorWithMode(ctx, dot.DiagnosticFast, dot.DeepScanConfig(10))
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, report.Statistics.OrphanedLinks, 1,
+		"DiagnosticFast with ScanDeep should still detect orphaned links")
+
+	// Verify an orphaned link issue is reported
+	hasOrphanIssue := false
+	for _, issue := range report.Issues {
+		if issue.Type == dot.IssueOrphanedLink {
+			hasOrphanIssue = true
+			break
+		}
+	}
+	assert.True(t, hasOrphanIssue, "Expected orphaned link issue in DiagnosticFast + ScanDeep")
+}
+
+func TestClient_DoctorWithMode_FastModeWithScanScoped_DetectsOrphans(t *testing.T) {
+	fs := adapters.NewMemFS()
+	ctx := context.Background()
+
+	// Setup managed package
+	require.NoError(t, fs.MkdirAll(ctx, "/test/packages/app", 0755))
+	require.NoError(t, fs.MkdirAll(ctx, "/test/target", 0755))
+	require.NoError(t, fs.WriteFile(ctx, "/test/packages/app/dot-config", []byte("cfg"), 0644))
+
+	cfg := dot.Config{
+		PackageDir: "/test/packages",
+		TargetDir:  "/test/target",
+		FS:         fs,
+		Logger:     adapters.NewNoopLogger(),
+	}
+
+	client, err := dot.NewClient(cfg)
+	require.NoError(t, err)
+
+	// Manage package to create manifest
+	err = client.Manage(ctx, "app")
+	require.NoError(t, err)
+
+	// Create orphaned symlink
+	require.NoError(t, fs.Symlink(ctx, "/nowhere", "/test/target/.orphaned"))
+
+	// Scoped scan with DiagnosticFast should also detect orphans
+	report, err := client.DoctorWithMode(ctx, dot.DiagnosticFast, dot.ScopedScanConfig())
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, report.Statistics.OrphanedLinks, 1,
+		"DiagnosticFast with ScanScoped should still detect orphaned links")
+}
+
+func TestClient_DoctorWithMode_FastModeWithScanOff_SkipsOrphans(t *testing.T) {
+	fs := adapters.NewMemFS()
+	ctx := context.Background()
+
+	// Setup managed package
+	require.NoError(t, fs.MkdirAll(ctx, "/test/packages/app", 0755))
+	require.NoError(t, fs.MkdirAll(ctx, "/test/target", 0755))
+	require.NoError(t, fs.WriteFile(ctx, "/test/packages/app/dot-config", []byte("cfg"), 0644))
+
+	cfg := dot.Config{
+		PackageDir: "/test/packages",
+		TargetDir:  "/test/target",
+		FS:         fs,
+		Logger:     adapters.NewNoopLogger(),
+	}
+
+	client, err := dot.NewClient(cfg)
+	require.NoError(t, err)
+
+	// Manage package
+	err = client.Manage(ctx, "app")
+	require.NoError(t, err)
+
+	// Create orphaned symlink
+	require.NoError(t, fs.Symlink(ctx, "/nowhere", "/test/target/.orphaned"))
+
+	// ScanOff should skip orphan detection regardless of diagnostic mode
+	scanCfg := dot.ScanConfig{Mode: dot.ScanOff}
+	report, err := client.DoctorWithMode(ctx, dot.DiagnosticFast, scanCfg)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, report.Statistics.OrphanedLinks,
+		"ScanOff should skip orphan detection even in DiagnosticFast")
+}

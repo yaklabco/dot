@@ -159,6 +159,61 @@ func TestManageService_Remanage(t *testing.T) {
 		assert.ErrorAs(t, err, &noChanges)
 	})
 
+	t.Run("detects symlink replaced by regular file", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Initial manage creates symlink
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify symlink was created
+		isLink, err := fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		assert.True(t, isLink, "expected .vimrc to be a symlink after manage")
+
+		// Replace the symlink with a regular file (simulates external modification)
+		require.NoError(t, fs.Remove(ctx, targetDir+"/.vimrc"))
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.vimrc", []byte("replaced content"), 0644))
+
+		// Verify it is now a regular file, not a symlink
+		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		assert.False(t, isLink, "expected .vimrc to be a regular file after replacement")
+
+		// Remanage should detect the replaced symlink and recreate it
+		err = svc.Remanage(ctx, "test-pkg")
+		require.NoError(t, err, "remanage should succeed when symlink was replaced by regular file")
+
+		// Verify the symlink was recreated
+		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		assert.True(t, isLink, "expected .vimrc to be a symlink after remanage")
+	})
+
 	t.Run("remanages adopted package", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
@@ -214,6 +269,84 @@ func TestManageService_Remanage(t *testing.T) {
 		// Verify symlink still exists
 		linkExists := fs.Exists(ctx, targetDir+"/.ssh")
 		assert.True(t, linkExists)
+	})
+}
+
+func TestManageService_Manage_CorruptManifest(t *testing.T) {
+	t.Run("returns error when manifest is corrupt", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		// Write corrupt manifest directly in target dir (default manifest location)
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.dot-manifest.json", []byte("{invalid json"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "test-pkg")
+		require.Error(t, err, "manage should return error when manifest is corrupt")
+		assert.Contains(t, err.Error(), "manifest")
+	})
+}
+
+func TestManageService_Remanage_CorruptManifest(t *testing.T) {
+	t.Run("returns error when manifest is corrupt", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		// Write corrupt manifest before remanage
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.dot-manifest.json", []byte("{invalid json"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// PlanRemanage currently falls back to PlanManage on corrupt manifest
+		// instead of returning an error. This should be fixed.
+		err := svc.Remanage(ctx, "test-pkg")
+		require.Error(t, err, "remanage should return error when manifest is corrupt")
+		assert.Contains(t, err.Error(), "manifest")
 	})
 }
 

@@ -132,21 +132,21 @@ func TestUnmanageService_Unmanage_CleansEmptyDirectories(t *testing.T) {
 		err := manageSvc.Manage(ctx, "test-pkg")
 		require.NoError(t, err)
 
-		// Verify nested structure created (dot-config stays as-is in target for nested dirs)
-		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/nvim/init.lua"))
-		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"))
-		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config"))
+		// Verify nested structure created (dot-config translates to .config in target)
+		assert.True(t, fs.Exists(ctx, targetDir+"/.config/nvim/init.lua"))
+		assert.True(t, fs.Exists(ctx, targetDir+"/.config/nvim"))
+		assert.True(t, fs.Exists(ctx, targetDir+"/.config"))
 
 		// Unmanage
 		err = unmanageSvc.Unmanage(ctx, "test-pkg")
 		require.NoError(t, err)
 
 		// Verify link removed
-		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim/init.lua"))
+		assert.False(t, fs.Exists(ctx, targetDir+"/.config/nvim/init.lua"))
 
 		// Verify empty parent directories are cleaned up
-		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"), "empty nvim dir should be removed")
-		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config"), "empty dot-config dir should be removed")
+		assert.False(t, fs.Exists(ctx, targetDir+"/.config/nvim"), "empty nvim dir should be removed")
+		assert.False(t, fs.Exists(ctx, targetDir+"/.config"), "empty .config dir should be removed")
 
 		// Target dir itself should still exist
 		assert.True(t, fs.Exists(ctx, targetDir))
@@ -182,19 +182,19 @@ func TestUnmanageService_Unmanage_CleansEmptyDirectories(t *testing.T) {
 		err := manageSvc.Manage(ctx, "test-pkg")
 		require.NoError(t, err)
 
-		// Create another file in dot-config AFTER manage so it's not empty after unmanage
-		require.NoError(t, fs.WriteFile(ctx, targetDir+"/dot-config/other-file.txt", []byte("keep me"), 0644))
+		// Create another file in .config AFTER manage so it's not empty after unmanage
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.config/other-file.txt", []byte("keep me"), 0644))
 
 		// Unmanage
 		err = unmanageSvc.Unmanage(ctx, "test-pkg")
 		require.NoError(t, err)
 
 		// nvim subdir should be cleaned up (empty after link removal)
-		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"), "empty nvim dir should be removed")
+		assert.False(t, fs.Exists(ctx, targetDir+"/.config/nvim"), "empty nvim dir should be removed")
 
-		// dot-config should still exist (has other-file.txt)
-		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config"), "dot-config should remain (non-empty)")
-		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/other-file.txt"))
+		// .config should still exist (has other-file.txt)
+		assert.True(t, fs.Exists(ctx, targetDir+"/.config"), ".config should remain (non-empty)")
+		assert.True(t, fs.Exists(ctx, targetDir+"/.config/other-file.txt"))
 	})
 }
 

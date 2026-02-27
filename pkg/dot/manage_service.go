@@ -105,7 +105,7 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return targetPathResult.UnwrapErr()
 	}
 	if err := s.manifestSvc.Update(ctx, targetPathResult.Unwrap(), s.packageDir, packages, plan); err != nil {
-		s.logger.Warn(ctx, "manifest_update_failed", "error", err)
+		return fmt.Errorf("manifest update failed: %w", err)
 	}
 	return nil
 }
@@ -202,7 +202,7 @@ func (s *ManageService) Remanage(ctx context.Context, packages ...string) error 
 			}
 		}
 		if err := s.manifestSvc.UpdateWithSource(ctx, targetPathResult.Unwrap(), s.packageDir, []string{pkg}, plan, source); err != nil {
-			s.logger.Warn(ctx, "manifest_update_failed", "package", pkg, "error", err)
+			return fmt.Errorf("manifest update failed for %s: %w", pkg, err)
 		}
 	}
 	return nil
@@ -216,11 +216,11 @@ func (s *ManageService) PlanRemanage(ctx context.Context, packages ...string) (P
 	}
 	targetPath := targetPathResult.Unwrap()
 
-	// Load manifest
+	// Load manifest - missing manifests return Ok(empty), so errors here
+	// mean the file exists but is corrupt or unreadable.
 	manifestResult := s.manifestSvc.Load(ctx, targetPath)
 	if !manifestResult.IsOk() {
-		// No manifest - fall back to full manage
-		return s.PlanManage(ctx, packages...)
+		return Plan{}, fmt.Errorf("failed to load manifest: %w", manifestResult.UnwrapErr())
 	}
 
 	m := manifestResult.Unwrap()
@@ -420,19 +420,24 @@ func (s *ManageService) getPackagePath(pkg string) (PackagePath, error) {
 	return pkgPathResult.Unwrap(), nil
 }
 
-// verifyLinksExist checks if all links in the manifest still exist in the filesystem.
+// verifyLinksExist checks if all links in the manifest still exist as symlinks in the filesystem.
+// It uses IsSymlink rather than Stat to detect when a managed symlink has been replaced by a regular file.
 func (s *ManageService) verifyLinksExist(ctx context.Context, pkg string, m *manifest.Manifest) (bool, error) {
 	pkgInfo, exists := m.GetPackage(pkg)
 	if !exists {
 		return false, nil
 	}
 
-	// Check each link from the manifest
+	// Check each link from the manifest is still a symlink
 	for _, link := range pkgInfo.Links {
 		linkPath := filepath.Join(s.targetDir, link)
-		_, err := s.fs.Stat(ctx, linkPath)
+		isLink, err := s.fs.IsSymlink(ctx, linkPath)
 		if err != nil {
 			// Link doesn't exist or can't be accessed
+			return false, nil
+		}
+		if !isLink {
+			// Path exists but is not a symlink (e.g., replaced by a regular file)
 			return false, nil
 		}
 	}

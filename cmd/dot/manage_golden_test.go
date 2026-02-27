@@ -494,9 +494,9 @@ func TestManageCommand_Verification(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify nested directory structure was created in target
-		// Note: Only final path component gets dot- translation, not intermediate directories
-		// So packages/config/dot-config/app -> target/config/dot-config/app (not config/.config/app)
-		expectedDir := filepath.Join(targetDir, "config", "dot-config", "app")
+		// All path components with dot- prefix are translated to dotfiles
+		// So packages/config/dot-config/app -> target/config/.config/app
+		expectedDir := filepath.Join(targetDir, "config", ".config", "app")
 		require.DirExists(t, expectedDir, "nested directory should be created")
 
 		// Verify file symlink in nested directory
