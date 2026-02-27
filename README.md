@@ -48,7 +48,7 @@ sudo mv dot /usr/local/bin/
 
 ### From Source
 
-Requires Go 1.25.4 or later:
+Requires Go 1.26 or later:
 
 ```bash
 go install github.com/yaklabco/dot/cmd/dot@latest
@@ -709,7 +709,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 This project adheres to strict development standards:
 
-- **Language**: Go 1.25.4
+- **Language**: Go 1.26
 - **Development**: Test-Driven Development (TDD) mandatory
 - **Testing**: Minimum 75% coverage, property-based tests for core logic
 - **Commits**: Atomic commits with Conventional Commits format

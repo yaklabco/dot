@@ -1116,7 +1116,7 @@ dot --version
 **Example Output**:
 ```
 dot version v0.1.0
-Built with Go 1.25.4
+Built with Go 1.26
 Commit: abc1234
 Build date: 2025-10-07
 Platform: linux/amd64
