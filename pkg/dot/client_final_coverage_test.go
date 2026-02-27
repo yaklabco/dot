@@ -57,15 +57,17 @@ func TestClient_DryRunBehavior(t *testing.T) {
 	client, err := dot.NewClient(cfg)
 	require.NoError(t, err)
 
-	// All operations should succeed but not modify filesystem
+	// Manage in dry-run should succeed but not modify filesystem
 	err = client.Manage(ctx, "dry")
 	require.NoError(t, err)
 
+	// Remanage in dry-run should succeed
 	err = client.Remanage(ctx, "dry")
 	require.NoError(t, err)
 
+	// Unmanage should error because dry-run manage didn't actually install
 	err = client.Unmanage(ctx, "dry")
-	require.NoError(t, err)
+	require.Error(t, err)
 
 	// No files should exist
 	exists := fs.Exists(ctx, "/test/target/.file")
@@ -89,13 +91,14 @@ func TestClient_PlanOperationsEmpty(t *testing.T) {
 	client, err := dot.NewClient(cfg)
 	require.NoError(t, err)
 
-	// Plan operations on non-existent package
-	plan, err := client.PlanUnmanage(ctx, "notinstalled")
-	require.NoError(t, err)
-	require.Empty(t, plan.Operations)
+	// Plan unmanage on non-existent package should error
+	_, err = client.PlanUnmanage(ctx, "notinstalled")
+	require.Error(t, err)
+	var notFound dot.ErrPackageNotFound
+	require.ErrorAs(t, err, &notFound)
 
 	// Remanage on non-existent package should error
 	// (fallback to manage still errors if package doesn't exist in filesystem)
-	plan, err = client.PlanRemanage(ctx, "notinstalled")
+	_, err = client.PlanRemanage(ctx, "notinstalled")
 	require.Error(t, err)
 }

@@ -174,7 +174,9 @@ func TestClient_EdgeCases(t *testing.T) {
 
 	t.Run("UnmanageNotInstalled", func(t *testing.T) {
 		err := client.Unmanage(ctx, "notinstalled")
-		assert.NoError(t, err) // Should succeed silently
+		assert.Error(t, err) // Should error when package not installed
+		var notFound dot.ErrPackageNotFound
+		assert.ErrorAs(t, err, &notFound)
 	})
 
 	t.Run("StatusEmpty", func(t *testing.T) {
@@ -197,9 +199,10 @@ func TestClient_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("PlanUnmanageNoManifest", func(t *testing.T) {
-		plan, err := client.PlanUnmanage(ctx, "any")
-		require.NoError(t, err)
-		assert.Empty(t, plan.Operations)
+		_, err := client.PlanUnmanage(ctx, "any")
+		require.Error(t, err) // No manifest means no packages installed
+		var notFound dot.ErrPackageNotFound
+		require.ErrorAs(t, err, &notFound)
 	})
 }
 

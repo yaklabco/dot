@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/yaklabco/dot/internal/domain"
 	"github.com/yaklabco/dot/internal/executor"
 	"github.com/yaklabco/dot/internal/manifest"
 	"github.com/yaklabco/dot/internal/scanner"
@@ -69,6 +70,9 @@ func (s *UnmanageService) Unmanage(ctx context.Context, packages ...string) erro
 
 // UnmanageWithOptions removes packages with specified options.
 func (s *UnmanageService) UnmanageWithOptions(ctx context.Context, opts UnmanageOptions, packages ...string) error {
+	if len(packages) == 0 {
+		return fmt.Errorf("no packages specified")
+	}
 	s.logger.Info(ctx, "unmanaging_packages", "count", len(packages), "packages", packages)
 
 	targetPathResult := NewTargetPath(s.targetDir)
@@ -82,8 +86,8 @@ func (s *UnmanageService) UnmanageWithOptions(ctx context.Context, opts Unmanage
 	if !manifestResult.IsOk() {
 		err := manifestResult.UnwrapErr()
 		if isManifestNotFoundError(err) {
-			s.logger.Info(ctx, "no_manifest_nothing_to_unmanage")
-			return nil
+			// No manifest means no packages are installed
+			return domain.ErrPackageNotFound{Package: packages[0]}
 		}
 		return err
 	}
@@ -210,6 +214,9 @@ func (s *UnmanageService) filterOrphanedPackages(ctx context.Context, m manifest
 
 // PlanUnmanage computes the execution plan for unmanaging packages.
 func (s *UnmanageService) PlanUnmanage(ctx context.Context, packages ...string) (Plan, error) {
+	if len(packages) == 0 {
+		return Plan{}, fmt.Errorf("no packages specified")
+	}
 	s.logger.Debug(ctx, "plan_unmanage_started", "packages", packages)
 
 	targetPathResult := NewTargetPath(s.targetDir)
@@ -225,11 +232,8 @@ func (s *UnmanageService) PlanUnmanage(ctx context.Context, packages ...string) 
 		err := manifestResult.UnwrapErr()
 		// Check if this is a "file not found" error
 		if isManifestNotFoundError(err) {
-			s.logger.Debug(ctx, "no_manifest_found_nothing_to_unmanage")
-			return Plan{
-				Operations: []Operation{},
-				Metadata:   PlanMetadata{},
-			}, nil
+			// No manifest means no packages are installed
+			return Plan{}, domain.ErrPackageNotFound{Package: packages[0]}
 		}
 		return Plan{}, err
 	}
@@ -247,8 +251,7 @@ func (s *UnmanageService) planUnmanageWithOptions(ctx context.Context, m manifes
 	for _, pkg := range packages {
 		pkgInfo, exists := m.GetPackage(pkg)
 		if !exists {
-			s.logger.Warn(ctx, "package_not_installed", "package", pkg)
-			continue
+			return Plan{}, domain.ErrPackageNotFound{Package: pkg}
 		}
 
 		s.logger.Debug(ctx, "planning_package", "package", pkg, "source", pkgInfo.Source, "links", len(pkgInfo.Links))

@@ -150,10 +150,11 @@ func TestClient_PlanUnmanage_AllEdgeCases(t *testing.T) {
 	client, err := dot.NewClient(cfg)
 	require.NoError(t, err)
 
-	// Plan unmanage before install
-	plan1, err := client.PlanUnmanage(ctx, "test")
-	require.NoError(t, err)
-	assert.Empty(t, plan1.Operations, "Should be empty before install")
+	// Plan unmanage before install should error (package not managed)
+	_, err = client.PlanUnmanage(ctx, "test")
+	require.Error(t, err)
+	var notFound dot.ErrPackageNotFound
+	require.ErrorAs(t, err, &notFound)
 
 	// Manage
 	err = client.Manage(ctx, "test")

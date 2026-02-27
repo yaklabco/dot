@@ -63,9 +63,11 @@ func TestClient_Unmanage_WithEmptyPlan(t *testing.T) {
 	client, err := dot.NewClient(cfg)
 	require.NoError(t, err)
 
-	// Unmanage non-existent package (empty plan path)
+	// Unmanage non-existent package should error
 	err = client.Unmanage(ctx, "notinstalled")
-	require.NoError(t, err) // Should succeed with empty plan
+	require.Error(t, err)
+	var notFound dot.ErrPackageNotFound
+	require.ErrorAs(t, err, &notFound)
 }
 
 func TestClient_Remanage_NoChangesDetected(t *testing.T) {

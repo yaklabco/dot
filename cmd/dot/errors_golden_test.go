@@ -81,7 +81,7 @@ func TestErrorScenarios_Golden(t *testing.T) {
 		{
 			name:        "unmanage_nonexistent_package",
 			args:        []string{"unmanage", "nonexistent-package"},
-			expectError: false, // Returns success with message about no packages
+			expectError: true, // Returns error when package not installed
 			setupFunc: func(t *testing.T) func() {
 				tmpDir := t.TempDir()
 				os.Setenv("HOME", tmpDir)

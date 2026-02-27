@@ -200,7 +200,7 @@ func TestUnmanageCommand_ExecuteStub(t *testing.T) {
 	cmd.SetErr(out)
 
 	err := cmd.Execute()
-	require.NoError(t, err)
+	require.Error(t, err) // Package not installed, should error
 }
 
 func TestUnmanageCommand_NoPackages(t *testing.T) {
@@ -340,7 +340,7 @@ func TestUnmanageCommand_MultiplePackages(t *testing.T) {
 	cmd.SetErr(out)
 
 	err := cmd.Execute()
-	require.NoError(t, err)
+	require.Error(t, err) // Packages not installed, should error
 }
 
 func TestUnmanageCommand_AllFlag(t *testing.T) {

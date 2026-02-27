@@ -57,7 +57,7 @@ func TestUnmanageService_Unmanage(t *testing.T) {
 		assert.False(t, fs.Exists(ctx, targetDir+"/.vimrc"))
 	})
 
-	t.Run("handles non-existent package", func(t *testing.T) {
+	t.Run("errors on non-existent package", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
@@ -65,6 +65,16 @@ func TestUnmanageService_Unmanage(t *testing.T) {
 		require.NoError(t, fs.MkdirAll(ctx, packageDir, 0755))
 		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
 
+		// Create a managed package so the manifest exists
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/real-pkg", 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/real-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
 		exec := executor.New(executor.Opts{
 			FS:     fs,
 			Logger: adapters.NewNoopLogger(),
@@ -72,10 +82,20 @@ func TestUnmanageService_Unmanage(t *testing.T) {
 		})
 		manifestStore := manifest.NewFSManifestStore(fs)
 		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		manageSvc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
 
-		svc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
-		err := svc.Unmanage(ctx, "non-existent")
-		require.NoError(t, err) // Should not error, just no-op
+		// Manage a real package so the manifest exists
+		err := manageSvc.Manage(ctx, "real-pkg")
+		require.NoError(t, err)
+
+		// Unmanaging a non-existent package should return an error
+		err = unmanageSvc.Unmanage(ctx, "non-existent")
+		require.Error(t, err)
+
+		var notFound ErrPackageNotFound
+		require.ErrorAs(t, err, &notFound)
+		assert.Equal(t, "non-existent", notFound.Package)
 	})
 }
 
@@ -154,7 +174,7 @@ func TestUnmanageService_PlanUnmanage(t *testing.T) {
 		assert.Greater(t, len(plan.Operations), 1)
 	})
 
-	t.Run("returns empty plan when no manifest exists", func(t *testing.T) {
+	t.Run("errors when no manifest exists", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
@@ -171,9 +191,10 @@ func TestUnmanageService_PlanUnmanage(t *testing.T) {
 		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
 
 		svc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
-		plan, err := svc.PlanUnmanage(ctx, "test-pkg")
-		require.NoError(t, err)
-		assert.Len(t, plan.Operations, 0)
+		_, err := svc.PlanUnmanage(ctx, "test-pkg")
+		require.Error(t, err)
+		var notFound ErrPackageNotFound
+		require.ErrorAs(t, err, &notFound)
 	})
 }
 
