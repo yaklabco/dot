@@ -1,4 +1,62 @@
 <a name="unreleased"></a>
+## [0.6.4](https://github.com/yaklabco/dot/compare/v0.6.3...v0.6.4) (2026-02-27)
+
+
+### Features
+
+* **api:** add Is methods to clone error types ([72c1a7a](https://github.com/yaklabco/dot/commit/72c1a7afc8c274b3d89b590c14e41e612bb79930))
+* **api:** make stdin/stdout configurable via Config ([cf7c1a0](https://github.com/yaklabco/dot/commit/cf7c1a0f6bb235c823685c6cf7f511d83d25a62f))
+* **cli:** add graceful pprof server shutdown ([2720fd3](https://github.com/yaklabco/dot/commit/2720fd39cac51996222f55cf090440a126245360))
+* **executor:** enforce Config.Concurrency limit ([11709f3](https://github.com/yaklabco/dot/commit/11709f36d8e87ef2a42ba67d1e83cffe5fdbf613))
+* **skill:** add /stress-test full-app integration testing skill ([b22e037](https://github.com/yaklabco/dot/commit/b22e037798105515c706c2a2b8fcd71eeda5461b))
+
+
+### Bug Fixes
+
+* **api:** return typed ErrConflict for conflict errors ([d93ab2f](https://github.com/yaklabco/dot/commit/d93ab2f5fe4819d715c400f3dd82e27d4fbbe65d))
+* **cli:** replace deprecated strings.Title with cases.Title ([cd7cb69](https://github.com/yaklabco/dot/commit/cd7cb69d8451641bd373b0d81bb40836c81ccfce))
+* **doctor:** use structured status for exit codes ([350fc2e](https://github.com/yaklabco/dot/commit/350fc2e94af053c810be92edfd94faee65b0d59a))
+* **domain:** add JoinSafe to prevent path traversal attacks ([6e8109a](https://github.com/yaklabco/dot/commit/6e8109af5f595d4d90f0fef27488432d1f626917))
+* **domain:** change FileInfo.ModTime to return time.Time ([dc3a6d6](https://github.com/yaklabco/dot/commit/dc3a6d6245fc824681e1d63bcfaec8ec7894f21f))
+* **manage:** respect --no-color flag in dry-run output ([b0c3335](https://github.com/yaklabco/dot/commit/b0c33357d6b17ed4d0722e9c7595c4d5e9195e5b))
+* **pipeline:** correct path containment for dot-prefixed paths ([ff9cf98](https://github.com/yaklabco/dot/commit/ff9cf9839d561d50387125d16223943d44ace4d1))
+* **planner:** check Result.IsOk before Unwrap calls ([0fb6bea](https://github.com/yaklabco/dot/commit/0fb6bea4f92bf804fe0f63b179a00015a69047aa))
+* **planner:** ensure fluent API methods are immutable ([5e73da4](https://github.com/yaklabco/dot/commit/5e73da42bbf81e93b6437ffaaf78877479a9d402))
+* **planner:** handle os.UserHomeDir error in DotOperationalPaths ([95c52bf](https://github.com/yaklabco/dot/commit/95c52bfd9bf847d50d82a117362333374564b8c7))
+* resolve P1+P2 bugs from stress test (dot-0v8, dot-qf8, dot-33c, dot-dae) ([ecbe8ea](https://github.com/yaklabco/dot/commit/ecbe8eab0e21f79efe93eefadaf4e558357c7e7b))
+* resolve P2 bugs from stress test round 2 (dot-4v0, dot-ax0) ([f1e54ed](https://github.com/yaklabco/dot/commit/f1e54ed45783c4c5a6afa5922ea08cf85bc71f43))
+* resolve P2 bugs from stress test round 3 (dot-rb1, dot-1p8) ([55e1eca](https://github.com/yaklabco/dot/commit/55e1eca5ffdb1ca86939bccb23977e88fc4d0075))
+* **unmanage:** return error when package is not installed ([eb5fc2d](https://github.com/yaklabco/dot/commit/eb5fc2d8793c4dfd57dd25dea2af21dde0a4461b))
+* **ux:** add --yes flag to config upgrade and differentiate remanage output ([c47204c](https://github.com/yaklabco/dot/commit/c47204c5639fffcf912d9cda7418e33a9cb049ab))
+* **ux:** address 5 UX issues from integration testing ([04f7a0f](https://github.com/yaklabco/dot/commit/04f7a0f51468465e6681eebaf6473fc563d5575b))
+* **ux:** consistent casing in unmanage --all success message (dot-9xt) ([1cd18fc](https://github.com/yaklabco/dot/commit/1cd18fc1a1c8a00819a27f9f12032794f363e544))
+* **ux:** resolve 4 P3 issues from stress test (dot-m6t, dot-zyp, dot-1ut, dot-voh) ([0462eb6](https://github.com/yaklabco/dot/commit/0462eb6778bb5762deb1f2bb867f212f7b615fc7))
+
+
+### Performance Improvements
+
+* **planner:** use slice instead of map for contiguous levels ([bc86743](https://github.com/yaklabco/dot/commit/bc8674341481c4cd26af74fa78d636270dad8a92))
+
+
+### Code Refactoring
+
+* **cli:** eliminate global cliFlags state ([78fdae6](https://github.com/yaklabco/dot/commit/78fdae6e3329cf76340c3818dfa8735fadd6a315))
+* **cli:** use explicit GetCLIFlags accessor ([7e62cd5](https://github.com/yaklabco/dot/commit/7e62cd539bc05f75d337103f061f0823cf7631cf))
+* **doctor:** add typed SeverityLevel enum ([8e33b92](https://github.com/yaklabco/dot/commit/8e33b92584d7e7f1b16ba94fcf58af6c636473ed))
+* **doctor:** split FS interface into FSReader and FSWriter ([29d039f](https://github.com/yaklabco/dot/commit/29d039fe04cc682e6ae6dbb64cc285d4419036ee))
+* **doctor:** standardize ManifestLoader return pattern ([a6e0023](https://github.com/yaklabco/dot/commit/a6e0023c00cd9a5eb91fe2798257a4e036175c1c))
+* **doctor:** standardize ManifestLoader return pattern ([8523c05](https://github.com/yaklabco/dot/commit/8523c05d1c734e42b8e7322ece5fd7c25e459bb4))
+* **domain:** split FS interface into FSReader and FSWriter ([ca0266a](https://github.com/yaklabco/dot/commit/ca0266a961f0768699f75fd55902b6876c67a761))
+* **domain:** use stdlib fs.FileInfo and fs.DirEntry type aliases ([43ed0fe](https://github.com/yaklabco/dot/commit/43ed0fead470b586dac099f24a7d30c0332462b9))
+* **executor:** use errors.As for error type checking ([2f21b3c](https://github.com/yaklabco/dot/commit/2f21b3c53723149eb7ef37fba4d45a0a04b68c97))
+* update consumers to accept FSReader for read-only operations ([a9c8b4c](https://github.com/yaklabco/dot/commit/a9c8b4c197a703cb954cd25c05c99529f2e1b641))
+
+
+### Tests
+
+* **api:** add comprehensive API contract tests ([eb39306](https://github.com/yaklabco/dot/commit/eb39306246733c9a556e3908aac5727bca4dd286))
+* **executor:** add integration test for full rollback ([0445ea3](https://github.com/yaklabco/dot/commit/0445ea3436038dbe1a372cc42eaf94be76be6a9e))
+
 ## [0.6.3](https://github.com/yaklabco/dot/compare/v0.6.2...v0.6.3) (2025-11-24)
 
 
