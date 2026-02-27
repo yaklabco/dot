@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -90,6 +91,11 @@ func runManage(cmd *cobra.Command, args []string) error {
 
 	// Normal execution
 	if err := client.Manage(ctx, packages...); err != nil {
+		var noChanges dot.ErrNoChanges
+		if errors.As(err, &noChanges) {
+			formatNoChangesMessage(cmd.OutOrStdout(), len(packages), shouldUseColor())
+			return nil
+		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
 		return err
 	}

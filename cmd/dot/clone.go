@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -147,6 +148,11 @@ func runClone(cmd *cobra.Command, args []string, profile string, interactive boo
 	if err := client.Clone(ctx, repoURL, opts); err != nil {
 		return formatCloneError(err)
 	}
+
+	// Print success message
+	colorize := shouldUseColor()
+	formatter := output.NewFormatter(cmd.OutOrStdout(), colorize)
+	formatter.SuccessSimple(fmt.Sprintf("Cloned repository to %s", cfg.PackageDir))
 
 	return nil
 }

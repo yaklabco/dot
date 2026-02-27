@@ -82,10 +82,10 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		}
 	}
 
-	// If plan is empty (no operations needed), consider it success
+	// If plan is empty (no operations needed), return ErrNoChanges
 	if len(plan.Operations) == 0 {
 		s.logger.Info(ctx, "no_operations_required", "packages", packages)
-		return nil
+		return ErrNoChanges{Packages: packages}
 	}
 
 	if s.dryRun {

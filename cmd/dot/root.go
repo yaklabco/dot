@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -422,7 +423,7 @@ func createLoggerWithFlags(flags *CLIFlags) dot.Logger {
 func verbosityToLevel(v int) slog.Level {
 	switch {
 	case v == 0:
-		return slog.LevelError // Suppress INFO/DEBUG/WARN, only show errors
+		return slog.Level(math.MaxInt) // Suppress all structured logs in default mode
 	case v == 1:
 		return slog.LevelInfo // Show high-level progress
 	case v == 2:

@@ -15,6 +15,7 @@ import (
 
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
+	"github.com/yaklabco/dot/internal/cli/renderer"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -117,12 +118,32 @@ func runUnmanage(cmd *cobra.Command, args []string, purge, noRestore, cleanup, a
 
 	packages := args
 
+	// If dry-run mode, render the plan instead of executing
+	if cfg.DryRun {
+		plan, err := client.PlanUnmanage(ctx, packages...)
+		if err != nil {
+			return err
+		}
+
+		tableStyle := ""
+		configPath := getConfigFilePath()
+		if extCfg, _ := loadConfigWithRepoPriority(GetCLIFlags().packageDir, configPath); extCfg != nil {
+			tableStyle = extCfg.Output.TableStyle
+		}
+		rend, err := renderer.NewRenderer("text", shouldUseColor(), tableStyle)
+		if err != nil {
+			return err
+		}
+
+		return rend.RenderPlan(os.Stdout, plan)
+	}
+
 	// Execute unmanage with options
 	if err := client.UnmanageWithOptions(ctx, opts, packages...); err != nil {
 		return err
 	}
 
-	if !cfg.DryRun {
+	{
 		// Determine colorization from global flag
 		colorize := shouldUseColor()
 		formatter := output.NewFormatter(cmd.OutOrStdout(), colorize)
