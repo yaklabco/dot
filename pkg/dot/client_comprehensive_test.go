@@ -67,7 +67,10 @@ func TestClient_CompleteWorkflow(t *testing.T) {
 
 	t.Run("Remanage", func(t *testing.T) {
 		err := client.Remanage(ctx, "bash")
-		require.NoError(t, err)
+		if err != nil {
+			var noChanges dot.ErrNoChanges
+			require.ErrorAs(t, err, &noChanges)
+		}
 	})
 
 	t.Run("Unmanage", func(t *testing.T) {
@@ -241,7 +244,10 @@ func TestClient_MultiPackageOperations(t *testing.T) {
 
 	// Remanage subset
 	err = client.Remanage(ctx, "vim", "zsh")
-	require.NoError(t, err)
+	if err != nil {
+		var noChanges dot.ErrNoChanges
+		require.ErrorAs(t, err, &noChanges)
+	}
 
 	// Unmanage one
 	err = client.Unmanage(ctx, "tmux")

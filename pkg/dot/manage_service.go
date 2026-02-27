@@ -171,7 +171,7 @@ func (s *ManageService) Remanage(ctx context.Context, packages ...string) error 
 	}
 	if len(plan.Operations) == 0 {
 		s.logger.Info(ctx, "no_changes_detected", "packages", packages)
-		return nil
+		return ErrNoChanges{Packages: packages}
 	}
 	if s.dryRun {
 		s.logger.Info(ctx, "dry_run_plan", "operations", len(plan.Operations))

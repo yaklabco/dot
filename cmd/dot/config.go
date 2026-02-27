@@ -536,6 +536,7 @@ func runConfigPath() error {
 // newConfigUpgradeCommand creates the upgrade subcommand.
 func newConfigUpgradeCommand() *cobra.Command {
 	var force bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "upgrade",
@@ -556,14 +557,17 @@ backups are automatically retained.`,
   dot config upgrade
 
   # Skip confirmation prompt
-  dot config upgrade --force`,
+  dot config upgrade --force
+  dot config upgrade --yes`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConfigUpgrade(cmd, force)
+			return runConfigUpgrade(cmd, force || yes)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false,
 		"Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false,
+		"Skip confirmation prompt (alias for --force)")
 
 	return cmd
 }

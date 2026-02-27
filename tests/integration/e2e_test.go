@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/yaklabco/dot/pkg/dot"
 	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
@@ -117,7 +118,10 @@ func TestE2E_Manage_Idempotent(t *testing.T) {
 
 	// Manage again should use remanage internally which is idempotent
 	err = client.Remanage(env.Context(), "vim")
-	require.NoError(t, err)
+	if err != nil {
+		var noChanges dot.ErrNoChanges
+		require.ErrorAs(t, err, &noChanges)
+	}
 
 	// Verify link still exists
 	testutil.AssertLinkContains(t, vimrcLink, "dot-vimrc")
@@ -219,7 +223,10 @@ func TestE2E_Remanage_Unchanged(t *testing.T) {
 
 	// Remanage unchanged
 	err = client.Remanage(env.Context(), "vim")
-	require.NoError(t, err)
+	if err != nil {
+		var noChanges dot.ErrNoChanges
+		require.ErrorAs(t, err, &noChanges)
+	}
 
 	// Verify state unchanged (no-op)
 	after := testutil.CaptureState(t, env.TargetDir)

@@ -94,7 +94,10 @@ func TestClient_Remanage_NoChangesDetected(t *testing.T) {
 
 	// Remanage without changes
 	err = client.Remanage(ctx, "stable")
-	require.NoError(t, err) // Should detect no changes and succeed
+	if err != nil {
+		var noChanges dot.ErrNoChanges
+		require.ErrorAs(t, err, &noChanges)
+	}
 }
 
 func TestClient_StatusWithNonExistentFilter(t *testing.T) {

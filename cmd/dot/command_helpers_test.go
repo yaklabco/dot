@@ -67,6 +67,26 @@ func TestFormatCount(t *testing.T) {
 	}
 }
 
+func TestFormatNoChangesMessage(t *testing.T) {
+	t.Run("singular package", func(t *testing.T) {
+		var buf bytes.Buffer
+		formatNoChangesMessage(&buf, 1, false)
+		output := buf.String()
+
+		assert.Contains(t, output, "No changes detected")
+		assert.Contains(t, output, "1 package")
+	})
+
+	t.Run("multiple packages", func(t *testing.T) {
+		var buf bytes.Buffer
+		formatNoChangesMessage(&buf, 3, false)
+		output := buf.String()
+
+		assert.Contains(t, output, "No changes detected")
+		assert.Contains(t, output, "3 packages")
+	})
+}
+
 func TestFormatSuccessMessage(t *testing.T) {
 	t.Run("contains title case verb for single package", func(t *testing.T) {
 		var buf bytes.Buffer

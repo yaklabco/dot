@@ -47,6 +47,25 @@ type ErrCheckpointNotFound = domain.ErrCheckpointNotFound
 // ErrNotImplemented represents a not implemented error.
 type ErrNotImplemented = domain.ErrNotImplemented
 
+// ErrNoChanges indicates that an operation found no changes to apply.
+type ErrNoChanges struct {
+	Packages []string
+}
+
+func (e ErrNoChanges) Error() string {
+	noun := "packages"
+	if len(e.Packages) == 1 {
+		noun = "package"
+	}
+	return fmt.Sprintf("no changes detected for %d %s", len(e.Packages), noun)
+}
+
+// Is implements errors.Is for ErrNoChanges.
+func (e ErrNoChanges) Is(target error) bool {
+	_, ok := target.(ErrNoChanges)
+	return ok
+}
+
 // Clone-specific error types
 
 // ErrPackageDirNotEmpty indicates the package directory is not empty.

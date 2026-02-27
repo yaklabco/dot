@@ -216,6 +216,30 @@ func TestErrNotImplemented(t *testing.T) {
 	assert.Contains(t, msg, "not implemented")
 }
 
+func TestErrNoChanges(t *testing.T) {
+	t.Run("single package message", func(t *testing.T) {
+		err := dot.ErrNoChanges{Packages: []string{"vim"}}
+		assert.Equal(t, "no changes detected for 1 package", err.Error())
+	})
+
+	t.Run("multiple packages message", func(t *testing.T) {
+		err := dot.ErrNoChanges{Packages: []string{"vim", "zsh"}}
+		assert.Equal(t, "no changes detected for 2 packages", err.Error())
+	})
+
+	t.Run("errors.Is matches", func(t *testing.T) {
+		err := dot.ErrNoChanges{Packages: []string{"vim"}}
+		assert.ErrorIs(t, err, dot.ErrNoChanges{})
+	})
+
+	t.Run("errors.As extracts packages", func(t *testing.T) {
+		err := dot.ErrNoChanges{Packages: []string{"vim", "zsh"}}
+		var target dot.ErrNoChanges
+		assert.ErrorAs(t, err, &target)
+		assert.Equal(t, []string{"vim", "zsh"}, target.Packages)
+	})
+}
+
 func TestUserFacingErrorComprehensive(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -121,7 +121,7 @@ func TestManageService_PlanManage(t *testing.T) {
 }
 
 func TestManageService_Remanage(t *testing.T) {
-	t.Run("skips unchanged packages", func(t *testing.T) {
+	t.Run("returns ErrNoChanges for unchanged packages", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
@@ -152,9 +152,11 @@ func TestManageService_Remanage(t *testing.T) {
 		err := svc.Manage(ctx, "test-pkg")
 		require.NoError(t, err)
 
-		// Remanage without changes
+		// Remanage without changes should return ErrNoChanges
 		err = svc.Remanage(ctx, "test-pkg")
-		require.NoError(t, err)
+		require.Error(t, err)
+		var noChanges ErrNoChanges
+		assert.ErrorAs(t, err, &noChanges)
 	})
 
 	t.Run("remanages adopted package", func(t *testing.T) {
@@ -205,7 +207,7 @@ func TestManageService_Remanage(t *testing.T) {
 		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
 		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
 
-		// Remanage adopted package
+		// Remanage adopted package - recreates the symlink (produces operations)
 		err = svc.Remanage(ctx, "dot-ssh")
 		require.NoError(t, err)
 

@@ -301,6 +301,67 @@ ignore:
 	assert.Contains(t, header, "# See https://github.com/yaklabco/dot")
 }
 
+func TestNewConfigUpgradeCommand_YesFlag(t *testing.T) {
+	cmd := newConfigUpgradeCommand()
+
+	t.Run("has --yes flag", func(t *testing.T) {
+		flag := cmd.Flags().Lookup("yes")
+		require.NotNil(t, flag, "--yes flag should exist")
+		assert.Equal(t, "y", flag.Shorthand)
+		assert.Equal(t, "false", flag.DefValue)
+	})
+
+	t.Run("--yes skips confirmation like --force", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "config.yaml")
+
+		cfg := config.DefaultExtended()
+		cfg.Directories.Package = "/test/yes-flag"
+		writer := config.NewWriter(configPath)
+		require.NoError(t, writer.Write(cfg, config.WriteOptions{Format: "yaml"}))
+
+		originalEnv := os.Getenv("DOT_CONFIG")
+		os.Setenv("DOT_CONFIG", configPath)
+		defer os.Setenv("DOT_CONFIG", originalEnv)
+
+		yesCmd := newConfigUpgradeCommand()
+		yesCmd.SetArgs([]string{"--yes"})
+
+		err := yesCmd.Execute()
+		require.NoError(t, err)
+
+		loader := config.NewLoader("dot", configPath)
+		upgraded, err := loader.LoadWithEnv()
+		require.NoError(t, err)
+		assert.Equal(t, "/test/yes-flag", upgraded.Directories.Package)
+	})
+
+	t.Run("-y shorthand works", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "config.yaml")
+
+		cfg := config.DefaultExtended()
+		cfg.Directories.Package = "/test/y-shorthand"
+		writer := config.NewWriter(configPath)
+		require.NoError(t, writer.Write(cfg, config.WriteOptions{Format: "yaml"}))
+
+		originalEnv := os.Getenv("DOT_CONFIG")
+		os.Setenv("DOT_CONFIG", configPath)
+		defer os.Setenv("DOT_CONFIG", originalEnv)
+
+		shortCmd := newConfigUpgradeCommand()
+		shortCmd.SetArgs([]string{"-y"})
+
+		err := shortCmd.Execute()
+		require.NoError(t, err)
+
+		loader := config.NewLoader("dot", configPath)
+		upgraded, err := loader.LoadWithEnv()
+		require.NoError(t, err)
+		assert.Equal(t, "/test/y-shorthand", upgraded.Directories.Package)
+	})
+}
+
 func TestRunConfigUpgrade_Integration(t *testing.T) {
 	// This is a minimal integration test that verifies the command wiring
 	// Full CLI testing would require mocking stdin for the confirmation prompt

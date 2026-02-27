@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -39,6 +40,11 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 	packages := args
 
 	if err := fn(client, ctx, packages); err != nil {
+		var noChanges dot.ErrNoChanges
+		if errors.As(err, &noChanges) {
+			formatNoChangesMessage(cmd.OutOrStdout(), len(packages), shouldUseColor())
+			return nil
+		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
 		return err
 	}
@@ -54,6 +60,12 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 func formatSuccessMessage(w io.Writer, verb string, count int, colorEnabled bool) {
 	formatter := output.NewFormatter(w, colorEnabled)
 	formatter.Success(verb, count, "package", "packages")
+}
+
+// formatNoChangesMessage prints a message indicating no changes were detected.
+func formatNoChangesMessage(w io.Writer, count int, colorEnabled bool) {
+	formatter := output.NewFormatter(w, colorEnabled)
+	formatter.Info(fmt.Sprintf("No changes detected for %s", formatCount(count, "package", "packages")))
 }
 
 // getAvailablePackages returns list of available packages from the package directory.

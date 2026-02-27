@@ -2,9 +2,11 @@ package integration
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
+	"github.com/yaklabco/dot/pkg/dot"
 	"github.com/yaklabco/dot/tests/integration/testutil"
 )
 
@@ -120,8 +122,12 @@ func BenchmarkRemanage_Unchanged(b *testing.B) {
 
 	// Benchmark remanage
 	for i := 0; i < b.N; i++ {
-		if err := client.Remanage(context.Background(), "vim"); err != nil {
-			b.Fatal(err)
+		err := client.Remanage(context.Background(), "vim")
+		if err != nil {
+			var noChanges dot.ErrNoChanges
+			if !errors.As(err, &noChanges) {
+				b.Fatal(err)
+			}
 		}
 	}
 }
