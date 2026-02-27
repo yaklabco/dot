@@ -93,16 +93,22 @@ Translation rules:
 
 Rationale: Version control systems and tools handle non-hidden files better, making dotfiles visible in repositories improves discoverability.
 
-Example:
+Examples (with default package name mapping):
 ```
-# In package directory:
-vim/dot-vimrc
-vim/dot-vim/colors/theme.vim
+# Package "dot-vim" -> target directory ~/.vim/
+dot-vim/dot-vimrc               -> ~/.vim/.vimrc
+dot-vim/colors/theme.vim        -> ~/.vim/colors/theme.vim
 
-# In target directory:
-~/.vimrc -> ~/dotfiles/vim/dot-vimrc
-~/.vim/ -> ~/dotfiles/vim/dot-vim/
+# Package "vim" (no dot- prefix) -> target directory ~/vim/
+vim/dot-vimrc                   -> ~/vim/.vimrc
+
+# Package "dot-ssh" -> target directory ~/.ssh/
+dot-ssh/config                  -> ~/.ssh/config
 ```
+
+Note: The package name determines the target subdirectory. Use a `dot-`
+prefixed package name when the target directory should be hidden (e.g.,
+`dot-ssh` for `~/.ssh/`).
 
 ### Directory Folding
 

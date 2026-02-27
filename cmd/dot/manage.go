@@ -18,8 +18,23 @@ func newManageCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "manage PACKAGE [PACKAGE...]",
 		Short: "Install packages by creating symlinks",
-		Long: `Install one or more packages by creating symlinks from the package 
-directory to the target directory.`,
+		Long: `Install one or more packages by creating symlinks from the package
+directory to the target directory.
+
+Path mapping rules:
+  Package name  The package name becomes a subdirectory in the target.
+                If the name starts with "dot-", it is translated to a
+                leading "." (e.g., package "dot-ssh" -> ~/.ssh/).
+                A plain name is kept as-is (e.g., package "vim" -> ~/vim/).
+
+  File names    Files prefixed with "dot-" are translated to dotfiles
+                (e.g., dot-vimrc -> .vimrc, dot-config -> .config).
+
+Examples:
+  packages/dot-ssh/config       -> ~/.ssh/config
+  packages/dot-vim/dot-vimrc    -> ~/.vim/.vimrc
+  packages/vim/dot-vimrc        -> ~/vim/.vimrc
+  packages/scripts/hello.sh     -> ~/scripts/hello.sh`,
 		Args:              argsWithUsage(cobra.MinimumNArgs(1)),
 		RunE:              runManage,
 		ValidArgsFunction: packageCompletion(false), // Complete with available packages
