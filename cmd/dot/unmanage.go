@@ -10,8 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
@@ -299,25 +297,30 @@ func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool, 
 	colorize := shouldUseColorWithFlags(flags)
 	colorizer := render.NewColorizer(colorize)
 
-	operation := "unmanage"
-	if opts.Purge {
-		operation = "unmanage and purge"
-	} else if opts.Restore {
-		operation = "unmanage and restore"
-	}
-
 	packageText := fmt.Sprintf("%d %s", count, pluralize(count, "package", "packages"))
 
 	if dryRun {
+		operation := "unmanage"
+		if opts.Purge {
+			operation = "unmanage and purge"
+		} else if opts.Restore {
+			operation = "unmanage and restore"
+		}
 		fmt.Printf("%s %s %s\n",
 			colorizer.Dim("Would"),
 			operation,
 			colorizer.Accent(packageText),
 		)
 	} else {
+		operation := "Unmanaged"
+		if opts.Purge {
+			operation = "Unmanaged and purged"
+		} else if opts.Restore {
+			operation = "Unmanaged and restored"
+		}
 		fmt.Printf("%s %s %s\n",
 			colorizer.Success("✓"),
-			cases.Title(language.English).String(operation),
+			operation,
 			packageText,
 		)
 	}
