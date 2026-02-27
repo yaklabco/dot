@@ -41,14 +41,9 @@ linters:
     gosec:
       excludes:
         - G104
-        - G115
-        - G117
         - G301
         - G302
         - G304
-        - G602
-        - G703
-        - G704
     importas:
       alias:
         - pkg: github.com/stretchr/testify/assert

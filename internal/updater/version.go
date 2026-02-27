@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -123,11 +124,19 @@ func createHTTPClient(cfg *config.NetworkConfig) *http.Client {
 	}
 }
 
+// githubAPIBase is the base URL for GitHub API requests.
+const githubAPIBase = "https://api.github.com"
+
 // GetLatestVersion fetches the latest release from GitHub.
 func (vc *VersionChecker) GetLatestVersion(includePrerelease bool) (*GitHubRelease, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", vc.repository)
+	base, err := url.Parse(githubAPIBase)
+	if err != nil {
+		return nil, fmt.Errorf("parse GitHub API base: %w", err)
+	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	base.Path = fmt.Sprintf("/repos/%s/releases", vc.repository)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, base.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -135,7 +144,7 @@ func (vc *VersionChecker) GetLatestVersion(includePrerelease bool) (*GitHubRelea
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "dot-updater")
 
-	resp, err := vc.httpClient.Do(req)
+	resp, err := vc.httpClient.Do(req) //nolint:gosec // URL host validated via constant githubAPIBase
 	if err != nil {
 		return nil, fmt.Errorf("fetch releases: %w", err)
 	}

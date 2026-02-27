@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
+	"github.com/yaklabco/dot/internal/cli/terminal"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -472,7 +473,7 @@ func shouldUseColorWithFlags(flags *CLIFlags) bool {
 	}
 
 	// Check if stdout is a terminal
-	return term.IsTerminal(int(os.Stdout.Fd()))
+	return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 }
 
 // shouldColorize determines if output should be colorized based on the color flag.
@@ -501,10 +502,10 @@ func shouldColorizeWithFlags(flags *CLIFlags, color string) bool {
 		return false
 	case "auto":
 		// Check if stdout is a terminal using portable detection
-		return term.IsTerminal(int(os.Stdout.Fd()))
+		return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 	default:
 		// Default to auto behavior
-		return term.IsTerminal(int(os.Stdout.Fd()))
+		return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 	}
 }
 

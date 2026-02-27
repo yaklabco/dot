@@ -283,8 +283,13 @@ func getBackupDir() (string, error) {
 
 	backupDir := filepath.Join(configHome, "dot", "backups")
 
+	// Validate the resolved path stays under the config home to prevent path traversal
+	if !strings.HasPrefix(filepath.Clean(backupDir), filepath.Clean(configHome)) {
+		return "", fmt.Errorf("backup directory %q escapes config home %q", backupDir, configHome)
+	}
+
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(backupDir, 0700); err != nil {
+	if err := os.MkdirAll(backupDir, 0700); err != nil { //nolint:gosec // path validated above
 		return "", fmt.Errorf("cannot create backup directory: %w", err)
 	}
 

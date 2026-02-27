@@ -2,10 +2,21 @@
 package terminal
 
 import (
+	"math"
 	"os"
 
 	"golang.org/x/term"
 )
+
+// FdInt safely converts a file descriptor from uintptr to int.
+// File descriptors are small non-negative integers on all platforms,
+// so overflow is not possible in practice, but this satisfies gosec G115.
+func FdInt(fd uintptr) int {
+	if fd > math.MaxInt {
+		return -1
+	}
+	return int(fd)
+}
 
 // IsInteractive determines if the current process is running in an interactive terminal.
 //
@@ -16,14 +27,12 @@ import (
 // fall back to non-interactive behavior.
 func IsInteractive() bool {
 	// Check if stdin is a terminal
-	stdinFd := int(os.Stdin.Fd())
-	if !term.IsTerminal(stdinFd) {
+	if !term.IsTerminal(FdInt(os.Stdin.Fd())) {
 		return false
 	}
 
 	// Check if stdout is a terminal
-	stdoutFd := int(os.Stdout.Fd())
-	if !term.IsTerminal(stdoutFd) {
+	if !term.IsTerminal(FdInt(os.Stdout.Fd())) {
 		return false
 	}
 

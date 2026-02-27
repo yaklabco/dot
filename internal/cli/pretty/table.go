@@ -10,6 +10,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // TableStyle defines the visual style for tables.
@@ -189,13 +191,13 @@ func ShouldUseColor() bool {
 	}
 
 	// Check if stdout is a terminal
-	fd := int(os.Stdout.Fd())
+	fd := terminal.FdInt(os.Stdout.Fd())
 	return term.IsTerminal(fd)
 }
 
 // GetTerminalWidth returns the width of the terminal.
 func GetTerminalWidth() int {
-	fd := int(os.Stdout.Fd())
+	fd := terminal.FdInt(os.Stdout.Fd())
 	width, _, err := term.GetSize(fd)
 	if err != nil || width == 0 {
 		return 80 // Default fallback
@@ -205,7 +207,7 @@ func GetTerminalWidth() int {
 
 // GetTerminalHeight returns the height of the terminal.
 func GetTerminalHeight() int {
-	fd := int(os.Stdout.Fd())
+	fd := terminal.FdInt(os.Stdout.Fd())
 	_, height, err := term.GetSize(fd)
 	if err != nil || height == 0 {
 		return 24 // Default fallback
@@ -215,5 +217,5 @@ func GetTerminalHeight() int {
 
 // IsInteractive returns true if the output is an interactive terminal.
 func IsInteractive() bool {
-	return term.IsTerminal(int(os.Stdout.Fd()))
+	return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 }

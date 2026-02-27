@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // Color represents a terminal color.
@@ -71,7 +73,7 @@ func ShouldUseColor() bool {
 	}
 
 	// Check if stdout is a terminal
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
+	if !term.IsTerminal(terminal.FdInt(os.Stdout.Fd())) {
 		return false
 	}
 

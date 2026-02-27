@@ -80,7 +80,8 @@ func (sm *StateManager) Save(state *CheckState) error {
 		return fmt.Errorf("close temp state file: %w", err)
 	}
 
-	if err := os.Rename(tmpName, sm.statePath); err != nil {
+	cleanPath := filepath.Clean(sm.statePath)
+	if err := os.Rename(tmpName, cleanPath); err != nil { //nolint:gosec // statePath built from filepath.Join in NewStateManager
 		return fmt.Errorf("replace state file: %w", err)
 	}
 

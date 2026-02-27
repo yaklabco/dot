@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // Indicator provides progress feedback.
@@ -57,11 +59,11 @@ func NewSpinner(cfg Config) Indicator {
 // Checks if stdout or stderr is a terminal (not stdin, which may be piped).
 func IsInteractive() bool {
 	// Check stdout first
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(terminal.FdInt(os.Stdout.Fd())) {
 		return true
 	}
 	// Fallback to stderr
-	return term.IsTerminal(int(os.Stderr.Fd()))
+	return term.IsTerminal(terminal.FdInt(os.Stderr.Fd()))
 }
 
 // NoOpIndicator does nothing (for non-interactive terminals).

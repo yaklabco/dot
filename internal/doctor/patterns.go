@@ -54,26 +54,34 @@ func DefaultPatternCategories() []PatternCategory {
 
 // CategorizeSymlink returns category for a symlink target, or nil if unknown.
 func CategorizeSymlink(target string, categories []PatternCategory) *PatternCategory {
-	for i := range categories {
-		for _, pattern := range categories[i].Patterns {
-			// filepath.Match doesn't support ** or multiple path segments
-			// Use simple substring matching for patterns with * prefix
-			if len(pattern) > 2 && pattern[:2] == "*/" {
-				// Pattern like "*/bin/*" - check if path contains this segment
-				segments := pattern[2:] // Remove */
-				if matchesPathSegment(target, segments) {
-					return &categories[i]
-				}
-			} else {
-				// Direct glob matching for simpler patterns
-				matched, _ := filepath.Match(pattern, target)
-				if matched {
-					return &categories[i]
-				}
-			}
+	for i, cat := range categories {
+		if matchesCategoryPatterns(target, cat.Patterns) {
+			return &categories[i]
 		}
 	}
 	return nil
+}
+
+// matchesCategoryPatterns checks if a target matches any of the given patterns.
+func matchesCategoryPatterns(target string, patterns []string) bool {
+	for _, pattern := range patterns {
+		// filepath.Match doesn't support ** or multiple path segments
+		// Use simple substring matching for patterns with * prefix
+		if len(pattern) > 2 && pattern[:2] == "*/" {
+			// Pattern like "*/bin/*" - check if path contains this segment
+			segments := pattern[2:] // Remove */
+			if matchesPathSegment(target, segments) {
+				return true
+			}
+		} else {
+			// Direct glob matching for simpler patterns
+			matched, _ := filepath.Match(pattern, target)
+			if matched {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // matchesPathSegment checks if a path contains the given segment pattern.

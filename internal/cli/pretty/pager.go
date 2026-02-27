@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // Pager handles paginated output for long content.
@@ -165,7 +167,7 @@ func (p *Pager) showStatusLine(start, end, total int) {
 // getKeyPress reads a single keypress from stdin in raw mode.
 func (p *Pager) getKeyPress() pagerAction {
 	// Get file descriptor for stdin
-	fd := int(os.Stdin.Fd())
+	fd := terminal.FdInt(os.Stdin.Fd())
 
 	// Save current terminal state
 	oldState, err := term.MakeRaw(fd)

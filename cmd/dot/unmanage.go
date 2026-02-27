@@ -14,6 +14,7 @@ import (
 	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/render"
 	"github.com/yaklabco/dot/internal/cli/renderer"
+	"github.com/yaklabco/dot/internal/cli/terminal"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -330,7 +331,7 @@ func reportUnmanageAllResults(count int, opts dot.UnmanageOptions, dryRun bool, 
 func isTerminal(cmd *cobra.Command) bool {
 	in := cmd.InOrStdin()
 	if f, ok := in.(*os.File); ok {
-		return term.IsTerminal(int(f.Fd()))
+		return term.IsTerminal(terminal.FdInt(f.Fd()))
 	}
 	return false
 }

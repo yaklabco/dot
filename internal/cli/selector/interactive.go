@@ -13,6 +13,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // PackageSelector defines the interface for selecting packages.
@@ -226,7 +228,7 @@ func parseRange(rangeStr string, maxIndex int) ([]int, error) {
 // getTerminalWidth returns the width of the terminal.
 // Returns 80 as a default fallback if detection fails.
 func getTerminalWidth() int {
-	fd := int(os.Stdout.Fd())
+	fd := terminal.FdInt(os.Stdout.Fd())
 	width, _, err := term.GetSize(fd)
 	if err != nil || width == 0 {
 		return 80 // Default fallback

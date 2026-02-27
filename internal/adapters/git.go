@@ -76,8 +76,8 @@ type SSHAuth struct {
 	// PrivateKeyPath is the filesystem path to the SSH private key.
 	PrivateKeyPath string
 
-	// Password is an optional passphrase for encrypted keys.
-	Password string
+	// Passphrase is an optional passphrase for encrypted keys.
+	Passphrase string
 }
 
 func (SSHAuth) isAuthMethod() {}

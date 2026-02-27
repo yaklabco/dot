@@ -108,7 +108,7 @@ func convertAuthMethod(auth AuthMethod) (transport.AuthMethod, error) {
 
 	case SSHAuth:
 		// Load SSH private key
-		publicKeys, err := ssh.NewPublicKeysFromFile("git", a.PrivateKeyPath, a.Password)
+		publicKeys, err := ssh.NewPublicKeysFromFile("git", a.PrivateKeyPath, a.Passphrase)
 		if err != nil {
 			return nil, fmt.Errorf("load SSH key: %w", err)
 		}

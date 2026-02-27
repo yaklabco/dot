@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/yaklabco/dot/internal/cli/terminal"
 )
 
 // LargeFilePrompter determines whether large files should be included during scanning.
@@ -104,5 +106,5 @@ func formatSize(bytes int64) string {
 
 // IsInteractive checks if the program is running in an interactive terminal.
 func IsInteractive() bool {
-	return term.IsTerminal(int(os.Stdin.Fd()))
+	return term.IsTerminal(terminal.FdInt(os.Stdin.Fd()))
 }

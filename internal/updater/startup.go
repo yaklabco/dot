@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yaklabco/dot/internal/cli/terminal"
 	"github.com/yaklabco/dot/internal/config"
 	"golang.org/x/term"
 )
@@ -122,7 +123,7 @@ func detectColor(w io.Writer) bool {
 	}
 	// Check if the writer has an Fd() (e.g., *os.File)
 	if f, ok := w.(interface{ Fd() uintptr }); ok {
-		return term.IsTerminal(int(f.Fd()))
+		return term.IsTerminal(terminal.FdInt(f.Fd()))
 	}
 	return false
 }

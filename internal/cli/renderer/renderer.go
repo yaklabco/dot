@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/yaklabco/dot/internal/cli/terminal"
 	"github.com/yaklabco/dot/internal/domain"
 	"github.com/yaklabco/dot/pkg/dot"
 )
@@ -94,7 +95,7 @@ func NewRenderer(format string, colorize bool, tableStyle string) (Renderer, err
 
 // getTerminalWidth returns the width of the terminal, or a default if not available.
 func getTerminalWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	width, _, err := term.GetSize(terminal.FdInt(os.Stdout.Fd()))
 	if err != nil || width == 0 {
 		return 80 // Default fallback
 	}
