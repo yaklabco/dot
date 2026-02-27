@@ -2,6 +2,7 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"os"
 	"runtime"
 	"strings"
@@ -13,6 +14,11 @@ import (
 	"github.com/yaklabco/dot/internal/adapters"
 	"github.com/yaklabco/dot/internal/bootstrap"
 	"github.com/yaklabco/dot/internal/cli/selector"
+	"github.com/yaklabco/dot/internal/executor"
+	"github.com/yaklabco/dot/internal/ignore"
+	"github.com/yaklabco/dot/internal/manifest"
+	"github.com/yaklabco/dot/internal/pipeline"
+	"github.com/yaklabco/dot/internal/planner"
 )
 
 func TestNewCloneService(t *testing.T) {
@@ -775,6 +781,66 @@ profiles:
 	})
 
 	require.NoError(t, err)
+}
+
+func TestCloneService_Clone_SucceedsWhenManageReturnsNoChanges(t *testing.T) {
+	// dot-1p8: ErrNoChanges should be detectable so clone can handle it
+	var noChanges ErrNoChanges
+	noChanges = ErrNoChanges{Packages: []string{"vim", "zsh"}}
+	assert.True(t, errors.As(noChanges, &ErrNoChanges{}),
+		"ErrNoChanges should be detectable via errors.As")
+}
+
+func TestCloneService_Clone_ManageNoChangesIsSuccess(t *testing.T) {
+	// dot-1p8: Integration test — clone calls Manage, which returns ErrNoChanges
+	// because symlinks already exist. Clone should treat this as success.
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+	logger := adapters.NewNoopLogger()
+
+	packageDir := "/packages"
+	targetDir := "/home"
+
+	require.NoError(t, fs.MkdirAll(ctx, packageDir, 0755))
+	require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+	// Pre-create packages and symlinks to simulate "already managed" state
+	require.NoError(t, fs.MkdirAll(ctx, packageDir+"/vim", 0755))
+	require.NoError(t, fs.WriteFile(ctx, packageDir+"/vim/dot-vimrc", []byte("set nocompat"), 0644))
+	require.NoError(t, fs.MkdirAll(ctx, targetDir+"/vim", 0755))
+	require.NoError(t, fs.Symlink(ctx, packageDir+"/vim/dot-vimrc", targetDir+"/vim/.vimrc"))
+
+	// Mock git cloner that keeps existing files (simulating --force re-clone)
+	cloner := &mockGitCloner{
+		cloneFn: func(ctx context.Context, url string, dest string, opts adapters.CloneOptions) error {
+			// Files already exist, cloner just overwrites
+			return nil
+		},
+	}
+
+	sel := &mockPackageSelector{}
+
+	managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+		FS:                 fs,
+		IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+		Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+		PackageNameMapping: false,
+	})
+	exec := executor.New(executor.Opts{
+		FS:     fs,
+		Logger: logger,
+		Tracer: adapters.NewNoopTracer(),
+	})
+	manifestStore := manifest.NewFSManifestStore(fs)
+	manifestSvc := newManifestService(fs, logger, manifestStore)
+	unmanageSvc := newUnmanageService(fs, logger, exec, manifestSvc, packageDir, targetDir, false)
+	manageSvc := newManageService(fs, logger, managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+	svc := newCloneService(fs, logger, manageSvc, cloner, sel, packageDir, targetDir, false)
+
+	// Clone should succeed even though Manage returns ErrNoChanges
+	err := svc.Clone(ctx, "https://github.com/user/dotfiles", CloneOptions{Force: true})
+	require.NoError(t, err, "clone should succeed when packages are already installed")
 }
 
 func TestCloneService_Clone_NoPackagesSelected(t *testing.T) {

@@ -370,25 +370,21 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 	return ops, packageOps, nil
 }
 
-// planAdoptedPackageRemanage plans remanage for an adopted package by recreating the original symlink.
+// planAdoptedPackageRemanage plans remanage for an adopted package.
+// Instead of pointing to the package root directory (which breaks single-file
+// packages), it deletes existing links and re-runs the normal manage pipeline
+// to create correct file-level symlinks.
 func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg string, m manifest.Manifest) ([]Operation, map[string][]OperationID, error) {
 	pkgInfo, exists := m.GetPackage(pkg)
 	if !exists {
 		return nil, nil, fmt.Errorf("package %s not found in manifest", pkg)
 	}
 
-	// Adopted packages should have exactly one link (the original target path)
-	if len(pkgInfo.Links) != 1 {
-		s.logger.Warn(ctx, "adopted_package_unexpected_links", "package", pkg, "link_count", len(pkgInfo.Links))
-	}
-
-	// Create operations to recreate the symlink
+	// Delete existing symlinks
 	var ops []Operation
-	packageOps := make(map[string][]OperationID)
 	var opIDs []OperationID
 
 	for _, link := range pkgInfo.Links {
-		// Delete existing symlink if it exists
 		targetPath := filepath.Join(s.targetDir, link)
 		targetPathResult := NewTargetPath(targetPath)
 		if targetPathResult.IsOk() {
@@ -396,22 +392,27 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 			ops = append(ops, NewLinkDelete(delID, targetPathResult.Unwrap()))
 			opIDs = append(opIDs, delID)
 		}
+	}
 
-		// Recreate symlink from target to package root
-		pkgPath := filepath.Join(s.packageDir, pkg)
-		sourcePathResult := NewFilePath(pkgPath)
-		if !sourcePathResult.IsOk() {
-			return nil, nil, fmt.Errorf("invalid package path: %w", sourcePathResult.UnwrapErr())
-		}
-
-		if targetPathResult.IsOk() {
-			linkID := OperationID(fmt.Sprintf("remanage-link-%s", link))
-			ops = append(ops, NewLinkCreate(linkID, sourcePathResult.Unwrap(), targetPathResult.Unwrap()))
-			opIDs = append(opIDs, linkID)
+	// Remove existing symlinks so the manage pipeline sees a clean target
+	for _, op := range ops {
+		if linkDel, ok := op.(LinkDelete); ok {
+			_ = s.fs.Remove(ctx, linkDel.Target.String())
 		}
 	}
 
-	packageOps[pkg] = opIDs
+	// Re-run the normal manage pipeline to create file-level symlinks
+	managePlan, err := s.PlanManage(ctx, pkg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ops = append(ops, managePlan.Operations...)
+	for _, op := range managePlan.Operations {
+		opIDs = append(opIDs, op.ID())
+	}
+
+	packageOps := map[string][]OperationID{pkg: opIDs}
 	return ops, packageOps, nil
 }
 

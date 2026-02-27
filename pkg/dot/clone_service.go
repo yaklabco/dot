@@ -2,6 +2,7 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -163,10 +164,17 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 
 	s.logger.Info(ctx, "installing_packages", "count", len(packagesToInstall))
 	if err := s.manageSvc.Manage(ctx, packagesToInstall...); err != nil {
-		s.logger.Error(ctx, "package_installation_failed", "error", err)
-		return fmt.Errorf("install packages: %w", err)
+		// ErrNoChanges means packages are already installed (e.g., stale manifest
+		// or re-clone into existing target). This is success for clone.
+		var noChanges ErrNoChanges
+		if !errors.As(err, &noChanges) {
+			s.logger.Error(ctx, "package_installation_failed", "error", err)
+			return fmt.Errorf("install packages: %w", err)
+		}
+		s.logger.Info(ctx, "packages_already_installed", "count", len(packagesToInstall))
+	} else {
+		s.logger.Info(ctx, "packages_installed_successfully", "count", len(packagesToInstall))
 	}
-	s.logger.Info(ctx, "packages_installed_successfully", "count", len(packagesToInstall))
 
 	// Update manifest with repository information
 	s.updateRepoManifest(ctx, repoURL, opts.Branch)

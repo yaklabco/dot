@@ -214,19 +214,19 @@ func TestManageService_Remanage(t *testing.T) {
 		assert.True(t, isLink, "expected .vimrc to be a symlink after remanage")
 	})
 
-	t.Run("remanages adopted package", func(t *testing.T) {
+	t.Run("remanages adopted package with file-level symlinks", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
 		targetDir := "/test/target"
 
-		// Setup adopted package structure
+		// Setup adopted package structure with two files
 		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/dot-ssh", 0755))
 		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
 		require.NoError(t, fs.WriteFile(ctx, packageDir+"/dot-ssh/config", []byte("ssh config"), 0644))
 		require.NoError(t, fs.WriteFile(ctx, packageDir+"/dot-ssh/known_hosts", []byte("hosts"), 0644))
 
-		// Create manifest with adopted package
+		// Create manifest with adopted package (directory-level link, as old adopt would create)
 		manifestStore := manifest.NewFSManifestStore(fs)
 		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
 
@@ -245,14 +245,14 @@ func TestManageService_Remanage(t *testing.T) {
 		err := manifestSvc.Save(ctx, targetPathResult.Unwrap(), m)
 		require.NoError(t, err)
 
-		// Create symlink to simulate adopted state
+		// Create directory-level symlink to simulate old adopted state
 		require.NoError(t, fs.Symlink(ctx, packageDir+"/dot-ssh", targetDir+"/.ssh"))
 
 		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
 			FS:                 fs,
 			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
 			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
-			PackageNameMapping: false,
+			PackageNameMapping: true, // dot-ssh translates to .ssh via package name mapping
 		})
 		exec := executor.New(executor.Opts{
 			FS:     fs,
@@ -262,13 +262,25 @@ func TestManageService_Remanage(t *testing.T) {
 		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
 		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
 
-		// Remanage adopted package - recreates the symlink (produces operations)
+		// Remanage adopted package - should create file-level symlinks (not directory-level)
 		err = svc.Remanage(ctx, "dot-ssh")
 		require.NoError(t, err)
 
-		// Verify symlink still exists
-		linkExists := fs.Exists(ctx, targetDir+"/.ssh")
-		assert.True(t, linkExists)
+		// Verify individual file symlinks exist (not a directory-level symlink)
+		configExists := fs.Exists(ctx, targetDir+"/.ssh/config")
+		assert.True(t, configExists, "expected .ssh/config to exist after remanage")
+
+		hostsExists := fs.Exists(ctx, targetDir+"/.ssh/known_hosts")
+		assert.True(t, hostsExists, "expected .ssh/known_hosts to exist after remanage")
+
+		// Verify the individual files are symlinks
+		configIsLink, err := fs.IsSymlink(ctx, targetDir+"/.ssh/config")
+		require.NoError(t, err)
+		assert.True(t, configIsLink, "expected .ssh/config to be a symlink")
+
+		hostsIsLink, err := fs.IsSymlink(ctx, targetDir+"/.ssh/known_hosts")
+		require.NoError(t, err)
+		assert.True(t, hostsIsLink, "expected .ssh/known_hosts to be a symlink")
 	})
 }
 
@@ -448,6 +460,76 @@ func TestManageService_PlanManage_ReservedName(t *testing.T) {
 		_, err := svc.PlanManage(ctx, "dot", ".dot", "dot-config")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "reserved")
+	})
+}
+
+func TestManageService_Remanage_AdoptedSingleFile_CreatesFileSymlink(t *testing.T) {
+	// dot-rb1: remanage of adopted single-file package should create a file-level
+	// symlink (e.g., .bashrc -> packages/bash/dot-bashrc), NOT a directory symlink
+	// (e.g., .bashrc -> packages/bash).
+	t.Run("creates file-level symlink not directory symlink", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup: adopted package with single file
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/bash", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/bash/dot-bashrc", []byte("export PS1=v1"), 0644))
+
+		// Create manifest marking package as adopted
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		targetPathResult := NewTargetPath(targetDir)
+		require.True(t, targetPathResult.IsOk())
+
+		m := manifest.New()
+		m.AddPackage(manifest.PackageInfo{
+			Name:        "bash",
+			InstalledAt: time.Now(),
+			LinkCount:   1,
+			Links:       []string{".bashrc"},
+			Source:      manifest.SourceAdopted,
+			PackageDir:  packageDir + "/bash",
+		})
+		require.NoError(t, manifestSvc.Save(ctx, targetPathResult.Unwrap(), m))
+
+		// Create file-level symlink (as adopt would have created)
+		require.NoError(t, fs.Symlink(ctx, packageDir+"/bash/dot-bashrc", targetDir+"/.bashrc"))
+
+		// Modify the file to trigger remanage
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/bash/dot-bashrc", []byte("export PS1=v2"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Remanage should succeed
+		err := svc.Remanage(ctx, "bash")
+		require.NoError(t, err)
+
+		// The symlink must still be a FILE-level link, not a directory link
+		isLink, err := fs.IsSymlink(ctx, targetDir+"/.bashrc")
+		require.NoError(t, err)
+		assert.True(t, isLink, ".bashrc should be a symlink")
+
+		target, err := fs.ReadLink(ctx, targetDir+"/.bashrc")
+		require.NoError(t, err)
+		assert.Contains(t, target, "dot-bashrc",
+			"symlink should point to the file (dot-bashrc), not the package directory")
+		assert.NotEqual(t, packageDir+"/bash", target,
+			"symlink must NOT point to the package root directory")
 	})
 }
 
