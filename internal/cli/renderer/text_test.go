@@ -148,6 +148,28 @@ func TestTextRenderer_RenderStatus_Empty(t *testing.T) {
 	assert.Contains(t, buf.String(), "No packages installed")
 }
 
+func TestTextRenderer_RenderStatus_NotFound(t *testing.T) {
+	r := &TextRenderer{
+		colorize: false,
+		scheme:   ColorScheme{},
+		width:    80,
+	}
+
+	status := dot.Status{
+		Packages: []dot.PackageInfo{},
+		NotFound: []string{"vim", "tmux"},
+	}
+
+	var buf bytes.Buffer
+	err := r.RenderStatus(&buf, status)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "Package \"vim\" is not installed")
+	assert.Contains(t, output, "Package \"tmux\" is not installed")
+	assert.NotContains(t, output, "No packages installed")
+}
+
 func TestTextRenderer_RenderStatus_WithPackages(t *testing.T) {
 	r := &TextRenderer{
 		colorize: true,

@@ -99,6 +99,105 @@ func TestUnmanageService_Unmanage(t *testing.T) {
 	})
 }
 
+func TestUnmanageService_Unmanage_CleansEmptyDirectories(t *testing.T) {
+	t.Run("removes empty parent directories after unmanage", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with nested directory structure
+		// dot-config/nvim/init.lua translates to target: dot-config/nvim/init.lua
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg/dot-config/nvim", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-config/nvim/init.lua", []byte("lua"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		manageSvc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Manage the package
+		err := manageSvc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify nested structure created (dot-config stays as-is in target for nested dirs)
+		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/nvim/init.lua"))
+		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"))
+		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config"))
+
+		// Unmanage
+		err = unmanageSvc.Unmanage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify link removed
+		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim/init.lua"))
+
+		// Verify empty parent directories are cleaned up
+		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"), "empty nvim dir should be removed")
+		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config"), "empty dot-config dir should be removed")
+
+		// Target dir itself should still exist
+		assert.True(t, fs.Exists(ctx, targetDir))
+	})
+
+	t.Run("preserves non-empty parent directories", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with nested dir
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg/dot-config/nvim", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-config/nvim/init.lua", []byte("lua"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		manageSvc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := manageSvc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Create another file in dot-config AFTER manage so it's not empty after unmanage
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/dot-config/other-file.txt", []byte("keep me"), 0644))
+
+		// Unmanage
+		err = unmanageSvc.Unmanage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// nvim subdir should be cleaned up (empty after link removal)
+		assert.False(t, fs.Exists(ctx, targetDir+"/dot-config/nvim"), "empty nvim dir should be removed")
+
+		// dot-config should still exist (has other-file.txt)
+		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config"), "dot-config should remain (non-empty)")
+		assert.True(t, fs.Exists(ctx, targetDir+"/dot-config/other-file.txt"))
+	})
+}
+
 func TestUnmanageService_PlanUnmanage(t *testing.T) {
 	t.Run("creates delete operations for installed package", func(t *testing.T) {
 		fs := adapters.NewMemFS()

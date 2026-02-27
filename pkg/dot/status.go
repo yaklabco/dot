@@ -5,6 +5,7 @@ import "time"
 // Status represents the installation state of packages.
 type Status struct {
 	Packages []PackageInfo `json:"packages" yaml:"packages"`
+	NotFound []string      `json:"not_found,omitempty" yaml:"not_found,omitempty"`
 }
 
 // PackageInfo contains metadata about an installed package.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/yaklabco/dot/internal/domain"
 	"github.com/yaklabco/dot/internal/executor"
@@ -130,6 +132,9 @@ func (s *UnmanageService) UnmanageWithOptions(ctx context.Context, opts Unmanage
 		}
 
 		s.logger.Info(ctx, "execution_successful", "operations", len(execResult.Executed))
+
+		// Clean up empty parent directories left by deleted symlinks
+		s.cleanEmptyParentDirs(ctx, m, packages)
 	}
 
 	// Update manifest to remove packages
@@ -314,6 +319,52 @@ func (s *UnmanageService) planUnmanageWithOptions(ctx context.Context, m manifes
 			OperationCount: len(operations),
 		},
 	}, nil
+}
+
+// cleanEmptyParentDirs removes empty directories left behind after symlink deletion.
+// It walks parent directories bottom-up for each deleted link until reaching targetDir.
+func (s *UnmanageService) cleanEmptyParentDirs(ctx context.Context, m manifest.Manifest, packages []string) {
+	// Collect all parent directories from deleted links, deepest first
+	dirs := make(map[string]struct{})
+	for _, pkg := range packages {
+		pkgInfo, exists := m.GetPackage(pkg)
+		if !exists {
+			continue
+		}
+		for _, link := range pkgInfo.Links {
+			// Walk up from parent of the link to targetDir
+			dir := filepath.Dir(filepath.Join(s.targetDir, link))
+			for dir != s.targetDir && strings.HasPrefix(dir, s.targetDir) {
+				dirs[dir] = struct{}{}
+				dir = filepath.Dir(dir)
+			}
+		}
+	}
+
+	// Sort deepest first (longest path first)
+	sorted := make([]string, 0, len(dirs))
+	for d := range dirs {
+		sorted = append(sorted, d)
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return strings.Count(sorted[i], string(filepath.Separator)) >
+			strings.Count(sorted[j], string(filepath.Separator))
+	})
+
+	// Try to remove each directory if empty
+	for _, dir := range sorted {
+		entries, err := s.fs.ReadDir(ctx, dir)
+		if err != nil {
+			continue
+		}
+		if len(entries) == 0 {
+			if err := s.fs.Remove(ctx, dir); err != nil {
+				s.logger.Debug(ctx, "failed_to_remove_empty_dir", "dir", dir, "error", err)
+			} else {
+				s.logger.Debug(ctx, "removed_empty_directory", "dir", dir)
+			}
+		}
+	}
 }
 
 // isPackageOrphaned checks if a package is orphaned (has no valid links or missing package directory).

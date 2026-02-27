@@ -21,8 +21,15 @@ type TableRenderer struct {
 
 // RenderStatus renders installation status as a table.
 func (r *TableRenderer) RenderStatus(w io.Writer, status dot.Status) error {
+	// Show not-found messages for specifically requested packages
+	for _, pkg := range status.NotFound {
+		fmt.Fprintf(w, "Package %q is not installed\n", pkg)
+	}
+
 	if len(status.Packages) == 0 {
-		fmt.Fprintln(w, "No packages installed")
+		if len(status.NotFound) == 0 {
+			fmt.Fprintln(w, "No packages installed")
+		}
 		return nil
 	}
 

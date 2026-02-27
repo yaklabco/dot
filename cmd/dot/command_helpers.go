@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
@@ -42,10 +44,16 @@ func executePackageCommand(cmd *cobra.Command, args []string, fn packageCommandF
 	}
 
 	if !cfg.DryRun {
-		fmt.Printf("%s %s\n", actionVerb, formatCount(len(packages), "package", "packages"))
+		formatSuccessMessage(cmd.OutOrStdout(), actionVerb, len(packages), shouldUseColor())
 	}
 
 	return nil
+}
+
+// formatSuccessMessage prints a standardized success message using the output formatter.
+func formatSuccessMessage(w io.Writer, verb string, count int, colorEnabled bool) {
+	formatter := output.NewFormatter(w, colorEnabled)
+	formatter.Success(verb, count, "package", "packages")
 }
 
 // getAvailablePackages returns list of available packages from the package directory.

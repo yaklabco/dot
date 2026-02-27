@@ -69,6 +69,10 @@ func TestDefaultIgnorePatterns(t *testing.T) {
 	assert.Contains(t, patterns, ".git")
 	assert.Contains(t, patterns, ".DS_Store")
 
+	// Test dot metadata patterns are included
+	assert.Contains(t, patterns, ".dotignore")
+	assert.Contains(t, patterns, ".dotbootstrap.yaml")
+
 	// Test security-sensitive patterns are included
 	assert.Contains(t, patterns, ".gnupg")
 	assert.Contains(t, patterns, ".ssh/*.pem")
@@ -326,6 +330,32 @@ func TestDefaultIgnoreSet_SecuritySensitiveFiles(t *testing.T) {
 			path:     "home/user/.password-store",
 			expected: true,
 			reason:   "pass password store in subdirectory should be ignored",
+		},
+
+		// Dot metadata files
+		{
+			name:     "dotignore file",
+			path:     ".dotignore",
+			expected: true,
+			reason:   ".dotignore should be ignored",
+		},
+		{
+			name:     "dotignore in subdirectory",
+			path:     "config/.dotignore",
+			expected: true,
+			reason:   ".dotignore in subdirectory should be ignored",
+		},
+		{
+			name:     "dotbootstrap yaml",
+			path:     ".dotbootstrap.yaml",
+			expected: true,
+			reason:   ".dotbootstrap.yaml should be ignored",
+		},
+		{
+			name:     "dotbootstrap yaml in subdirectory",
+			path:     "config/.dotbootstrap.yaml",
+			expected: true,
+			reason:   ".dotbootstrap.yaml in subdirectory should be ignored",
 		},
 
 		// Version control (existing tests)

@@ -215,6 +215,63 @@ func TestManageService_Remanage(t *testing.T) {
 	})
 }
 
+func TestManageService_PlanManage_ReservedName(t *testing.T) {
+	t.Run("returns specific error for single reserved package", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir, 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{FS: fs, Logger: adapters.NewNoopLogger()})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		_, err := svc.PlanManage(ctx, "dot")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "reserved")
+		assert.Contains(t, err.Error(), "dot")
+	})
+
+	t.Run("returns specific error for all reserved packages", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir, 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{FS: fs, Logger: adapters.NewNoopLogger()})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		_, err := svc.PlanManage(ctx, "dot", ".dot", "dot-config")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "reserved")
+	})
+}
+
 func TestManageService_ConflictReturnsTypedError(t *testing.T) {
 	t.Run("returns typed ErrConflict when conflicts detected", func(t *testing.T) {
 		fs := adapters.NewMemFS()

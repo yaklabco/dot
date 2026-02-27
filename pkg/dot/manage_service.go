@@ -114,18 +114,26 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 func (s *ManageService) PlanManage(ctx context.Context, packages ...string) (Plan, error) {
 	// Validate packages - filter out reserved names
 	validPackages := make([]string, 0, len(packages))
+	var reservedNames []string
 	for _, pkg := range packages {
 		// Check reserved name
 		if isReservedPackageName(pkg) {
 			s.logger.Warn(ctx, "skipping_reserved_package", "package", pkg)
 			fmt.Fprintf(os.Stderr,
 				"Warning: Package %q is reserved for dot's internal use. Skipping.\n", pkg)
+			reservedNames = append(reservedNames, pkg)
 			continue
 		}
 		validPackages = append(validPackages, pkg)
 	}
 
 	if len(validPackages) == 0 {
+		if len(reservedNames) > 0 {
+			if len(reservedNames) == 1 {
+				return Plan{}, fmt.Errorf("package %q is reserved for dot's internal use", reservedNames[0])
+			}
+			return Plan{}, fmt.Errorf("all specified packages are reserved for dot's internal use")
+		}
 		return Plan{}, fmt.Errorf("no valid packages to manage")
 	}
 

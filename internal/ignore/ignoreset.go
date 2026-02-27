@@ -96,6 +96,10 @@ func DefaultIgnorePatterns() []string {
 		".Spotlight-V100",
 		".TemporaryItems",
 
+		// Dot metadata
+		".dotignore",
+		".dotbootstrap.yaml",
+
 		// Security-sensitive directories and files
 		".gnupg",          // GPG keyring
 		".ssh/*.pem",      // SSH private keys (PEM format)

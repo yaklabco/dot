@@ -84,6 +84,28 @@ func TestTableRenderer_SimpleStyle(t *testing.T) {
 	})
 }
 
+func TestTableRenderer_RenderStatus_NotFound(t *testing.T) {
+	r := &TableRenderer{
+		colorize:   false,
+		scheme:     ColorScheme{},
+		width:      80,
+		tableStyle: "simple",
+	}
+
+	status := dot.Status{
+		Packages: []dot.PackageInfo{},
+		NotFound: []string{"vim"},
+	}
+
+	var buf bytes.Buffer
+	err := r.RenderStatus(&buf, status)
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "Package \"vim\" is not installed")
+	assert.NotContains(t, output, "No packages installed")
+}
+
 func TestTableRenderer_DiagnosticsSimpleStyle(t *testing.T) {
 	report := dot.DiagnosticReport{
 		OverallHealth: dot.HealthOK,

@@ -246,6 +246,101 @@ func TestStatusService_List_WithHealthStatus(t *testing.T) {
 	assert.Equal(t, "broken links", tmuxPkg.IssueType, "tmux should have broken links")
 }
 
+func TestStatusService_Status_NotFoundPackages(t *testing.T) {
+	t.Run("returns not found for uninstalled packages", func(t *testing.T) {
+		ctx := context.Background()
+		fs := adapters.NewMemFS()
+		logger := adapters.NewNoopLogger()
+
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+		require.NoError(t, fs.MkdirAll(ctx, filepath.Join(packageDir, "vim"), 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+		// Create manifest with only vim
+		vimFile := filepath.Join(packageDir, "vim", "vimrc")
+		require.NoError(t, fs.WriteFile(ctx, vimFile, []byte("test"), 0644))
+		vimLink := filepath.Join(targetDir, ".vimrc")
+		require.NoError(t, fs.Symlink(ctx, vimFile, vimLink))
+
+		targetPathResult := NewTargetPath(targetDir)
+		require.True(t, targetPathResult.IsOk())
+
+		m := manifest.New()
+		m.AddPackage(manifest.PackageInfo{
+			Name:        "vim",
+			Source:      manifest.PackageSource("managed"),
+			InstalledAt: time.Now(),
+			LinkCount:   1,
+			Links:       []string{".vimrc"},
+			PackageDir:  filepath.Join(packageDir, "vim"),
+		})
+
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, logger, manifestStore)
+		require.NoError(t, manifestSvc.Save(ctx, targetPathResult.Unwrap(), m))
+
+		svc := newStatusService(fs, logger, manifestSvc, targetDir)
+
+		// Request status for vim (installed) and tmux (not installed)
+		status, err := svc.Status(ctx, "vim", "tmux")
+		require.NoError(t, err)
+
+		// vim should be in packages
+		assert.Len(t, status.Packages, 1)
+		assert.Equal(t, "vim", status.Packages[0].Name)
+
+		// tmux should be in NotFound
+		assert.Contains(t, status.NotFound, "tmux")
+	})
+
+	t.Run("all packages not found", func(t *testing.T) {
+		ctx := context.Background()
+		fs := adapters.NewMemFS()
+		logger := adapters.NewNoopLogger()
+
+		targetDir := "/test/target"
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+		targetPathResult := NewTargetPath(targetDir)
+		require.True(t, targetPathResult.IsOk())
+
+		m := manifest.New()
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, logger, manifestStore)
+		require.NoError(t, manifestSvc.Save(ctx, targetPathResult.Unwrap(), m))
+
+		svc := newStatusService(fs, logger, manifestSvc, targetDir)
+
+		status, err := svc.Status(ctx, "nonexistent")
+		require.NoError(t, err)
+
+		assert.Empty(t, status.Packages)
+		assert.Contains(t, status.NotFound, "nonexistent")
+	})
+
+	t.Run("no manifest returns all as not found", func(t *testing.T) {
+		ctx := context.Background()
+		fs := adapters.NewMemFS()
+		logger := adapters.NewNoopLogger()
+
+		targetDir := "/test/target"
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, logger, manifestStore)
+
+		svc := newStatusService(fs, logger, manifestSvc, targetDir)
+
+		status, err := svc.Status(ctx, "vim", "tmux")
+		require.NoError(t, err)
+
+		assert.Empty(t, status.Packages)
+		assert.Contains(t, status.NotFound, "vim")
+		assert.Contains(t, status.NotFound, "tmux")
+	})
+}
+
 func TestStatusService_checkPackageHealth_RelativeSymlinks(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()

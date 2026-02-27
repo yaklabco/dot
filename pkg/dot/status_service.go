@@ -38,7 +38,10 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 		err := manifestResult.UnwrapErr()
 		if isManifestNotFoundError(err) {
 			// No manifest means nothing installed
-			return Status{Packages: []PackageInfo{}}, nil
+			return Status{
+				Packages: []PackageInfo{},
+				NotFound: packages,
+			}, nil
 		}
 		return Status{}, err
 	}
@@ -47,6 +50,7 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 
 	// Filter to requested packages if specified
 	pkgInfos := make([]PackageInfo, 0)
+	var notFound []string
 	if len(packages) == 0 {
 		// Return all packages
 		for _, info := range m.Packages {
@@ -79,11 +83,14 @@ func (s *StatusService) Status(ctx context.Context, packages ...string) (Status,
 					IsHealthy:   isHealthy,
 					IssueType:   issueType,
 				})
+			} else {
+				notFound = append(notFound, pkg)
 			}
 		}
 	}
 	return Status{
 		Packages: pkgInfos,
+		NotFound: notFound,
 	}, nil
 }
 
