@@ -82,8 +82,13 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		}
 	}
 
-	// If plan is empty (no operations needed), return ErrNoChanges
+	// If plan is empty (no operations needed), validate manifest before returning.
+	// A corrupt manifest could cause the pipeline to produce zero operations
+	// (symlinks exist on disk but manifest is unreadable), masking data integrity issues.
 	if len(plan.Operations) == 0 {
+		if err := s.validateManifestReadable(ctx); err != nil {
+			return err
+		}
 		s.logger.Info(ctx, "no_operations_required", "packages", packages)
 		return ErrNoChanges{Packages: packages}
 	}
@@ -443,6 +448,20 @@ func (s *ManageService) verifyLinksExist(ctx context.Context, pkg string, m *man
 	}
 
 	return true, nil
+}
+
+// validateManifestReadable checks that the manifest can be loaded without errors.
+// Returns nil if the manifest is valid or doesn't exist; returns an error if corrupt.
+func (s *ManageService) validateManifestReadable(ctx context.Context) error {
+	targetPathResult := NewTargetPath(s.targetDir)
+	if !targetPathResult.IsOk() {
+		return nil // Can't validate, don't block
+	}
+	manifestResult := s.manifestSvc.Load(ctx, targetPathResult.Unwrap())
+	if !manifestResult.IsOk() {
+		return fmt.Errorf("manifest is corrupt: %w", manifestResult.UnwrapErr())
+	}
+	return nil
 }
 
 // isReservedPackageName checks if the given package name is reserved for dot's internal use.

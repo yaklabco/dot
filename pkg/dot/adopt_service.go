@@ -182,57 +182,11 @@ func (s *AdoptService) PlanAdopt(ctx context.Context, files []string, pkg string
 	}
 
 	for _, file := range files {
-		sourceFile, err := s.resolveAdoptPath(ctx, file)
+		fileOps, err := s.planAdoptFile(ctx, file, pkgPath)
 		if err != nil {
-			return Plan{}, fmt.Errorf("failed to resolve path %s: %w", file, err)
-		}
-
-		if !s.fs.Exists(ctx, sourceFile) {
-			return Plan{}, ErrSourceNotFound{Path: sourceFile}
-		}
-
-		// Validate the source file (symlink checks)
-		if err := s.validateAdoptSource(ctx, file, sourceFile); err != nil {
 			return Plan{}, err
 		}
-
-		// Check if source is a directory
-		isDir, err := s.fs.IsDir(ctx, sourceFile)
-		if err != nil {
-			return Plan{}, fmt.Errorf("failed to check if directory: %w", err)
-		}
-
-		if isDir {
-			// For directories: move CONTENTS into package root (flat structure)
-			dirOps, err := s.createDirectoryAdoptOperations(ctx, sourceFile, pkgPath, file)
-			if err != nil {
-				return Plan{}, err
-			}
-			operations = append(operations, dirOps...)
-		} else {
-			// For files: move file into package directory with translation
-			adoptedName := scanner.UntranslateDotfile(filepath.Base(file))
-			destFile := filepath.Join(pkgPath, adoptedName)
-
-			sourceLinkPathResult := NewTargetPath(sourceFile)
-			if !sourceLinkPathResult.IsOk() {
-				return Plan{}, sourceLinkPathResult.UnwrapErr()
-			}
-			destPathResult := NewFilePath(destFile)
-			if !destPathResult.IsOk() {
-				return Plan{}, destPathResult.UnwrapErr()
-			}
-
-			moveID := OperationID(fmt.Sprintf("adopt-move-%s", file))
-			operations = append(operations, FileMove{
-				OpID:   moveID,
-				Source: sourceLinkPathResult.Unwrap(),
-				Dest:   destPathResult.Unwrap(),
-			})
-
-			linkID := OperationID(fmt.Sprintf("adopt-link-%s", file))
-			operations = append(operations, NewLinkCreate(linkID, destPathResult.Unwrap(), sourceLinkPathResult.Unwrap()))
-		}
+		operations = append(operations, fileOps...)
 	}
 
 	// Build PackageOperations map for manifest tracking
@@ -250,6 +204,59 @@ func (s *AdoptService) PlanAdopt(ctx context.Context, files []string, pkg string
 			PackageCount:   1,
 			OperationCount: len(operations),
 		},
+	}, nil
+}
+
+// planAdoptFile plans the operations for adopting a single file or directory.
+func (s *AdoptService) planAdoptFile(ctx context.Context, file, pkgPath string) ([]Operation, error) {
+	sourceFile, err := s.resolveAdoptPath(ctx, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve path %s: %w", file, err)
+	}
+
+	if !s.fs.Exists(ctx, sourceFile) {
+		return nil, ErrSourceNotFound{Path: sourceFile}
+	}
+
+	if err := s.validateAdoptSource(ctx, file, sourceFile); err != nil {
+		return nil, err
+	}
+
+	isDir, err := s.fs.IsDir(ctx, sourceFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if directory: %w", err)
+	}
+
+	if isDir {
+		return s.createDirectoryAdoptOperations(ctx, sourceFile, pkgPath, file)
+	}
+
+	adoptedName := scanner.UntranslateDotfile(filepath.Base(file))
+	destFile := filepath.Join(pkgPath, adoptedName)
+
+	if s.fs.Exists(ctx, destFile) {
+		return nil, fmt.Errorf("cannot adopt %s: file %q already exists in package %q (use 'dot unmanage %s --purge' first to remove the existing package)", file, adoptedName, filepath.Base(pkgPath), filepath.Base(pkgPath))
+	}
+
+	sourceLinkPathResult := NewTargetPath(sourceFile)
+	if !sourceLinkPathResult.IsOk() {
+		return nil, sourceLinkPathResult.UnwrapErr()
+	}
+	destPathResult := NewFilePath(destFile)
+	if !destPathResult.IsOk() {
+		return nil, destPathResult.UnwrapErr()
+	}
+
+	moveID := OperationID(fmt.Sprintf("adopt-move-%s", file))
+	linkID := OperationID(fmt.Sprintf("adopt-link-%s", file))
+
+	return []Operation{
+		FileMove{
+			OpID:   moveID,
+			Source: sourceLinkPathResult.Unwrap(),
+			Dest:   destPathResult.Unwrap(),
+		},
+		NewLinkCreate(linkID, destPathResult.Unwrap(), sourceLinkPathResult.Unwrap()),
 	}, nil
 }
 

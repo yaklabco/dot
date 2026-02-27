@@ -310,6 +310,50 @@ func TestManageService_Manage_CorruptManifest(t *testing.T) {
 	})
 }
 
+func TestManageService_Manage_CorruptManifest_AlreadyManaged(t *testing.T) {
+	t.Run("returns error when re-managing with corrupt manifest", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// First manage succeeds (creates symlink + manifest)
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Corrupt the manifest
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.dot-manifest.json", []byte("{invalid json"), 0644))
+
+		// Re-manage same package with corrupt manifest should return error,
+		// not silently report "no changes detected"
+		err = svc.Manage(ctx, "test-pkg")
+		require.Error(t, err, "manage should return error when manifest is corrupt, even for already-managed packages")
+		assert.Contains(t, err.Error(), "manifest")
+	})
+}
+
 func TestManageService_Remanage_CorruptManifest(t *testing.T) {
 	t.Run("returns error when manifest is corrupt", func(t *testing.T) {
 		fs := adapters.NewMemFS()

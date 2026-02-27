@@ -188,6 +188,68 @@ func TestAdoptService_GetManagedPaths_WithPackages(t *testing.T) {
 	assert.Len(t, managedPaths, 2)
 }
 
+func TestAdoptService_Adopt_ErrorsWhenDestinationExists(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+	logger := adapters.NewNoopLogger()
+	exec := executor.New(executor.Opts{
+		FS:     fs,
+		Logger: logger,
+		Tracer: adapters.NewNoopTracer(),
+	})
+	manifestStore := manifest.NewFSManifestStore(fs)
+	manifestSvc := newManifestService(fs, logger, manifestStore)
+
+	targetDir := "/home/user"
+	packageDir := "/home/user/dotfiles"
+
+	// Setup: create package directory with existing file
+	require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+	require.NoError(t, fs.MkdirAll(ctx, filepath.Join(packageDir, "bash"), 0755))
+	require.NoError(t, fs.WriteFile(ctx, filepath.Join(packageDir, "bash", "dot-bashrc"), []byte("curated bashrc"), 0644))
+
+	// Create a different file at the target location to adopt
+	require.NoError(t, fs.WriteFile(ctx, filepath.Join(targetDir, ".bashrc"), []byte("different bashrc"), 0644))
+
+	svc := newAdoptService(fs, logger, exec, manifestSvc, packageDir, targetDir, false)
+
+	// Adopting .bashrc into "bash" package should fail because dot-bashrc already exists
+	err := svc.Adopt(ctx, []string{".bashrc"}, "bash")
+	require.Error(t, err, "adopt should error when destination file already exists in package")
+	assert.Contains(t, err.Error(), "already exists")
+}
+
+func TestAdoptService_PlanAdopt_ErrorsWhenDestinationExists(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+	logger := adapters.NewNoopLogger()
+	exec := executor.New(executor.Opts{
+		FS:     fs,
+		Logger: logger,
+		Tracer: adapters.NewNoopTracer(),
+	})
+	manifestStore := manifest.NewFSManifestStore(fs)
+	manifestSvc := newManifestService(fs, logger, manifestStore)
+
+	targetDir := "/home/user"
+	packageDir := "/home/user/dotfiles"
+
+	// Setup: create package directory with existing file
+	require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+	require.NoError(t, fs.MkdirAll(ctx, filepath.Join(packageDir, "vim"), 0755))
+	require.NoError(t, fs.WriteFile(ctx, filepath.Join(packageDir, "vim", "dot-vimrc"), []byte("curated vimrc"), 0644))
+
+	// Create a different file at the target location to adopt
+	require.NoError(t, fs.WriteFile(ctx, filepath.Join(targetDir, ".vimrc"), []byte("different vimrc"), 0644))
+
+	svc := newAdoptService(fs, logger, exec, manifestSvc, packageDir, targetDir, false)
+
+	// PlanAdopt should return error when destination exists
+	_, err := svc.PlanAdopt(ctx, []string{".vimrc"}, "vim")
+	require.Error(t, err, "PlanAdopt should error when destination file already exists in package")
+	assert.Contains(t, err.Error(), "already exists")
+}
+
 func TestAdoptService_GetManagedPaths_MultipleLinks(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()
