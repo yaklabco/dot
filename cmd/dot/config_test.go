@@ -309,6 +309,8 @@ func TestGetValidConfigKeys(t *testing.T) {
 		"symlinks.backup_suffix",
 		"symlinks.backup_dir",
 		"dotfile.prefix",
+		"dotfile.translate",
+		"dotfile.package_name_mapping",
 		"output.format",
 		"output.color",
 		"packages.sort_by",
@@ -317,6 +319,47 @@ func TestGetValidConfigKeys(t *testing.T) {
 	for _, expected := range expectedKeys {
 		assert.Contains(t, keys, expected)
 	}
+}
+
+func TestConfigGetValue_DotfileTranslateAndPackageNameMapping(t *testing.T) {
+	cfg := &config.ExtendedConfig{
+		Dotfile: config.DotfileConfig{
+			Translate:          false,
+			Prefix:             "dot-",
+			PackageNameMapping: true,
+		},
+	}
+
+	val, err := getConfigValue(cfg, "dotfile.translate")
+	require.NoError(t, err)
+	assert.Equal(t, "false", val)
+
+	val, err = getConfigValue(cfg, "dotfile.package_name_mapping")
+	require.NoError(t, err)
+	assert.Equal(t, "true", val)
+}
+
+func TestConfigSet_DotfilePackageNameMapping(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	os.Setenv("DOT_CONFIG", configPath)
+	defer os.Unsetenv("DOT_CONFIG")
+
+	// Create initial config
+	writer := config.NewWriter(configPath)
+	err := writer.WriteDefault(config.WriteOptions{Format: "yaml"})
+	require.NoError(t, err)
+
+	// Set package_name_mapping to false
+	err = runConfigSet("dotfile.package_name_mapping", "false")
+	require.NoError(t, err)
+
+	// Verify value was set
+	loader := config.NewLoader("dot", configPath)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	assert.False(t, cfg.Dotfile.PackageNameMapping)
 }
 
 func TestConfigGetCommand_Completion(t *testing.T) {

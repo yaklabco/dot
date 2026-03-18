@@ -285,12 +285,17 @@ func setIgnoreValue(cfg *IgnoreConfig, field string, value interface{}) error {
 
 func setDotfileValue(cfg *DotfileConfig, field string, value interface{}) error {
 	switch field {
-	case "translate":
-		b, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("dotfile.%s: value must be bool", field)
+	case "translate", "package_name_mapping":
+		b, err := toBool(value, "dotfile."+field)
+		if err != nil {
+			return err
 		}
-		cfg.Translate = b
+		switch field {
+		case "translate":
+			cfg.Translate = b
+		case "package_name_mapping":
+			cfg.PackageNameMapping = b
+		}
 
 	case "prefix":
 		str, ok := value.(string)
@@ -490,6 +495,25 @@ func WriteConfigWithHeader(path string, cfg *ExtendedConfig, header string) erro
 	}
 
 	return nil
+}
+
+// toBool converts a value to bool, accepting both bool and string "true"/"false".
+func toBool(value interface{}, fieldName string) (bool, error) {
+	switch v := value.(type) {
+	case bool:
+		return v, nil
+	case string:
+		switch strings.ToLower(v) {
+		case "true":
+			return true, nil
+		case "false":
+			return false, nil
+		default:
+			return false, fmt.Errorf("%s: value must be true or false, got %q", fieldName, v)
+		}
+	default:
+		return false, fmt.Errorf("%s: value must be bool", fieldName)
+	}
 }
 
 // fileExists checks if a file exists.

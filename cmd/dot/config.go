@@ -226,6 +226,8 @@ func getValidConfigKeys() []string {
 		"symlinks.backup_suffix",
 		"symlinks.backup_dir",
 		"dotfile.prefix",
+		"dotfile.translate",
+		"dotfile.package_name_mapping",
 		"output.format",
 		"output.color",
 		"packages.sort_by",
@@ -255,6 +257,10 @@ func getConfigValue(cfg *dot.ExtendedConfig, key string) (string, error) {
 		return cfg.Symlinks.BackupDir, nil
 	case "dotfile.prefix":
 		return cfg.Dotfile.Prefix, nil
+	case "dotfile.translate":
+		return fmt.Sprintf("%t", cfg.Dotfile.Translate), nil
+	case "dotfile.package_name_mapping":
+		return fmt.Sprintf("%t", cfg.Dotfile.PackageNameMapping), nil
 	case "output.format":
 		return cfg.Output.Format, nil
 	case "output.color":
