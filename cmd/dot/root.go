@@ -333,7 +333,7 @@ func buildConfigWithFlags(flags *CLIFlags, cmd *cobra.Command) (dot.Config, erro
 		ManifestDir:              manifestDir,
 		DryRun:                   flags.dryRun,
 		Verbosity:                flags.verbose,
-		PackageNameMapping:       true, // Default: true (pre-1.0 breaking change)
+		PackageNameMapping:       packageNameMapping(extCfg),
 		UseDefaultIgnorePatterns: useDefaults,
 		IgnorePatterns:           ignorePatterns,
 		PerPackageIgnore:         perPackageIgnore,
@@ -507,6 +507,15 @@ func shouldColorizeWithFlags(flags *CLIFlags, color string) bool {
 		// Default to auto behavior
 		return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 	}
+}
+
+// packageNameMapping returns the package_name_mapping setting from config,
+// defaulting to true when extCfg is nil (no config file).
+func packageNameMapping(extCfg *dot.ExtendedConfig) bool {
+	if extCfg == nil {
+		return true
+	}
+	return extCfg.Dotfile.PackageNameMapping
 }
 
 // performStartupVersionCheck performs a non-blocking version check at startup.

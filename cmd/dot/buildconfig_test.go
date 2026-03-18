@@ -133,3 +133,52 @@ func TestBuildConfig_BackupDirFlag(t *testing.T) {
 
 	assert.Contains(t, cfg.BackupDir, "backups")
 }
+
+func TestBuildConfig_PackageNameMappingFromConfig(t *testing.T) {
+	t.Run("reads package_name_mapping=false from config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpConfig := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `dotfile:
+  translate: true
+  prefix: "dot-"
+  package_name_mapping: false
+`
+		require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
+
+		os.Setenv("DOT_CONFIG", tmpConfig)
+		t.Cleanup(func() { os.Unsetenv("DOT_CONFIG") })
+
+		setupTestFlags(t, CLIFlags{
+			packageDir: ".",
+			targetDir:  tmpDir,
+		})
+
+		cfg, err := buildConfig()
+		require.NoError(t, err)
+		assert.False(t, cfg.PackageNameMapping, "should read package_name_mapping=false from config")
+	})
+
+	t.Run("defaults to true when config has no package_name_mapping", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpConfig := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `dotfile:
+  translate: true
+  prefix: "dot-"
+`
+		require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
+
+		os.Setenv("DOT_CONFIG", tmpConfig)
+		t.Cleanup(func() { os.Unsetenv("DOT_CONFIG") })
+
+		setupTestFlags(t, CLIFlags{
+			packageDir: ".",
+			targetDir:  tmpDir,
+		})
+
+		cfg, err := buildConfig()
+		require.NoError(t, err)
+		assert.True(t, cfg.PackageNameMapping, "should default to true when not set in config")
+	})
+}
