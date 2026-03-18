@@ -8,6 +8,19 @@ import (
 	"github.com/yaklabco/dot/pkg/dot"
 )
 
+func TestDoctorCommand_HasDetailedFlag(t *testing.T) {
+	cmd := NewDoctorCommand(&dot.Config{})
+
+	// --detailed should exist
+	detailedFlag := cmd.Flags().Lookup("detailed")
+	assert.NotNil(t, detailedFlag, "--detailed flag should exist")
+
+	// --verbose should NOT exist as a local flag on doctor
+	// (the global -v persistent flag should work instead)
+	verboseFlag := cmd.Flags().Lookup("verbose")
+	assert.Nil(t, verboseFlag, "--verbose local flag should not exist on doctor (shadows global -v)")
+}
+
 func TestDoctorExitCode(t *testing.T) {
 	tests := []struct {
 		name     string
