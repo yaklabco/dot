@@ -295,3 +295,45 @@ func TestAdoptService_GetManagedPaths_MultipleLinks(t *testing.T) {
 	assert.True(t, exists3)
 	assert.Len(t, managedPaths, 3)
 }
+
+func TestAdoptService_PlanAdopt_PreservesNestedPath(t *testing.T) {
+	t.Run("nested file preserves directory structure in package", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Create a nested file at target: .config/nvim/init.vim
+		require.NoError(t, fs.MkdirAll(ctx, targetDir+"/.config/nvim", 0755))
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.config/nvim/init.vim", []byte("set number"), 0644))
+		require.NoError(t, fs.MkdirAll(ctx, packageDir, 0755))
+
+		logger := adapters.NewNoopLogger()
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: logger,
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, logger, manifestStore)
+
+		svc := newAdoptService(fs, logger, exec, manifestSvc, packageDir, targetDir, false)
+
+		plan, err := svc.PlanAdopt(ctx, []string{".config/nvim/init.vim"}, "nvim")
+		require.NoError(t, err)
+
+		// Find the FileMove operation — dest should preserve nested structure
+		foundNestedDest := false
+		for _, op := range plan.Operations {
+			if move, ok := op.(FileMove); ok {
+				destStr := move.Dest.String()
+				// Should be something like packages/nvim/dot-config/nvim/init.vim
+				// NOT packages/nvim/init.vim (flat)
+				if strings.Contains(destStr, "dot-config") && strings.Contains(destStr, "nvim/init.vim") {
+					foundNestedDest = true
+				}
+			}
+		}
+		assert.True(t, foundNestedDest, "adopt should preserve nested directory structure, not flatten to basename")
+	})
+}

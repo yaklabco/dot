@@ -497,9 +497,9 @@ func TestAdoptCommand_Verification(t *testing.T) {
 		_, err := executeCommand(ctx, rootCmd)
 		require.NoError(t, err)
 
-		// Verify package structure with nested path (adopt uses base name only)
-		expectedFile := filepath.Join(packageDir, "test", "config.yml")
-		require.FileExists(t, expectedFile, "adopted nested file should exist in package")
+		// Verify package structure preserves nested directory path
+		expectedFile := filepath.Join(packageDir, "test", "dot-config", "test", "config.yml")
+		require.FileExists(t, expectedFile, "adopted nested file should preserve directory structure in package")
 
 		// Verify symlink at original location
 		symlinkPath := filepath.Join(targetDir, ".config", "test", "config.yml")
