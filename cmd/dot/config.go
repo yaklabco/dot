@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/yaklabco/dot/internal/cli/render"
 	"github.com/yaklabco/dot/pkg/dot"
@@ -313,6 +315,8 @@ func runConfigSet(key, value string) error {
 
 // newConfigListCommand creates the list subcommand.
 func newConfigListCommand() *cobra.Command {
+	var format string
+
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"show", "ls"},
@@ -325,8 +329,12 @@ Shows the final merged configuration from all sources.`,
 
   # List in JSON format
   dot config list --format json`,
-		RunE: runConfigListCmd,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConfigListCmd(cmd, args)
+		},
 	}
+
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml, table)")
 
 	return cmd
 }
@@ -341,7 +349,31 @@ func runConfigListCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Build the configuration table output
+	// Check format flag
+	format, _ := cmd.Flags().GetString("format")
+	if format == "" {
+		format = "text"
+	}
+
+	switch format {
+	case "json":
+		data, err := json.MarshalIndent(cfg, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), string(data))
+		return nil
+
+	case "yaml":
+		data, err := yaml.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
+		fmt.Fprint(cmd.OutOrStdout(), string(data))
+		return nil
+	}
+
+	// Default text/table format
 	colorize := shouldUseColor()
 	c := render.NewColorizer(colorize)
 

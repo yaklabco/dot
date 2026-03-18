@@ -647,6 +647,66 @@ func TestRenderExperimentalSection(t *testing.T) {
 	assert.Contains(t, output, "Experimental")
 }
 
+func TestConfigListCommand_HasFormatFlag(t *testing.T) {
+	cmd := newConfigListCommand()
+
+	flag := cmd.Flags().Lookup("format")
+	require.NotNil(t, flag, "config list command should have --format flag")
+	assert.Equal(t, "text", flag.DefValue, "default format should be text")
+}
+
+func TestConfigListCommand_JsonFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	cfg := config.DefaultExtended()
+	cfg.Directories.Package = "/my/dotfiles"
+	writer := config.NewWriter(configPath)
+	err := writer.Write(cfg, config.WriteOptions{Format: "yaml"})
+	require.NoError(t, err)
+
+	os.Setenv("DOT_CONFIG", configPath)
+	defer os.Unsetenv("DOT_CONFIG")
+
+	cmd := newConfigListCommand()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"--format", "json"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, `"directories"`)
+	assert.Contains(t, output, `/my/dotfiles`)
+}
+
+func TestConfigListCommand_YamlFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	cfg := config.DefaultExtended()
+	cfg.Logging.Level = "DEBUG"
+	writer := config.NewWriter(configPath)
+	err := writer.Write(cfg, config.WriteOptions{Format: "yaml"})
+	require.NoError(t, err)
+
+	os.Setenv("DOT_CONFIG", configPath)
+	defer os.Unsetenv("DOT_CONFIG")
+
+	cmd := newConfigListCommand()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"--format", "yaml"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "directories:")
+	assert.Contains(t, output, "DEBUG")
+}
+
 func TestRunConfigListCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
