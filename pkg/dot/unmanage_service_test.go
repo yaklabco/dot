@@ -471,3 +471,60 @@ func TestUnmanageService_UnmanageAll(t *testing.T) {
 		assert.Equal(t, 0, count)
 	})
 }
+
+func TestUnmanageService_MultiPackageManifestBatch(t *testing.T) {
+	t.Run("unmanaging multiple packages removes all from manifest", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup: create 3 packages
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		for _, pkg := range []string{"bash", "vim", "git"} {
+			require.NoError(t, fs.MkdirAll(ctx, packageDir+"/"+pkg, 0755))
+		}
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/bash/dot-bashrc", []byte("bash"), 0644))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/vim/dot-vimrc", []byte("vim"), 0644))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/git/dot-gitconfig", []byte("git"), 0644))
+
+		logger := adapters.NewNoopLogger()
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: logger,
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, logger, manifestStore)
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false,
+		})
+		unmanageSvc := newUnmanageService(fs, logger, exec, manifestSvc, packageDir, targetDir, false)
+		manageSvc := newManageService(fs, logger, managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := manageSvc.Manage(ctx, "bash", "vim", "git")
+		require.NoError(t, err)
+
+		// Verify all 3 are in manifest
+		targetPath := NewTargetPath(targetDir)
+		require.True(t, targetPath.IsOk())
+		mResult := manifestSvc.Load(ctx, targetPath.Unwrap())
+		require.True(t, mResult.IsOk())
+		m := mResult.Unwrap()
+		assert.Len(t, m.Packages, 3)
+
+		// Unmanage all 3 at once
+		err = unmanageSvc.UnmanageWithOptions(ctx, DefaultUnmanageOptions(), "bash", "vim", "git")
+		require.NoError(t, err)
+
+		// Verify manifest has no packages left
+		mResult = manifestSvc.Load(ctx, targetPath.Unwrap())
+		require.True(t, mResult.IsOk())
+		m = mResult.Unwrap()
+		assert.Empty(t, m.Packages, "all packages should be removed from manifest after multi-package unmanage")
+	})
+}

@@ -96,13 +96,20 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 
 // RemovePackage removes a package from the manifest.
 func (s *ManifestService) RemovePackage(ctx context.Context, targetPath TargetPath, pkg string) error {
+	return s.RemovePackages(ctx, targetPath, []string{pkg})
+}
+
+// RemovePackages removes multiple packages from the manifest in a single load-save cycle.
+func (s *ManifestService) RemovePackages(ctx context.Context, targetPath TargetPath, pkgs []string) error {
 	manifestResult := s.Load(ctx, targetPath)
 	if !manifestResult.IsOk() {
 		return manifestResult.UnwrapErr()
 	}
 
 	m := manifestResult.Unwrap()
-	m.RemovePackage(pkg)
+	for _, pkg := range pkgs {
+		m.RemovePackage(pkg)
+	}
 
 	return s.Save(ctx, targetPath, m)
 }
