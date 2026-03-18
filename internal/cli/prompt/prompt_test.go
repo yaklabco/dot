@@ -240,6 +240,93 @@ func TestSelect(t *testing.T) {
 	}
 }
 
+func TestSelectWithDefault(t *testing.T) {
+	options := []string{"Continue", "Start fresh", "Back up and start fresh"}
+
+	tests := []struct {
+		name       string
+		input      string
+		defaultIdx int
+		expected   int
+	}{
+		{
+			name:       "select first option",
+			input:      "1\n",
+			defaultIdx: 0,
+			expected:   0,
+		},
+		{
+			name:       "select second option",
+			input:      "2\n",
+			defaultIdx: 0,
+			expected:   1,
+		},
+		{
+			name:       "select third option",
+			input:      "3\n",
+			defaultIdx: 0,
+			expected:   2,
+		},
+		{
+			name:       "empty input returns default (first)",
+			input:      "\n",
+			defaultIdx: 0,
+			expected:   0,
+		},
+		{
+			name:       "empty input returns default (second)",
+			input:      "\n",
+			defaultIdx: 1,
+			expected:   1,
+		},
+		{
+			name:       "invalid selection (out of range)",
+			input:      "4\n",
+			defaultIdx: 0,
+			expected:   -1,
+		},
+		{
+			name:       "invalid selection (text)",
+			input:      "abc\n",
+			defaultIdx: 0,
+			expected:   -1,
+		},
+		{
+			name:       "invalid selection (zero)",
+			input:      "0\n",
+			defaultIdx: 0,
+			expected:   -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := strings.NewReader(tt.input)
+			out := &bytes.Buffer{}
+			p := New(in, out)
+
+			result, err := p.SelectWithDefault("Choose an option", options, tt.defaultIdx)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+			assert.Contains(t, out.String(), "Choose an option")
+			assert.Contains(t, out.String(), "1) Continue")
+			assert.Contains(t, out.String(), "2) Start fresh")
+			assert.Contains(t, out.String(), "3) Back up and start fresh")
+			assert.Contains(t, out.String(), "(default:")
+		})
+	}
+}
+
+func TestSelectWithDefault_EOF(t *testing.T) {
+	in := strings.NewReader("")
+	out := &bytes.Buffer{}
+	p := New(in, out)
+
+	result, err := p.SelectWithDefault("Choose", []string{"A", "B"}, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result)
+}
+
 func TestConfirm_EOF(t *testing.T) {
 	in := strings.NewReader("")
 	out := &bytes.Buffer{}
