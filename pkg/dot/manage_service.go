@@ -2,7 +2,9 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,12 +341,10 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 		return nil, nil, err
 	}
 
-	// Remove existing symlinks before planning manage operations
-	// This prevents the scanner from skipping recreation of links that will be deleted
-	for _, op := range unmanagePlan.Operations {
-		if linkDel, ok := op.(LinkDelete); ok {
-			_ = s.fs.Remove(ctx, linkDel.Target.String())
-		}
+	// Remove existing symlinks before planning manage operations.
+	// This prevents the scanner from skipping recreation of links that will be deleted.
+	if err := s.removeSymlinksOnly(ctx, unmanagePlan.Operations); err != nil {
+		return nil, nil, err
 	}
 
 	// Get manage operations (scanner will now not see the old symlinks)
@@ -394,11 +394,9 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 		}
 	}
 
-	// Remove existing symlinks so the manage pipeline sees a clean target
-	for _, op := range ops {
-		if linkDel, ok := op.(LinkDelete); ok {
-			_ = s.fs.Remove(ctx, linkDel.Target.String())
-		}
+	// Remove existing symlinks so the manage pipeline sees a clean target.
+	if err := s.removeSymlinksOnly(ctx, ops); err != nil {
+		return nil, nil, err
 	}
 
 	// Re-run the normal manage pipeline to create file-level symlinks
@@ -481,4 +479,32 @@ func isReservedPackageName(name string) bool {
 	}
 
 	return false
+}
+
+// removeSymlinksOnly removes symlink targets from LinkDelete operations.
+// If any target is a regular file (not a symlink), it returns ErrConflict
+// to prevent data loss. Missing targets are silently skipped.
+func (s *ManageService) removeSymlinksOnly(ctx context.Context, ops []Operation) error {
+	for _, op := range ops {
+		linkDel, ok := op.(LinkDelete)
+		if !ok {
+			continue
+		}
+		target := linkDel.Target.String()
+		isLink, err := s.fs.IsSymlink(ctx, target)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("checking symlink status of %s: %w", target, err)
+		}
+		if !isLink {
+			return ErrConflict{
+				Path:   target,
+				Reason: fmt.Sprintf("expected symlink at %s but found a regular file; remove or back up the file before remanaging", target),
+			}
+		}
+		_ = s.fs.Remove(ctx, target)
+	}
+	return nil
 }

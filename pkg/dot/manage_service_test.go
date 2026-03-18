@@ -159,7 +159,7 @@ func TestManageService_Remanage(t *testing.T) {
 		assert.ErrorAs(t, err, &noChanges)
 	})
 
-	t.Run("detects symlink replaced by regular file", func(t *testing.T) {
+	t.Run("returns conflict when symlink replaced by regular file", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
@@ -204,14 +204,16 @@ func TestManageService_Remanage(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, isLink, "expected .vimrc to be a regular file after replacement")
 
-		// Remanage should detect the replaced symlink and recreate it
+		// Remanage should return ErrConflict to protect user data
 		err = svc.Remanage(ctx, "test-pkg")
-		require.NoError(t, err, "remanage should succeed when symlink was replaced by regular file")
+		require.Error(t, err, "remanage should refuse to delete real files")
+		var conflictErr ErrConflict
+		assert.True(t, errors.As(err, &conflictErr), "expected ErrConflict, got %T: %v", err, err)
+		assert.Contains(t, err.Error(), ".vimrc")
 
-		// Verify the symlink was recreated
-		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
-		require.NoError(t, err)
-		assert.True(t, isLink, "expected .vimrc to be a symlink after remanage")
+		// Verify the user's file is preserved
+		exists := fs.Exists(ctx, targetDir+"/.vimrc")
+		assert.True(t, exists, "user's file should be preserved")
 	})
 
 	t.Run("remanages adopted package with file-level symlinks", func(t *testing.T) {
@@ -625,5 +627,54 @@ func TestManageService_ConflictReturnsTypedError(t *testing.T) {
 
 		// The Reason field should contain the full error message with all conflicts
 		assert.Contains(t, conflictErr.Reason, "conflict")
+	})
+}
+
+func TestManageService_Remanage_RefusesToDeleteRealFiles(t *testing.T) {
+	t.Run("returns ErrConflict when symlink replaced by real file during remanage", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with a file
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Initial manage creates symlink
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Replace symlink with a real file containing user data
+		require.NoError(t, fs.Remove(ctx, targetDir+"/.vimrc"))
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.vimrc", []byte("precious user data"), 0644))
+
+		// Modify the package to trigger a full remanage (hash mismatch)
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("updated vim config"), 0644))
+
+		// Remanage should return ErrConflict instead of silently deleting user data
+		err = svc.Remanage(ctx, "test-pkg")
+		require.Error(t, err)
+		var conflictErr ErrConflict
+		assert.True(t, errors.As(err, &conflictErr), "expected ErrConflict, got %T: %v", err, err)
+		assert.Contains(t, err.Error(), ".vimrc")
 	})
 }
