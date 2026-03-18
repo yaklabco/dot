@@ -329,9 +329,7 @@ Shows the final merged configuration from all sources.`,
 
   # List in JSON format
   dot config list --format json`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConfigListCmd(cmd, args)
-		},
+		RunE: runConfigListCmd,
 	}
 
 	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml)")

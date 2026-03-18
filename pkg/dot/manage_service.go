@@ -398,8 +398,8 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 	}
 
 	// Delete existing symlinks
-	var ops []Operation
-	var opIDs []OperationID
+	ops := make([]Operation, 0, len(pkgInfo.Links))
+	opIDs := make([]OperationID, 0, len(pkgInfo.Links))
 
 	for _, link := range pkgInfo.Links {
 		targetPath := filepath.Join(s.targetDir, link)

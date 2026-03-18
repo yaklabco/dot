@@ -20,4 +20,3 @@ func NewFileLock(manifestDir string) *FileLock {
 		path: filepath.Join(manifestDir, lockFileName),
 	}
 }
-

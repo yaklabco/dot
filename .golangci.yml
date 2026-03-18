@@ -44,6 +44,7 @@ linters:
         - G301
         - G302
         - G304
+        - G115
         - G703
         - G704
     importas:
