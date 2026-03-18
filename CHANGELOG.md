@@ -1,4 +1,45 @@
 <a name="unreleased"></a>
+## [0.6.5](https://github.com/yaklabco/dot/compare/v0.6.4...v0.6.5) (2026-03-18)
+
+
+### Features
+
+* add advisory file locking to prevent concurrent manifest corruption ([5b71c85](https://github.com/yaklabco/dot/commit/5b71c85c2ddd75f3b36d8ee186c955f4425b1c1d))
+* wire --format flag on config list command ([46da517](https://github.com/yaklabco/dot/commit/46da5171d5094f47fe20167683f0f740501641a7))
+
+
+### Bug Fixes
+
+* address code review findings ([f94a0f4](https://github.com/yaklabco/dot/commit/f94a0f42226c2b1e30a1c98e5ae3d26c3c1969ea))
+* adopt preserves nested directory structure ([#52](https://github.com/yaklabco/dot/issues/52)) ([e4c6ae5](https://github.com/yaklabco/dot/commit/e4c6ae58221d3062073869e4069f243b4d7961a7))
+* batch manifest updates in multi-package unmanage ([#58](https://github.com/yaklabco/dot/issues/58)) ([8a27876](https://github.com/yaklabco/dot/commit/8a27876bc8245adb6518c3fc76308049696fb958))
+* clone --dry-run no longer clones the repository to disk ([8c03f6f](https://github.com/yaklabco/dot/commit/8c03f6f829f4f167fdda39e3d2db9f1c375d4763))
+* **lint:** exclude new gosec rules triggered by Go 1.26 upgrade ([ef8128d](https://github.com/yaklabco/dot/commit/ef8128da8de07dfb3bcc3040321809b9e1d20852))
+* **lint:** resolve 24 gosec findings triggered by Go 1.26 upgrade ([31736bf](https://github.com/yaklabco/dot/commit/31736bff9000d9947466cf1cb2797d12fef00210))
+* preserve existing manifest links during remanage ([6bfc146](https://github.com/yaklabco/dot/commit/6bfc1460e35803edd5a0294e2c19b6d99892637b))
+* prevent data loss when remanage encounters real files ([#53](https://github.com/yaklabco/dot/issues/53)) ([d031d72](https://github.com/yaklabco/dot/commit/d031d7208e668ae3fc6e8646420ec22495ec7bbb))
+* re-register orphaned symlinks in manifest on manage ([#56](https://github.com/yaklabco/dot/issues/56)) ([6c9a01e](https://github.com/yaklabco/dot/commit/6c9a01e687f02e309be97fdeb21f3750be1b32ff))
+* remanage --dry-run no longer deletes existing symlinks ([bfa3f6e](https://github.com/yaklabco/dot/commit/bfa3f6e95a902e80969b5f2629e1ae8a2201de82))
+* rename doctor --verbose to --detailed ([#55](https://github.com/yaklabco/dot/issues/55)) ([0728e9e](https://github.com/yaklabco/dot/commit/0728e9eb8e5f6687e4364b78493ad0d8244f034e))
+* resolve 16 bugs found across 4 rounds of stress testing ([13eb35d](https://github.com/yaklabco/dot/commit/13eb35d89cbfc320d52f72a06082b7ef0457484e))
+* status returns non-zero exit for nonexistent packages ([#51](https://github.com/yaklabco/dot/issues/51)) ([b6a7ac4](https://github.com/yaklabco/dot/commit/b6a7ac4d1a4e16380f506e35c3dfcc346a53b881))
+* support config set/get for dotfile.package_name_mapping ([#54](https://github.com/yaklabco/dot/issues/54)) ([fbb15e2](https://github.com/yaklabco/dot/commit/fbb15e26d7a0938e77a573476c70f6c04777e709))
+* upgrade to Go 1.26.0 and bump go-git to fix CI vulnerability check ([b2782af](https://github.com/yaklabco/dot/commit/b2782af6d689e1906316ae0c1de1866f9a98d6d9))
+* wire dotfile.translate config setting through planner pipeline ([c0db66f](https://github.com/yaklabco/dot/commit/c0db66f6a5ab0586372ba2d6d9e98986b71d0ef3))
+* wire package_name_mapping from config instead of hardcoding ([#57](https://github.com/yaklabco/dot/issues/57)) ([36dd548](https://github.com/yaklabco/dot/commit/36dd5488e64423edc3b481a3e6c57f00a1ef2f0b))
+
+
+### Tests
+
+* verify shell rc files link correctly with both mapping modes ([#59](https://github.com/yaklabco/dot/issues/59)) ([7a97ea1](https://github.com/yaklabco/dot/commit/7a97ea1c11f670f0843fff55cb0f06253bb72921))
+
+
+### Continuous Integration
+
+* fix format and lint failures ([dcdd52c](https://github.com/yaklabco/dot/commit/dcdd52c9315643b086f53c8e0eb65d14cfbc5295))
+* fix lint, format, and vulnerability check failures ([9d5ab37](https://github.com/yaklabco/dot/commit/9d5ab37c70a2ba826bc37b256103e37716b566c6))
+* set 1-day retention on build artifacts ([af7dc8e](https://github.com/yaklabco/dot/commit/af7dc8ef7b10ecb3b15f0fecf015c1218ac5250a))
+
 ## [0.6.4](https://github.com/yaklabco/dot/compare/v0.6.3...v0.6.4) (2026-02-27)
 
 
