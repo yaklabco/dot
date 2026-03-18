@@ -630,6 +630,77 @@ func TestManageService_ConflictReturnsTypedError(t *testing.T) {
 	})
 }
 
+func TestManageService_PackageNameMappingModes(t *testing.T) {
+	t.Run("package_name_mapping=false links bash/dot-bashrc to ~/.bashrc", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/bash", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/bash/dot-bashrc", []byte("# bashrc"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false, // files link to target root
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "bash")
+		require.NoError(t, err)
+
+		// With mapping=false, bash/dot-bashrc -> ~/.bashrc (in target root)
+		assert.True(t, fs.Exists(ctx, targetDir+"/.bashrc"), "expected .bashrc at target root")
+		assert.False(t, fs.Exists(ctx, targetDir+"/bash/.bashrc"), "should NOT create bash/ subdirectory")
+	})
+
+	t.Run("package_name_mapping=true links dot-gnupg/* to ~/.gnupg/*", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/dot-gnupg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/dot-gnupg/gpg.conf", []byte("# gpg"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: true, // dot-gnupg -> ~/.gnupg/
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "dot-gnupg")
+		require.NoError(t, err)
+
+		// With mapping=true, dot-gnupg/gpg.conf -> ~/.gnupg/gpg.conf
+		assert.True(t, fs.Exists(ctx, targetDir+"/.gnupg/gpg.conf"), "expected .gnupg/gpg.conf under target")
+	})
+}
+
 func TestManageService_Remanage_RefusesToDeleteRealFiles(t *testing.T) {
 	t.Run("returns ErrConflict when symlink replaced by real file during remanage", func(t *testing.T) {
 		fs := adapters.NewMemFS()
