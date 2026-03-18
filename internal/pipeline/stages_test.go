@@ -71,6 +71,67 @@ func TestPlanStage_ContextCancellation(t *testing.T) {
 	})
 }
 
+func TestPlanStage_TranslateFlag(t *testing.T) {
+	ctx := context.Background()
+
+	pkgPath := domain.NewPackagePath("/packages/vim").Unwrap()
+	target := domain.NewTargetPath("/home/user").Unwrap()
+
+	fileNode := domain.Node{
+		Path: domain.NewFilePath("/packages/vim/dot-vimrc").Unwrap(),
+		Type: domain.NodeFile,
+	}
+
+	pkg := domain.Package{
+		Name: "vim",
+		Path: pkgPath,
+		Tree: &fileNode,
+	}
+
+	t.Run("nil Translate defaults to true (translation enabled)", func(t *testing.T) {
+		result := PlanStage()(ctx, PlanInput{
+			Packages:  []domain.Package{pkg},
+			TargetDir: target,
+			Translate: nil, // default
+		})
+
+		require.True(t, result.IsOk())
+		state := result.Unwrap()
+		_, exists := state.Links["/home/user/.vimrc"]
+		assert.True(t, exists, "dot-vimrc should be translated to .vimrc when Translate is nil")
+	})
+
+	t.Run("Translate=false preserves dot-prefix", func(t *testing.T) {
+		f := false
+		result := PlanStage()(ctx, PlanInput{
+			Packages:  []domain.Package{pkg},
+			TargetDir: target,
+			Translate: &f,
+		})
+
+		require.True(t, result.IsOk())
+		state := result.Unwrap()
+		_, exists := state.Links["/home/user/dot-vimrc"]
+		assert.True(t, exists, "dot-vimrc should remain as dot-vimrc when Translate=false")
+		_, translated := state.Links["/home/user/.vimrc"]
+		assert.False(t, translated, "should NOT translate to .vimrc")
+	})
+
+	t.Run("Translate=true enables translation", func(t *testing.T) {
+		tr := true
+		result := PlanStage()(ctx, PlanInput{
+			Packages:  []domain.Package{pkg},
+			TargetDir: target,
+			Translate: &tr,
+		})
+
+		require.True(t, result.IsOk())
+		state := result.Unwrap()
+		_, exists := state.Links["/home/user/.vimrc"]
+		assert.True(t, exists, "dot-vimrc should be translated to .vimrc when Translate=true")
+	})
+}
+
 func TestResolveStage_ContextCancellation(t *testing.T) {
 	t.Run("cancelled before resolution", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())

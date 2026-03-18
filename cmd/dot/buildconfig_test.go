@@ -182,3 +182,68 @@ func TestBuildConfig_PackageNameMappingFromConfig(t *testing.T) {
 		assert.True(t, cfg.PackageNameMapping, "should default to true when not set in config")
 	})
 }
+
+func TestBuildConfig_TranslateFromConfig(t *testing.T) {
+	t.Run("reads translate=false from config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpConfig := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `dotfile:
+  translate: false
+  prefix: "dot-"
+  package_name_mapping: true
+`
+		require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
+
+		t.Setenv("DOT_CONFIG", tmpConfig)
+
+		setupTestFlags(t, CLIFlags{
+			packageDir: ".",
+			targetDir:  tmpDir,
+		})
+
+		cfg, err := buildConfig()
+		require.NoError(t, err)
+		require.NotNil(t, cfg.Translate, "Translate should be set from config")
+		assert.False(t, *cfg.Translate, "should read translate=false from config")
+	})
+
+	t.Run("reads translate=true from config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpConfig := filepath.Join(tmpDir, "config.yaml")
+
+		configContent := `dotfile:
+  translate: true
+  prefix: "dot-"
+`
+		require.NoError(t, os.WriteFile(tmpConfig, []byte(configContent), 0644))
+
+		t.Setenv("DOT_CONFIG", tmpConfig)
+
+		setupTestFlags(t, CLIFlags{
+			packageDir: ".",
+			targetDir:  tmpDir,
+		})
+
+		cfg, err := buildConfig()
+		require.NoError(t, err)
+		require.NotNil(t, cfg.Translate, "Translate should be set from config")
+		assert.True(t, *cfg.Translate, "should read translate=true from config")
+	})
+
+	t.Run("defaults to true when config file missing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("DOT_CONFIG", filepath.Join(tmpDir, "nonexistent.yaml"))
+
+		setupTestFlags(t, CLIFlags{
+			packageDir: ".",
+			targetDir:  tmpDir,
+		})
+
+		cfg, err := buildConfig()
+		require.NoError(t, err)
+		// When config file doesn't exist, default ExtendedConfig is used with Translate=true
+		require.NotNil(t, cfg.Translate, "Translate should be set even without config file")
+		assert.True(t, *cfg.Translate, "should default to true")
+	})
+}

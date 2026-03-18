@@ -333,6 +333,7 @@ func buildConfigWithFlags(flags *CLIFlags, cmd *cobra.Command) (dot.Config, erro
 		ManifestDir:              manifestDir,
 		DryRun:                   flags.dryRun,
 		Verbosity:                flags.verbose,
+		Translate:                translateConfig(extCfg),
 		PackageNameMapping:       packageNameMapping(extCfg),
 		UseDefaultIgnorePatterns: useDefaults,
 		IgnorePatterns:           ignorePatterns,
@@ -507,6 +508,16 @@ func shouldColorizeWithFlags(flags *CLIFlags, color string) bool {
 		// Default to auto behavior
 		return term.IsTerminal(terminal.FdInt(os.Stdout.Fd()))
 	}
+}
+
+// translateConfig returns the translate setting from config.
+// Returns nil when extCfg is nil (no config file), which defaults to true.
+func translateConfig(extCfg *dot.ExtendedConfig) *bool {
+	if extCfg == nil {
+		return nil
+	}
+	v := extCfg.Dotfile.Translate
+	return &v
 }
 
 // packageNameMapping returns the package_name_mapping setting from config,

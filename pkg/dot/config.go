@@ -52,6 +52,11 @@ type Config struct {
 	// If zero, defaults to runtime.NumCPU().
 	Concurrency int
 
+	// Translate enables dot- prefix to . translation in file names.
+	// When enabled, "dot-vimrc" becomes ".vimrc" in the target.
+	// Default: true. Use boolPtr(false) to disable.
+	Translate *bool
+
 	// PackageNameMapping enables package name to target directory mapping.
 	// When enabled, package "dot-gnupg" targets ~/.gnupg/ instead of ~/.
 	// Default: true (project is pre-1.0, breaking change acceptable)

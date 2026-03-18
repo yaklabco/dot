@@ -154,6 +154,7 @@ type PlanInput struct {
 	Packages           []domain.Package
 	TargetDir          domain.TargetPath
 	PackageNameMapping bool
+	Translate          *bool // nil means true (default behavior)
 }
 
 // PlanStage creates a pipeline stage that computes desired state.
@@ -167,7 +168,11 @@ func PlanStage() Pipeline[PlanInput, planner.DesiredState] {
 		default:
 		}
 
-		return planner.ComputeDesiredState(input.Packages, input.TargetDir, input.PackageNameMapping)
+		translate := true
+		if input.Translate != nil {
+			translate = *input.Translate
+		}
+		return planner.ComputeDesiredState(input.Packages, input.TargetDir, input.PackageNameMapping, translate)
 	}
 }
 
