@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -95,4 +96,19 @@ func TestStatusCommand_Help(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotEmpty(t, cmd.Long)
 	assert.NotEmpty(t, cmd.Example)
+}
+
+func TestStatusCommand_NonexistentPackageReturnsError(t *testing.T) {
+	setupGlobalCfg(t)
+
+	rootCmd := NewRootCommand("dev", "none", "unknown")
+	rootCmd.SetArgs([]string{"status", "nonexistent-pkg-xyz"})
+
+	out := &bytes.Buffer{}
+	rootCmd.SetOut(out)
+	rootCmd.SetErr(out)
+
+	err := rootCmd.Execute()
+	require.Error(t, err, "status should return error for nonexistent packages")
+	assert.Contains(t, err.Error(), "not found")
 }
