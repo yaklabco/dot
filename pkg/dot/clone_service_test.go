@@ -861,7 +861,8 @@ func TestCloneService_Clone_DryRunDoesNotClone(t *testing.T) {
 
 	svc := newCloneService(fs, logger, manageSvc, cloner, sel, "/packages", "/home", true)
 
-	_ = svc.Clone(ctx, "https://github.com/user/dotfiles", CloneOptions{})
+	err := svc.Clone(ctx, "https://github.com/user/dotfiles", CloneOptions{})
+	require.NoError(t, err)
 
 	// The critical assertion: git clone must not be called in dry-run mode
 	assert.False(t, cloneCalled, "dry-run clone should not call git clone")

@@ -665,8 +665,7 @@ func TestConfigListCommand_JsonFormat(t *testing.T) {
 	err := writer.Write(cfg, config.WriteOptions{Format: "yaml"})
 	require.NoError(t, err)
 
-	os.Setenv("DOT_CONFIG", configPath)
-	defer os.Unsetenv("DOT_CONFIG")
+	t.Setenv("DOT_CONFIG", configPath)
 
 	cmd := newConfigListCommand()
 	var buf bytes.Buffer
@@ -691,8 +690,7 @@ func TestConfigListCommand_YamlFormat(t *testing.T) {
 	err := writer.Write(cfg, config.WriteOptions{Format: "yaml"})
 	require.NoError(t, err)
 
-	os.Setenv("DOT_CONFIG", configPath)
-	defer os.Unsetenv("DOT_CONFIG")
+	t.Setenv("DOT_CONFIG", configPath)
 
 	cmd := newConfigListCommand()
 	var buf bytes.Buffer

@@ -334,7 +334,7 @@ Shows the final merged configuration from all sources.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml, table)")
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml)")
 
 	return cmd
 }
