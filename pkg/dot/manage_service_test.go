@@ -159,7 +159,7 @@ func TestManageService_Remanage(t *testing.T) {
 		assert.ErrorAs(t, err, &noChanges)
 	})
 
-	t.Run("detects symlink replaced by regular file", func(t *testing.T) {
+	t.Run("returns conflict when symlink replaced by regular file", func(t *testing.T) {
 		fs := adapters.NewMemFS()
 		ctx := context.Background()
 		packageDir := "/test/packages"
@@ -204,14 +204,16 @@ func TestManageService_Remanage(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, isLink, "expected .vimrc to be a regular file after replacement")
 
-		// Remanage should detect the replaced symlink and recreate it
+		// Remanage should return ErrConflict to protect user data
 		err = svc.Remanage(ctx, "test-pkg")
-		require.NoError(t, err, "remanage should succeed when symlink was replaced by regular file")
+		require.Error(t, err, "remanage should refuse to delete real files")
+		var conflictErr ErrConflict
+		assert.True(t, errors.As(err, &conflictErr), "expected ErrConflict, got %T: %v", err, err)
+		assert.Contains(t, err.Error(), ".vimrc")
 
-		// Verify the symlink was recreated
-		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
-		require.NoError(t, err)
-		assert.True(t, isLink, "expected .vimrc to be a symlink after remanage")
+		// Verify the user's file is preserved
+		exists := fs.Exists(ctx, targetDir+"/.vimrc")
+		assert.True(t, exists, "user's file should be preserved")
 	})
 
 	t.Run("remanages adopted package with file-level symlinks", func(t *testing.T) {
@@ -625,5 +627,229 @@ func TestManageService_ConflictReturnsTypedError(t *testing.T) {
 
 		// The Reason field should contain the full error message with all conflicts
 		assert.Contains(t, conflictErr.Reason, "conflict")
+	})
+}
+
+func TestManageService_Manage_ReregistersOrphanedSymlinks(t *testing.T) {
+	t.Run("registers package in manifest when symlinks exist but manifest lost", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		// Create symlink manually (as if manage ran before)
+		require.NoError(t, fs.Symlink(ctx, packageDir+"/test-pkg/dot-vimrc", targetDir+"/.vimrc"))
+
+		// No manifest exists (simulates manifest loss)
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Manage should succeed (not return ErrNoChanges) and register in manifest
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify package is now in manifest
+		targetPathResult := NewTargetPath(targetDir)
+		require.True(t, targetPathResult.IsOk())
+		manifestResult := manifestSvc.Load(ctx, targetPathResult.Unwrap())
+		require.True(t, manifestResult.IsOk())
+		m := manifestResult.Unwrap()
+		_, exists := m.GetPackage("test-pkg")
+		assert.True(t, exists, "package should be registered in manifest after reconciliation")
+	})
+}
+
+func TestManageService_PackageNameMappingModes(t *testing.T) {
+	t.Run("package_name_mapping=false links bash/dot-bashrc to ~/.bashrc", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/bash", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/bash/dot-bashrc", []byte("# bashrc"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: false, // files link to target root
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "bash")
+		require.NoError(t, err)
+
+		// With mapping=false, bash/dot-bashrc -> ~/.bashrc (in target root)
+		assert.True(t, fs.Exists(ctx, targetDir+"/.bashrc"), "expected .bashrc at target root")
+		assert.False(t, fs.Exists(ctx, targetDir+"/bash/.bashrc"), "should NOT create bash/ subdirectory")
+	})
+
+	t.Run("package_name_mapping=true links dot-gnupg/* to ~/.gnupg/*", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/dot-gnupg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/dot-gnupg/gpg.conf", []byte("# gpg"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicyFail},
+			PackageNameMapping: true, // dot-gnupg -> ~/.gnupg/
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "dot-gnupg")
+		require.NoError(t, err)
+
+		// With mapping=true, dot-gnupg/gpg.conf -> ~/.gnupg/gpg.conf
+		assert.True(t, fs.Exists(ctx, targetDir+"/.gnupg/gpg.conf"), "expected .gnupg/gpg.conf under target")
+	})
+}
+
+func TestManageService_Remanage_DryRunPreservesSymlinks(t *testing.T) {
+	t.Run("dry-run remanage does not delete existing symlinks", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config v1"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+
+		// First: manage normally (not dry-run) to create symlinks and manifest
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify symlink exists before dry-run remanage
+		isLink, err := fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		require.True(t, isLink, "symlink should exist before dry-run remanage")
+
+		// Modify the package to trigger a full remanage (hash mismatch)
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config v2"), 0644))
+
+		// Create dry-run service
+		unmanageSvcDry := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, true)
+		svcDry := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvcDry, packageDir, targetDir, true)
+
+		// Dry-run remanage should NOT delete existing symlinks
+		err = svcDry.Remanage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify symlink is STILL present (dry-run must not delete it)
+		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		assert.True(t, isLink, "symlink should still exist after dry-run remanage")
+	})
+}
+
+func TestManageService_Remanage_RefusesToDeleteRealFiles(t *testing.T) {
+	t.Run("returns ErrConflict when symlink replaced by real file during remanage", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package with a file
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Initial manage creates symlink
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Replace symlink with a real file containing user data
+		require.NoError(t, fs.Remove(ctx, targetDir+"/.vimrc"))
+		require.NoError(t, fs.WriteFile(ctx, targetDir+"/.vimrc", []byte("precious user data"), 0644))
+
+		// Modify the package to trigger a full remanage (hash mismatch)
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("updated vim config"), 0644))
+
+		// Remanage should return ErrConflict instead of silently deleting user data
+		err = svc.Remanage(ctx, "test-pkg")
+		require.Error(t, err)
+		var conflictErr ErrConflict
+		assert.True(t, errors.As(err, &conflictErr), "expected ErrConflict, got %T: %v", err, err)
+		assert.Contains(t, err.Error(), ".vimrc")
 	})
 }

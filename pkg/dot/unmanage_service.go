@@ -147,15 +147,12 @@ func (s *UnmanageService) UnmanageWithOptions(ctx context.Context, opts Unmanage
 
 	s.logger.Debug(ctx, "removing_packages_from_manifest", "packages", packagesToRemove)
 
-	for _, pkg := range packagesToRemove {
-		if err := s.manifestSvc.RemovePackage(ctx, targetPath, pkg); err != nil {
-			s.logger.Warn(ctx, "failed_to_update_manifest", "package", pkg, "error", err)
-			return err
-		}
-		s.logger.Debug(ctx, "package_removed_from_manifest", "package", pkg)
+	if err := s.manifestSvc.RemovePackages(ctx, targetPath, packagesToRemove); err != nil {
+		s.logger.Warn(ctx, "failed_to_update_manifest", "packages", packagesToRemove, "error", err)
+		return err
 	}
 
-	s.logger.Debug(ctx, "manifest_updated")
+	s.logger.Debug(ctx, "manifest_updated", "removed", len(packagesToRemove))
 	return nil
 }
 

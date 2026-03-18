@@ -72,7 +72,8 @@ func (s *FSManifestStore) getManifestPath(targetDir domain.TargetPath) string {
 	return filepath.Join(targetDir.String(), manifestFileName)
 }
 
-// Save persists manifest to configured directory
+// Save persists manifest to configured directory.
+// Uses advisory file locking to prevent concurrent write corruption.
 func (s *FSManifestStore) Save(ctx context.Context, targetDir domain.TargetPath, manifest Manifest) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -95,6 +96,14 @@ func (s *FSManifestStore) Save(ctx context.Context, targetDir domain.TargetPath,
 		if err := s.fs.MkdirAll(ctx, manifestDir, 0755); err != nil {
 			return fmt.Errorf("failed to create manifest directory: %w", err)
 		}
+	}
+
+	// Acquire advisory lock to prevent concurrent manifest corruption.
+	// Best-effort: if locking fails (e.g., MemFS in tests), proceed without lock.
+	lock := NewFileLock(manifestDir)
+	lockErr := lock.Lock(5 * time.Second)
+	if lockErr == nil {
+		defer lock.Unlock()
 	}
 
 	// Atomic write via temp file and rename

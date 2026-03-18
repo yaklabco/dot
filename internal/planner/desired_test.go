@@ -302,6 +302,81 @@ func TestComputeDesiredStateWithMultipleFiles(t *testing.T) {
 	assert.Len(t, state.Links, 2)
 }
 
+func TestComputeDesiredState_TranslateDisabled(t *testing.T) {
+	t.Run("dot-prefix preserved when translate is false", func(t *testing.T) {
+		pkgPath := domain.NewPackagePath("/home/user/dotfiles/vim").Unwrap()
+		target := domain.NewTargetPath("/home/user").Unwrap()
+
+		fileNode := domain.Node{
+			Path: domain.NewFilePath("/home/user/dotfiles/vim/dot-vimrc").Unwrap(),
+			Type: domain.NodeFile,
+		}
+
+		pkg := domain.Package{
+			Name: "vim",
+			Path: pkgPath,
+			Tree: &fileNode,
+		}
+
+		result := planner.ComputeDesiredState([]domain.Package{pkg}, target, false, false)
+		require.True(t, result.IsOk())
+
+		state := result.Unwrap()
+
+		// With translate=false, dot-vimrc should remain as dot-vimrc (NOT .vimrc)
+		_, translated := state.Links["/home/user/.vimrc"]
+		assert.False(t, translated, "Should NOT translate dot-vimrc to .vimrc when translate=false")
+
+		linkSpec, exists := state.Links["/home/user/dot-vimrc"]
+		require.True(t, exists, "Expected link at /home/user/dot-vimrc (no translation)")
+		assert.Equal(t, "/home/user/dotfiles/vim/dot-vimrc", linkSpec.Source.String())
+	})
+
+	t.Run("nested dot-prefix preserved when translate is false", func(t *testing.T) {
+		pkgPath := domain.NewPackagePath("/home/user/dotfiles/fish").Unwrap()
+		target := domain.NewTargetPath("/home/user").Unwrap()
+
+		fileNode := domain.Node{
+			Path: domain.NewFilePath("/home/user/dotfiles/fish/dot-config/fish/config.fish").Unwrap(),
+			Type: domain.NodeFile,
+		}
+
+		configDir := domain.Node{
+			Path:     domain.NewFilePath("/home/user/dotfiles/fish/dot-config/fish").Unwrap(),
+			Type:     domain.NodeDir,
+			Children: []domain.Node{fileNode},
+		}
+
+		dotConfigDir := domain.Node{
+			Path:     domain.NewFilePath("/home/user/dotfiles/fish/dot-config").Unwrap(),
+			Type:     domain.NodeDir,
+			Children: []domain.Node{configDir},
+		}
+
+		rootNode := domain.Node{
+			Path:     domain.NewFilePath("/home/user/dotfiles/fish").Unwrap(),
+			Type:     domain.NodeDir,
+			Children: []domain.Node{dotConfigDir},
+		}
+
+		pkg := domain.Package{
+			Name: "fish",
+			Path: pkgPath,
+			Tree: &rootNode,
+		}
+
+		result := planner.ComputeDesiredState([]domain.Package{pkg}, target, false, false)
+		require.True(t, result.IsOk())
+
+		state := result.Unwrap()
+
+		// With translate=false, dot-config should remain as dot-config
+		linkSpec, exists := state.Links["/home/user/dot-config/fish/config.fish"]
+		require.True(t, exists, "Expected link at /home/user/dot-config/fish/config.fish (no translation)")
+		assert.Equal(t, "/home/user/dotfiles/fish/dot-config/fish/config.fish", linkSpec.Source.String())
+	})
+}
+
 func TestComputeDesiredState_PackageNameMapping(t *testing.T) {
 	t.Run("with package name mapping enabled", func(t *testing.T) {
 		// Package "dot-gnupg" with file "common.conf"

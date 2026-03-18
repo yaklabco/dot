@@ -98,6 +98,7 @@ func NewClient(cfg Config) (*Client, error) {
 		Policies:           policies,
 		BackupDir:          cfg.BackupDir,
 		PackageNameMapping: cfg.PackageNameMapping,
+		Translate:          cfg.Translate,
 	})
 
 	// Create executor

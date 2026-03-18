@@ -103,6 +103,14 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 	}
 	s.logger.Debug(ctx, "authentication_resolved", "method", getAuthMethodName(auth))
 
+	// In dry-run mode, report what would happen and return early.
+	// No filesystem changes should occur.
+	if s.dryRun {
+		s.logger.Info(ctx, "dry_run_clone", "url", repoURL, "destination", s.packageDir)
+		fmt.Fprintf(os.Stderr, "Would clone %s to %s\n", repoURL, s.packageDir)
+		return nil
+	}
+
 	s.logger.Info(ctx, "cloning_repository", "url", repoURL, "destination", s.packageDir)
 
 	// Clone repository
@@ -157,11 +165,6 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 	s.logger.Info(ctx, "packages_selected", "count", len(packagesToInstall), "packages", packagesToInstall)
 
 	// Install packages
-	if s.dryRun {
-		s.logger.Info(ctx, "dry_run_mode", "would_install", packagesToInstall)
-		return nil
-	}
-
 	s.logger.Info(ctx, "installing_packages", "count", len(packagesToInstall))
 	if err := s.manageSvc.Manage(ctx, packagesToInstall...); err != nil {
 		// ErrNoChanges means packages are already installed (e.g., stale manifest
@@ -182,10 +185,8 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 	s.logger.Info(ctx, "clone_complete", "packages_installed", len(packagesToInstall))
 
 	// Offer to persist package directory to config
-	if !s.dryRun {
-		if err := s.offerToPersistPackageDirectory(ctx, s.packageDir); err != nil {
-			s.logger.Warn(ctx, "failed_to_persist_package_directory", "error", err)
-		}
+	if err := s.offerToPersistPackageDirectory(ctx, s.packageDir); err != nil {
+		s.logger.Warn(ctx, "failed_to_persist_package_directory", "error", err)
 	}
 
 	return nil

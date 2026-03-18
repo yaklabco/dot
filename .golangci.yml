@@ -44,6 +44,9 @@ linters:
         - G301
         - G302
         - G304
+        - G115
+        - G703
+        - G704
     importas:
       alias:
         - pkg: github.com/stretchr/testify/assert

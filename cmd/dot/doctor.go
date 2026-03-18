@@ -34,7 +34,7 @@ func DoctorExitCode(status dot.HealthStatus) int {
 type doctorFlags struct {
 	format, color, scanMode, mode string
 	maxDepth                      int
-	triage, autoIgnore, verbose   bool
+	triage, autoIgnore, detailed  bool
 }
 
 // parseDoctorFlags extracts flags from command.
@@ -46,8 +46,8 @@ func parseDoctorFlags(cmd *cobra.Command) doctorFlags {
 	triage, _ := cmd.Flags().GetBool("triage")
 	autoIgnore, _ := cmd.Flags().GetBool("auto-ignore")
 	mode, _ := cmd.Flags().GetString("mode")
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	return doctorFlags{format, color, scanMode, mode, maxDepth, triage, autoIgnore, verbose}
+	detailed, _ := cmd.Flags().GetBool("detailed")
+	return doctorFlags{format, color, scanMode, mode, maxDepth, triage, autoIgnore, detailed}
 }
 
 // buildScanConfig creates scan configuration from flags.
@@ -101,7 +101,7 @@ func renderDoctorOutput(cmd *cobra.Command, report dot.DiagnosticReport, flags d
 		// Since we don't have access to internal CheckResults here,
 		// we'll enhance the succinct rendering when verbose is enabled
 		var buf bytes.Buffer
-		if flags.verbose {
+		if flags.detailed {
 			renderVerboseDiagnostics(&buf, report, colorize)
 		} else {
 			renderSuccinctDiagnostics(&buf, report, colorize, tableStyle)
@@ -486,7 +486,7 @@ Exit codes:
 	cmd.Flags().Bool("triage", false, "Interactive triage mode for orphaned symlinks")
 	cmd.Flags().Bool("auto-ignore", false, "Automatically ignore high-confidence categories in triage mode")
 	cmd.Flags().String("mode", "fast", "Diagnostic mode (fast, deep)")
-	cmd.Flags().Bool("verbose", false, "Show detailed diagnostic output")
+	cmd.Flags().Bool("detailed", false, "Show detailed diagnostic output")
 
 	return cmd
 }

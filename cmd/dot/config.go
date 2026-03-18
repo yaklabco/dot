@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/yaklabco/dot/internal/cli/render"
 	"github.com/yaklabco/dot/pkg/dot"
@@ -226,6 +228,8 @@ func getValidConfigKeys() []string {
 		"symlinks.backup_suffix",
 		"symlinks.backup_dir",
 		"dotfile.prefix",
+		"dotfile.translate",
+		"dotfile.package_name_mapping",
 		"output.format",
 		"output.color",
 		"packages.sort_by",
@@ -234,36 +238,30 @@ func getValidConfigKeys() []string {
 
 // getConfigValue retrieves a value from config by key path.
 func getConfigValue(cfg *dot.ExtendedConfig, key string) (string, error) {
-	switch key {
-	case "directories.package":
-		return cfg.Directories.Package, nil
-	case "directories.target":
-		return cfg.Directories.Target, nil
-	case "directories.manifest":
-		return cfg.Directories.Manifest, nil
-	case "logging.level":
-		return cfg.Logging.Level, nil
-	case "logging.format":
-		return cfg.Logging.Format, nil
-	case "logging.destination":
-		return cfg.Logging.Destination, nil
-	case "symlinks.mode":
-		return cfg.Symlinks.Mode, nil
-	case "symlinks.backup_suffix":
-		return cfg.Symlinks.BackupSuffix, nil
-	case "symlinks.backup_dir":
-		return cfg.Symlinks.BackupDir, nil
-	case "dotfile.prefix":
-		return cfg.Dotfile.Prefix, nil
-	case "output.format":
-		return cfg.Output.Format, nil
-	case "output.color":
-		return cfg.Output.Color, nil
-	case "packages.sort_by":
-		return cfg.Packages.SortBy, nil
-	default:
-		return "", fmt.Errorf("unknown config key: %s", key)
+	getters := map[string]func() string{
+		"directories.package":    func() string { return cfg.Directories.Package },
+		"directories.target":     func() string { return cfg.Directories.Target },
+		"directories.manifest":   func() string { return cfg.Directories.Manifest },
+		"logging.level":          func() string { return cfg.Logging.Level },
+		"logging.format":         func() string { return cfg.Logging.Format },
+		"logging.destination":    func() string { return cfg.Logging.Destination },
+		"symlinks.mode":          func() string { return cfg.Symlinks.Mode },
+		"symlinks.backup_suffix": func() string { return cfg.Symlinks.BackupSuffix },
+		"symlinks.backup_dir":    func() string { return cfg.Symlinks.BackupDir },
+		"dotfile.prefix":         func() string { return cfg.Dotfile.Prefix },
+		"dotfile.translate":      func() string { return fmt.Sprintf("%t", cfg.Dotfile.Translate) },
+		"dotfile.package_name_mapping": func() string {
+			return fmt.Sprintf("%t", cfg.Dotfile.PackageNameMapping)
+		},
+		"output.format":    func() string { return cfg.Output.Format },
+		"output.color":     func() string { return cfg.Output.Color },
+		"packages.sort_by": func() string { return cfg.Packages.SortBy },
 	}
+
+	if getter, ok := getters[key]; ok {
+		return getter(), nil
+	}
+	return "", fmt.Errorf("unknown config key: %s", key)
 }
 
 // newConfigSetCommand creates the set subcommand.
@@ -317,6 +315,8 @@ func runConfigSet(key, value string) error {
 
 // newConfigListCommand creates the list subcommand.
 func newConfigListCommand() *cobra.Command {
+	var format string
+
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"show", "ls"},
@@ -332,6 +332,8 @@ Shows the final merged configuration from all sources.`,
 		RunE: runConfigListCmd,
 	}
 
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format (text, json, yaml)")
+
 	return cmd
 }
 
@@ -345,7 +347,31 @@ func runConfigListCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Build the configuration table output
+	// Check format flag
+	format, _ := cmd.Flags().GetString("format")
+	if format == "" {
+		format = "text"
+	}
+
+	switch format {
+	case "json":
+		data, err := json.MarshalIndent(cfg, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), string(data))
+		return nil
+
+	case "yaml":
+		data, err := yaml.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
+		fmt.Fprint(cmd.OutOrStdout(), string(data))
+		return nil
+	}
+
+	// Default text/table format
 	colorize := shouldUseColor()
 	c := render.NewColorizer(colorize)
 

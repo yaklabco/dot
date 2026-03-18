@@ -289,7 +289,7 @@ func getBackupDir() (string, error) {
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(backupDir, 0700); err != nil { //nolint:gosec // path validated above
+	if err := os.MkdirAll(backupDir, 0700); err != nil {
 		return "", fmt.Errorf("cannot create backup directory: %w", err)
 	}
 

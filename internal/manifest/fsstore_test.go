@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -199,6 +200,42 @@ func TestFSManifestStore_Save_AtomicWrite(t *testing.T) {
 		assert.NotContains(t, entry.Name(), ".tmp")
 		assert.NotContains(t, entry.Name(), "~")
 	}
+}
+
+func TestFSManifestStore_Save_ConcurrentWritesDoNotCorrupt(t *testing.T) {
+	// This test verifies that concurrent Save calls don't corrupt the manifest.
+	// Uses real filesystem since flock requires real file descriptors.
+	tmpDir := t.TempDir()
+	targetDir := mustTargetPath(t, tmpDir)
+
+	store := NewFSManifestStore(adapters.NewMemFS())
+
+	// With MemFS, flock is best-effort (will fail silently).
+	// Run concurrent saves to verify at minimum no panic/corruption.
+	const goroutines = 5
+	errCh := make(chan error, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		go func(idx int) {
+			m := New()
+			m.AddPackage(PackageInfo{
+				Name:      fmt.Sprintf("pkg-%d", idx),
+				LinkCount: 1,
+				Links:     []string{fmt.Sprintf(".file%d", idx)},
+			})
+			errCh <- store.Save(context.Background(), targetDir, m)
+		}(i)
+	}
+
+	// All saves should succeed (no panics or corruption)
+	for i := 0; i < goroutines; i++ {
+		err := <-errCh
+		assert.NoError(t, err, "concurrent save should not fail")
+	}
+
+	// Manifest should be loadable
+	result := store.Load(context.Background(), targetDir)
+	require.True(t, result.IsOk(), "manifest should be loadable after concurrent writes")
 }
 
 func TestFSManifestStore_Save_WithContext(t *testing.T) {

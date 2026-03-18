@@ -2,7 +2,9 @@ package dot
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,22 +66,8 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return err
 	}
 
-	// Check for conflicts before execution
-	if len(plan.Metadata.Conflicts) > 0 {
-		// Build error message with conflict details
-		conflictMsg := fmt.Sprintf("cannot manage packages: %d conflict(s) detected", len(plan.Metadata.Conflicts))
-		for i, conflict := range plan.Metadata.Conflicts {
-			if i < 3 { // Show first 3 conflicts
-				conflictMsg += fmt.Sprintf("\n  - %s at %s: %s", conflict.Type, conflict.Path, conflict.Details)
-			}
-		}
-		if len(plan.Metadata.Conflicts) > 3 {
-			conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
-		}
-		return ErrConflict{
-			Path:   plan.Metadata.Conflicts[0].Path,
-			Reason: conflictMsg,
-		}
+	if err := checkPlanConflicts(plan); err != nil {
+		return err
 	}
 
 	// If plan is empty (no operations needed), validate manifest before returning.
@@ -89,6 +77,17 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		if err := s.validateManifestReadable(ctx); err != nil {
 			return err
 		}
+
+		// Reconciliation: if symlinks exist on disk but the package is not in the manifest
+		// (e.g., after manifest loss), re-register the package.
+		reconciled, err := s.reconcileManifest(ctx, packages, plan)
+		if err != nil {
+			return err
+		}
+		if reconciled {
+			return nil
+		}
+
 		s.logger.Info(ctx, "no_operations_required", "packages", packages)
 		return ErrNoChanges{Packages: packages}
 	}
@@ -113,6 +112,26 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return fmt.Errorf("manifest update failed: %w", err)
 	}
 	return nil
+}
+
+// checkPlanConflicts returns an error if the plan contains conflicts.
+func checkPlanConflicts(plan Plan) error {
+	if len(plan.Metadata.Conflicts) == 0 {
+		return nil
+	}
+	conflictMsg := fmt.Sprintf("cannot manage packages: %d conflict(s) detected", len(plan.Metadata.Conflicts))
+	for i, conflict := range plan.Metadata.Conflicts {
+		if i < 3 {
+			conflictMsg += fmt.Sprintf("\n  - %s at %s: %s", conflict.Type, conflict.Path, conflict.Details)
+		}
+	}
+	if len(plan.Metadata.Conflicts) > 3 {
+		conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
+	}
+	return ErrConflict{
+		Path:   plan.Metadata.Conflicts[0].Path,
+		Reason: conflictMsg,
+	}
 }
 
 // PlanManage computes the execution plan for managing packages without applying changes.
@@ -339,12 +358,10 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 		return nil, nil, err
 	}
 
-	// Remove existing symlinks before planning manage operations
-	// This prevents the scanner from skipping recreation of links that will be deleted
-	for _, op := range unmanagePlan.Operations {
-		if linkDel, ok := op.(LinkDelete); ok {
-			_ = s.fs.Remove(ctx, linkDel.Target.String())
-		}
+	// Remove existing symlinks before planning manage operations.
+	// This prevents the scanner from skipping recreation of links that will be deleted.
+	if err := s.removeSymlinksOnly(ctx, unmanagePlan.Operations, s.dryRun); err != nil {
+		return nil, nil, err
 	}
 
 	// Get manage operations (scanner will now not see the old symlinks)
@@ -381,8 +398,8 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 	}
 
 	// Delete existing symlinks
-	var ops []Operation
-	var opIDs []OperationID
+	ops := make([]Operation, 0, len(pkgInfo.Links))
+	opIDs := make([]OperationID, 0, len(pkgInfo.Links))
 
 	for _, link := range pkgInfo.Links {
 		targetPath := filepath.Join(s.targetDir, link)
@@ -394,11 +411,9 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 		}
 	}
 
-	// Remove existing symlinks so the manage pipeline sees a clean target
-	for _, op := range ops {
-		if linkDel, ok := op.(LinkDelete); ok {
-			_ = s.fs.Remove(ctx, linkDel.Target.String())
-		}
+	// Remove existing symlinks so the manage pipeline sees a clean target.
+	if err := s.removeSymlinksOnly(ctx, ops, s.dryRun); err != nil {
+		return nil, nil, err
 	}
 
 	// Re-run the normal manage pipeline to create file-level symlinks
@@ -481,4 +496,147 @@ func isReservedPackageName(name string) bool {
 	}
 
 	return false
+}
+
+// reconcileManifest checks if packages exist on disk as symlinks but are missing
+// from the manifest (e.g., after manifest loss). If so, it scans the target dir
+// for symlinks pointing into the package dir and registers them.
+// Returns true if any packages were reconciled.
+func (s *ManageService) reconcileManifest(ctx context.Context, packages []string, _ Plan) (bool, error) {
+	targetPathResult := NewTargetPath(s.targetDir)
+	if !targetPathResult.IsOk() {
+		return false, nil
+	}
+	targetPath := targetPathResult.Unwrap()
+
+	manifestResult := s.manifestSvc.Load(ctx, targetPath)
+	if !manifestResult.IsOk() {
+		return false, nil
+	}
+	m := manifestResult.Unwrap()
+
+	reconciled := false
+	for _, pkg := range packages {
+		if _, exists := m.GetPackage(pkg); exists {
+			continue
+		}
+		// Package not in manifest — scan target for symlinks pointing into this package
+		pkgDir := filepath.Join(s.packageDir, pkg)
+		if !s.fs.Exists(ctx, pkgDir) {
+			continue
+		}
+
+		links := s.findSymlinksForPackage(ctx, pkgDir)
+		if len(links) == 0 {
+			continue
+		}
+
+		m.AddPackage(manifest.PackageInfo{
+			Name:       pkg,
+			LinkCount:  len(links),
+			Links:      links,
+			Source:     manifest.SourceManaged,
+			TargetDir:  s.targetDir,
+			PackageDir: pkgDir,
+		})
+		s.logger.Info(ctx, "reconciled_package_in_manifest", "package", pkg, "links", len(links))
+		reconciled = true
+	}
+
+	if reconciled {
+		if err := s.manifestSvc.Save(ctx, targetPath, m); err != nil {
+			return false, fmt.Errorf("save reconciled manifest: %w", err)
+		}
+	}
+	return reconciled, nil
+}
+
+// findSymlinksForPackage scans the target directory for symlinks that point
+// into the given package directory, returning their relative paths.
+func (s *ManageService) findSymlinksForPackage(ctx context.Context, pkgDir string) []string {
+	var links []string
+	entries, err := s.fs.ReadDir(ctx, s.targetDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(s.targetDir, entry.Name())
+		s.findSymlinksRecursive(ctx, entryPath, pkgDir, "", &links)
+	}
+	return links
+}
+
+// findSymlinksRecursive recursively finds symlinks pointing into pkgDir.
+func (s *ManageService) findSymlinksRecursive(ctx context.Context, path, pkgDir, relPrefix string, links *[]string) {
+	isLink, err := s.fs.IsSymlink(ctx, path)
+	if err != nil {
+		return
+	}
+
+	name := filepath.Base(path)
+	rel := name
+	if relPrefix != "" {
+		rel = filepath.Join(relPrefix, name)
+	}
+
+	if isLink {
+		target, err := s.fs.ReadLink(ctx, path)
+		if err != nil {
+			return
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		target = filepath.Clean(target)
+		if strings.HasPrefix(target, filepath.Clean(pkgDir)+string(os.PathSeparator)) || target == filepath.Clean(pkgDir) {
+			*links = append(*links, rel)
+		}
+		return
+	}
+
+	// If it's a directory, recurse into it
+	isDir, err := s.fs.IsDir(ctx, path)
+	if err != nil || !isDir {
+		return
+	}
+	entries, err := s.fs.ReadDir(ctx, path)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		childPath := filepath.Join(path, entry.Name())
+		s.findSymlinksRecursive(ctx, childPath, pkgDir, rel, links)
+	}
+}
+
+// removeSymlinksOnly removes symlink targets from LinkDelete operations.
+// If any target is a regular file (not a symlink), it returns ErrConflict
+// to prevent data loss. Missing targets are silently skipped.
+// When dryRun is true, conflict checks are performed but symlinks are not removed.
+func (s *ManageService) removeSymlinksOnly(ctx context.Context, ops []Operation, dryRun bool) error {
+	for _, op := range ops {
+		linkDel, ok := op.(LinkDelete)
+		if !ok {
+			continue
+		}
+		target := linkDel.Target.String()
+		isLink, err := s.fs.IsSymlink(ctx, target)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("checking symlink status of %s: %w", target, err)
+		}
+		if !isLink {
+			return ErrConflict{
+				Path:   target,
+				Reason: fmt.Sprintf("expected symlink at %s but found a regular file; remove or back up the file before remanaging", target),
+			}
+		}
+		if !dryRun {
+			_ = s.fs.Remove(ctx, target)
+		}
+	}
+	return nil
 }

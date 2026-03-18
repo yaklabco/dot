@@ -19,6 +19,7 @@ type ManagePipelineOpts struct {
 	Policies           planner.ResolutionPolicies
 	BackupDir          string
 	PackageNameMapping bool
+	Translate          *bool // nil means true (default behavior)
 }
 
 // ManageInput contains the input for manage operations
@@ -65,6 +66,7 @@ func (p *ManagePipeline) Execute(ctx context.Context, input ManageInput) domain.
 		Packages:           packages,
 		TargetDir:          input.TargetDir,
 		PackageNameMapping: p.opts.PackageNameMapping,
+		Translate:          p.opts.Translate,
 	}
 
 	planResult := PlanStage()(ctx, planInput)

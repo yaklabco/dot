@@ -231,12 +231,21 @@ func (s *AdoptService) planAdoptFile(ctx context.Context, file, pkgPath string) 
 		return s.createDirectoryAdoptOperations(ctx, sourceFile, pkgPath, file)
 	}
 
-	adoptedName := scanner.UntranslateDotfile(filepath.Base(file))
-	destFile := filepath.Join(pkgPath, adoptedName)
+	// Compute relative path from target dir to preserve nested directory structure.
+	// For a file at .config/nvim/init.vim, we translate each path component
+	// (e.g., .config -> dot-config) and use the full relative path in the package.
+	relPath, err := filepath.Rel(s.targetDir, sourceFile)
+	if err != nil {
+		relPath = filepath.Base(file)
+	}
+	adoptedRelPath := translatePathComponents(relPath)
+	destFile := filepath.Join(pkgPath, adoptedRelPath)
 
 	if s.fs.Exists(ctx, destFile) {
-		return nil, fmt.Errorf("cannot adopt %s: file %q already exists in package %q (use 'dot unmanage %s --purge' first to remove the existing package)", file, adoptedName, filepath.Base(pkgPath), filepath.Base(pkgPath))
+		return nil, fmt.Errorf("cannot adopt %s: file %q already exists in package %q (use 'dot unmanage %s --purge' first to remove the existing package)", file, adoptedRelPath, filepath.Base(pkgPath), filepath.Base(pkgPath))
 	}
+
+	operations := s.planIntermediateDirs(ctx, adoptedRelPath, pkgPath)
 
 	sourceLinkPathResult := NewTargetPath(sourceFile)
 	if !sourceLinkPathResult.IsOk() {
@@ -250,14 +259,46 @@ func (s *AdoptService) planAdoptFile(ctx context.Context, file, pkgPath string) 
 	moveID := OperationID(fmt.Sprintf("adopt-move-%s", file))
 	linkID := OperationID(fmt.Sprintf("adopt-link-%s", file))
 
-	return []Operation{
+	operations = append(operations,
 		FileMove{
 			OpID:   moveID,
 			Source: sourceLinkPathResult.Unwrap(),
 			Dest:   destPathResult.Unwrap(),
 		},
 		NewLinkCreate(linkID, destPathResult.Unwrap(), sourceLinkPathResult.Unwrap()),
-	}, nil
+	)
+	return operations, nil
+}
+
+// planIntermediateDirs creates DirCreate operations for all missing intermediate
+// directories between pkgPath and the file's parent directory.
+func (s *AdoptService) planIntermediateDirs(ctx context.Context, adoptedRelPath, pkgPath string) []Operation {
+	relDir := filepath.Dir(adoptedRelPath)
+	if relDir == "." {
+		return nil
+	}
+
+	// Collect directories from shallowest to deepest
+	var dirsToCreate []string
+	cur := relDir
+	for cur != "." && cur != "" {
+		dirPath := filepath.Join(pkgPath, cur)
+		if !s.fs.Exists(ctx, dirPath) {
+			dirsToCreate = append([]string{cur}, dirsToCreate...)
+		}
+		cur = filepath.Dir(cur)
+	}
+
+	var ops []Operation
+	for _, dir := range dirsToCreate {
+		dirFullPath := filepath.Join(pkgPath, dir)
+		dirResult := NewFilePath(dirFullPath)
+		if dirResult.IsOk() {
+			dirID := OperationID(fmt.Sprintf("adopt-create-dir-%s", dir))
+			ops = append(ops, NewDirCreate(dirID, dirResult.Unwrap()))
+		}
+	}
+	return ops
 }
 
 // createDirectoryAdoptOperations creates operations to adopt a directory's contents.

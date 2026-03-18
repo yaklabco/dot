@@ -843,6 +843,31 @@ func TestCloneService_Clone_ManageNoChangesIsSuccess(t *testing.T) {
 	require.NoError(t, err, "clone should succeed when packages are already installed")
 }
 
+func TestCloneService_Clone_DryRunDoesNotClone(t *testing.T) {
+	ctx := context.Background()
+	fs := adapters.NewMemFS()
+	logger := adapters.NewNoopLogger()
+
+	cloneCalled := false
+	cloner := &mockGitCloner{
+		cloneFn: func(ctx context.Context, url string, dest string, opts adapters.CloneOptions) error {
+			cloneCalled = true
+			return nil
+		},
+	}
+
+	sel := &mockPackageSelector{}
+	manageSvc := &ManageService{}
+
+	svc := newCloneService(fs, logger, manageSvc, cloner, sel, "/packages", "/home", true)
+
+	err := svc.Clone(ctx, "https://github.com/user/dotfiles", CloneOptions{})
+	require.NoError(t, err)
+
+	// The critical assertion: git clone must not be called in dry-run mode
+	assert.False(t, cloneCalled, "dry-run clone should not call git clone")
+}
+
 func TestCloneService_Clone_NoPackagesSelected(t *testing.T) {
 	ctx := context.Background()
 	fs := adapters.NewMemFS()

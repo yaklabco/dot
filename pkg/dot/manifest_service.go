@@ -62,8 +62,12 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 	for _, pkg := range packagesToUpdate {
 		// Extract links and backups from package operations
 		ops := plan.OperationsForPackage(pkg)
-		links := s.extractLinksFromOperations(ops, targetPath.String())
+		newLinks := s.extractLinksFromOperations(ops, targetPath.String())
+		deletedLinks := s.extractDeletedLinksFromOperations(ops, targetPath.String())
 		backups := s.extractBackupsFromOperations(ops)
+
+		// Merge with existing links: start from existing, remove deleted, add new
+		links := s.mergeLinks(m, pkg, newLinks, deletedLinks)
 
 		m.AddPackage(manifest.PackageInfo{
 			Name:        pkg,
@@ -96,13 +100,20 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 
 // RemovePackage removes a package from the manifest.
 func (s *ManifestService) RemovePackage(ctx context.Context, targetPath TargetPath, pkg string) error {
+	return s.RemovePackages(ctx, targetPath, []string{pkg})
+}
+
+// RemovePackages removes multiple packages from the manifest in a single load-save cycle.
+func (s *ManifestService) RemovePackages(ctx context.Context, targetPath TargetPath, pkgs []string) error {
 	manifestResult := s.Load(ctx, targetPath)
 	if !manifestResult.IsOk() {
 		return manifestResult.UnwrapErr()
 	}
 
 	m := manifestResult.Unwrap()
-	m.RemovePackage(pkg)
+	for _, pkg := range pkgs {
+		m.RemovePackage(pkg)
+	}
 
 	return s.Save(ctx, targetPath, m)
 }
@@ -121,6 +132,60 @@ func (s *ManifestService) extractLinksFromOperations(ops []Operation, targetDir 
 		}
 	}
 	return links
+}
+
+// extractDeletedLinksFromOperations extracts link paths from LinkDelete operations.
+func (s *ManifestService) extractDeletedLinksFromOperations(ops []Operation, targetDir string) []string {
+	var links []string
+	for _, op := range ops {
+		if linkOp, ok := op.(LinkDelete); ok {
+			targetPath := linkOp.Target.String()
+			relPath, err := filepath.Rel(targetDir, targetPath)
+			if err != nil {
+				relPath = targetPath
+			}
+			links = append(links, relPath)
+		}
+	}
+	return links
+}
+
+// mergeLinks merges existing manifest links with plan deltas.
+// It starts from existing links, removes deleted ones, and adds new ones.
+func (s *ManifestService) mergeLinks(m manifest.Manifest, pkg string, newLinks, deletedLinks []string) []string {
+	existing, hasExisting := m.GetPackage(pkg)
+	if !hasExisting {
+		// No existing entry — just use new links
+		return newLinks
+	}
+
+	// Build set of deleted links
+	deletedSet := make(map[string]struct{}, len(deletedLinks))
+	for _, l := range deletedLinks {
+		deletedSet[l] = struct{}{}
+	}
+
+	// Build set of new links for dedup
+	newSet := make(map[string]struct{}, len(newLinks))
+	for _, l := range newLinks {
+		newSet[l] = struct{}{}
+	}
+
+	// Start with existing links, removing deleted ones
+	merged := make([]string, 0, len(existing.Links)+len(newLinks))
+	for _, l := range existing.Links {
+		if _, isDeleted := deletedSet[l]; isDeleted {
+			continue
+		}
+		if _, isNew := newSet[l]; isNew {
+			continue // Will be added from newLinks
+		}
+		merged = append(merged, l)
+	}
+
+	// Add new links
+	merged = append(merged, newLinks...)
+	return merged
 }
 
 func (s *ManifestService) extractBackupsFromOperations(ops []Operation) map[string]string {

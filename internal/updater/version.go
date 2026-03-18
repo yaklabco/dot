@@ -144,7 +144,7 @@ func (vc *VersionChecker) GetLatestVersion(includePrerelease bool) (*GitHubRelea
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "dot-updater")
 
-	resp, err := vc.httpClient.Do(req) //nolint:gosec // URL host validated via constant githubAPIBase
+	resp, err := vc.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch releases: %w", err)
 	}

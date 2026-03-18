@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -61,6 +62,11 @@ func newStatusCommand() *cobra.Command {
 		// Add newline after output for better terminal spacing
 		if format == "text" || format == "table" {
 			fmt.Fprintln(cmd.OutOrStdout())
+		}
+
+		// Return error for packages that were not found
+		if len(status.NotFound) > 0 {
+			return fmt.Errorf("package not found: %s", strings.Join(status.NotFound, ", "))
 		}
 
 		return nil
