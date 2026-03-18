@@ -630,6 +630,54 @@ func TestManageService_ConflictReturnsTypedError(t *testing.T) {
 	})
 }
 
+func TestManageService_Manage_ReregistersOrphanedSymlinks(t *testing.T) {
+	t.Run("registers package in manifest when symlinks exist but manifest lost", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim"), 0644))
+
+		// Create symlink manually (as if manage ran before)
+		require.NoError(t, fs.Symlink(ctx, packageDir+"/test-pkg/dot-vimrc", targetDir+"/.vimrc"))
+
+		// No manifest exists (simulates manifest loss)
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		// Manage should succeed (not return ErrNoChanges) and register in manifest
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify package is now in manifest
+		targetPathResult := NewTargetPath(targetDir)
+		require.True(t, targetPathResult.IsOk())
+		manifestResult := manifestSvc.Load(ctx, targetPathResult.Unwrap())
+		require.True(t, manifestResult.IsOk())
+		m := manifestResult.Unwrap()
+		_, exists := m.GetPackage("test-pkg")
+		assert.True(t, exists, "package should be registered in manifest after reconciliation")
+	})
+}
+
 func TestManageService_PackageNameMappingModes(t *testing.T) {
 	t.Run("package_name_mapping=false links bash/dot-bashrc to ~/.bashrc", func(t *testing.T) {
 		fs := adapters.NewMemFS()

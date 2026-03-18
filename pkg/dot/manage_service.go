@@ -91,6 +91,17 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		if err := s.validateManifestReadable(ctx); err != nil {
 			return err
 		}
+
+		// Reconciliation: if symlinks exist on disk but the package is not in the manifest
+		// (e.g., after manifest loss), re-register the package.
+		reconciled, err := s.reconcileManifest(ctx, packages, plan)
+		if err != nil {
+			return err
+		}
+		if reconciled {
+			return nil
+		}
+
 		s.logger.Info(ctx, "no_operations_required", "packages", packages)
 		return ErrNoChanges{Packages: packages}
 	}
@@ -479,6 +490,118 @@ func isReservedPackageName(name string) bool {
 	}
 
 	return false
+}
+
+// reconcileManifest checks if packages exist on disk as symlinks but are missing
+// from the manifest (e.g., after manifest loss). If so, it scans the target dir
+// for symlinks pointing into the package dir and registers them.
+// Returns true if any packages were reconciled.
+func (s *ManageService) reconcileManifest(ctx context.Context, packages []string, _ Plan) (bool, error) {
+	targetPathResult := NewTargetPath(s.targetDir)
+	if !targetPathResult.IsOk() {
+		return false, nil
+	}
+	targetPath := targetPathResult.Unwrap()
+
+	manifestResult := s.manifestSvc.Load(ctx, targetPath)
+	if !manifestResult.IsOk() {
+		return false, nil
+	}
+	m := manifestResult.Unwrap()
+
+	reconciled := false
+	for _, pkg := range packages {
+		if _, exists := m.GetPackage(pkg); exists {
+			continue
+		}
+		// Package not in manifest — scan target for symlinks pointing into this package
+		pkgDir := filepath.Join(s.packageDir, pkg)
+		if !s.fs.Exists(ctx, pkgDir) {
+			continue
+		}
+
+		links := s.findSymlinksForPackage(ctx, pkgDir)
+		if len(links) == 0 {
+			continue
+		}
+
+		m.AddPackage(manifest.PackageInfo{
+			Name:      pkg,
+			LinkCount: len(links),
+			Links:     links,
+			Source:    manifest.SourceManaged,
+			TargetDir: s.targetDir,
+			PackageDir: pkgDir,
+		})
+		s.logger.Info(ctx, "reconciled_package_in_manifest", "package", pkg, "links", len(links))
+		reconciled = true
+	}
+
+	if reconciled {
+		if err := s.manifestSvc.Save(ctx, targetPath, m); err != nil {
+			return false, fmt.Errorf("save reconciled manifest: %w", err)
+		}
+	}
+	return reconciled, nil
+}
+
+// findSymlinksForPackage scans the target directory for symlinks that point
+// into the given package directory, returning their relative paths.
+func (s *ManageService) findSymlinksForPackage(ctx context.Context, pkgDir string) []string {
+	var links []string
+	entries, err := s.fs.ReadDir(ctx, s.targetDir)
+	if err != nil {
+		return nil
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(s.targetDir, entry.Name())
+		s.findSymlinksRecursive(ctx, entryPath, pkgDir, "", &links)
+	}
+	return links
+}
+
+// findSymlinksRecursive recursively finds symlinks pointing into pkgDir.
+func (s *ManageService) findSymlinksRecursive(ctx context.Context, path, pkgDir, relPrefix string, links *[]string) {
+	isLink, err := s.fs.IsSymlink(ctx, path)
+	if err != nil {
+		return
+	}
+
+	name := filepath.Base(path)
+	rel := name
+	if relPrefix != "" {
+		rel = filepath.Join(relPrefix, name)
+	}
+
+	if isLink {
+		target, err := s.fs.ReadLink(ctx, path)
+		if err != nil {
+			return
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		target = filepath.Clean(target)
+		if strings.HasPrefix(target, filepath.Clean(pkgDir)+string(os.PathSeparator)) || target == filepath.Clean(pkgDir) {
+			*links = append(*links, rel)
+		}
+		return
+	}
+
+	// If it's a directory, recurse into it
+	isDir, err := s.fs.IsDir(ctx, path)
+	if err != nil || !isDir {
+		return
+	}
+	entries, err := s.fs.ReadDir(ctx, path)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		childPath := filepath.Join(path, entry.Name())
+		s.findSymlinksRecursive(ctx, childPath, pkgDir, rel, links)
+	}
 }
 
 // removeSymlinksOnly removes symlink targets from LinkDelete operations.
