@@ -103,6 +103,14 @@ func (s *CloneService) Clone(ctx context.Context, repoURL string, opts CloneOpti
 	}
 	s.logger.Debug(ctx, "authentication_resolved", "method", getAuthMethodName(auth))
 
+	// In dry-run mode, report what would happen and return early.
+	// No filesystem changes should occur.
+	if s.dryRun {
+		s.logger.Info(ctx, "dry_run_clone", "url", repoURL, "destination", s.packageDir)
+		fmt.Fprintf(os.Stderr, "Would clone %s to %s\n", repoURL, s.packageDir)
+		return nil
+	}
+
 	s.logger.Info(ctx, "cloning_repository", "url", repoURL, "destination", s.packageDir)
 
 	// Clone repository
