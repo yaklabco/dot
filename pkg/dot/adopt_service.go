@@ -245,32 +245,7 @@ func (s *AdoptService) planAdoptFile(ctx context.Context, file, pkgPath string) 
 		return nil, fmt.Errorf("cannot adopt %s: file %q already exists in package %q (use 'dot unmanage %s --purge' first to remove the existing package)", file, adoptedRelPath, filepath.Base(pkgPath), filepath.Base(pkgPath))
 	}
 
-	var operations []Operation
-
-	// Create all intermediate directories in the package if needed.
-	// For a dest like packages/fish/dot-config/fish/config.fish, we need to
-	// create both dot-config and dot-config/fish under the package root.
-	relDir := filepath.Dir(adoptedRelPath)
-	if relDir != "." {
-		// Collect directories from shallowest to deepest
-		var dirsToCreate []string
-		cur := relDir
-		for cur != "." && cur != "" {
-			dirPath := filepath.Join(pkgPath, cur)
-			if !s.fs.Exists(ctx, dirPath) {
-				dirsToCreate = append([]string{cur}, dirsToCreate...)
-			}
-			cur = filepath.Dir(cur)
-		}
-		for _, dir := range dirsToCreate {
-			dirFullPath := filepath.Join(pkgPath, dir)
-			dirResult := NewFilePath(dirFullPath)
-			if dirResult.IsOk() {
-				dirID := OperationID(fmt.Sprintf("adopt-create-dir-%s", dir))
-				operations = append(operations, NewDirCreate(dirID, dirResult.Unwrap()))
-			}
-		}
-	}
+	operations := s.planIntermediateDirs(ctx, adoptedRelPath, pkgPath)
 
 	sourceLinkPathResult := NewTargetPath(sourceFile)
 	if !sourceLinkPathResult.IsOk() {
@@ -293,6 +268,37 @@ func (s *AdoptService) planAdoptFile(ctx context.Context, file, pkgPath string) 
 		NewLinkCreate(linkID, destPathResult.Unwrap(), sourceLinkPathResult.Unwrap()),
 	)
 	return operations, nil
+}
+
+// planIntermediateDirs creates DirCreate operations for all missing intermediate
+// directories between pkgPath and the file's parent directory.
+func (s *AdoptService) planIntermediateDirs(ctx context.Context, adoptedRelPath, pkgPath string) []Operation {
+	relDir := filepath.Dir(adoptedRelPath)
+	if relDir == "." {
+		return nil
+	}
+
+	// Collect directories from shallowest to deepest
+	var dirsToCreate []string
+	cur := relDir
+	for cur != "." && cur != "" {
+		dirPath := filepath.Join(pkgPath, cur)
+		if !s.fs.Exists(ctx, dirPath) {
+			dirsToCreate = append([]string{cur}, dirsToCreate...)
+		}
+		cur = filepath.Dir(cur)
+	}
+
+	var ops []Operation
+	for _, dir := range dirsToCreate {
+		dirFullPath := filepath.Join(pkgPath, dir)
+		dirResult := NewFilePath(dirFullPath)
+		if dirResult.IsOk() {
+			dirID := OperationID(fmt.Sprintf("adopt-create-dir-%s", dir))
+			ops = append(ops, NewDirCreate(dirID, dirResult.Unwrap()))
+		}
+	}
+	return ops
 }
 
 // createDirectoryAdoptOperations creates operations to adopt a directory's contents.

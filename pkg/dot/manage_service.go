@@ -66,22 +66,8 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return err
 	}
 
-	// Check for conflicts before execution
-	if len(plan.Metadata.Conflicts) > 0 {
-		// Build error message with conflict details
-		conflictMsg := fmt.Sprintf("cannot manage packages: %d conflict(s) detected", len(plan.Metadata.Conflicts))
-		for i, conflict := range plan.Metadata.Conflicts {
-			if i < 3 { // Show first 3 conflicts
-				conflictMsg += fmt.Sprintf("\n  - %s at %s: %s", conflict.Type, conflict.Path, conflict.Details)
-			}
-		}
-		if len(plan.Metadata.Conflicts) > 3 {
-			conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
-		}
-		return ErrConflict{
-			Path:   plan.Metadata.Conflicts[0].Path,
-			Reason: conflictMsg,
-		}
+	if err := checkPlanConflicts(plan); err != nil {
+		return err
 	}
 
 	// If plan is empty (no operations needed), validate manifest before returning.
@@ -126,6 +112,26 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return fmt.Errorf("manifest update failed: %w", err)
 	}
 	return nil
+}
+
+// checkPlanConflicts returns an error if the plan contains conflicts.
+func checkPlanConflicts(plan Plan) error {
+	if len(plan.Metadata.Conflicts) == 0 {
+		return nil
+	}
+	conflictMsg := fmt.Sprintf("cannot manage packages: %d conflict(s) detected", len(plan.Metadata.Conflicts))
+	for i, conflict := range plan.Metadata.Conflicts {
+		if i < 3 {
+			conflictMsg += fmt.Sprintf("\n  - %s at %s: %s", conflict.Type, conflict.Path, conflict.Details)
+		}
+	}
+	if len(plan.Metadata.Conflicts) > 3 {
+		conflictMsg += fmt.Sprintf("\n  ... and %d more", len(plan.Metadata.Conflicts)-3)
+	}
+	return ErrConflict{
+		Path:   plan.Metadata.Conflicts[0].Path,
+		Reason: conflictMsg,
+	}
 }
 
 // PlanManage computes the execution plan for managing packages without applying changes.
@@ -526,11 +532,11 @@ func (s *ManageService) reconcileManifest(ctx context.Context, packages []string
 		}
 
 		m.AddPackage(manifest.PackageInfo{
-			Name:      pkg,
-			LinkCount: len(links),
-			Links:     links,
-			Source:    manifest.SourceManaged,
-			TargetDir: s.targetDir,
+			Name:       pkg,
+			LinkCount:  len(links),
+			Links:      links,
+			Source:     manifest.SourceManaged,
+			TargetDir:  s.targetDir,
 			PackageDir: pkgDir,
 		})
 		s.logger.Info(ctx, "reconciled_package_in_manifest", "package", pkg, "links", len(links))

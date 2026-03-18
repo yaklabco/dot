@@ -236,40 +236,30 @@ func getValidConfigKeys() []string {
 
 // getConfigValue retrieves a value from config by key path.
 func getConfigValue(cfg *dot.ExtendedConfig, key string) (string, error) {
-	switch key {
-	case "directories.package":
-		return cfg.Directories.Package, nil
-	case "directories.target":
-		return cfg.Directories.Target, nil
-	case "directories.manifest":
-		return cfg.Directories.Manifest, nil
-	case "logging.level":
-		return cfg.Logging.Level, nil
-	case "logging.format":
-		return cfg.Logging.Format, nil
-	case "logging.destination":
-		return cfg.Logging.Destination, nil
-	case "symlinks.mode":
-		return cfg.Symlinks.Mode, nil
-	case "symlinks.backup_suffix":
-		return cfg.Symlinks.BackupSuffix, nil
-	case "symlinks.backup_dir":
-		return cfg.Symlinks.BackupDir, nil
-	case "dotfile.prefix":
-		return cfg.Dotfile.Prefix, nil
-	case "dotfile.translate":
-		return fmt.Sprintf("%t", cfg.Dotfile.Translate), nil
-	case "dotfile.package_name_mapping":
-		return fmt.Sprintf("%t", cfg.Dotfile.PackageNameMapping), nil
-	case "output.format":
-		return cfg.Output.Format, nil
-	case "output.color":
-		return cfg.Output.Color, nil
-	case "packages.sort_by":
-		return cfg.Packages.SortBy, nil
-	default:
-		return "", fmt.Errorf("unknown config key: %s", key)
+	getters := map[string]func() string{
+		"directories.package":    func() string { return cfg.Directories.Package },
+		"directories.target":     func() string { return cfg.Directories.Target },
+		"directories.manifest":   func() string { return cfg.Directories.Manifest },
+		"logging.level":          func() string { return cfg.Logging.Level },
+		"logging.format":         func() string { return cfg.Logging.Format },
+		"logging.destination":    func() string { return cfg.Logging.Destination },
+		"symlinks.mode":          func() string { return cfg.Symlinks.Mode },
+		"symlinks.backup_suffix": func() string { return cfg.Symlinks.BackupSuffix },
+		"symlinks.backup_dir":    func() string { return cfg.Symlinks.BackupDir },
+		"dotfile.prefix":         func() string { return cfg.Dotfile.Prefix },
+		"dotfile.translate":      func() string { return fmt.Sprintf("%t", cfg.Dotfile.Translate) },
+		"dotfile.package_name_mapping": func() string {
+			return fmt.Sprintf("%t", cfg.Dotfile.PackageNameMapping)
+		},
+		"output.format":    func() string { return cfg.Output.Format },
+		"output.color":     func() string { return cfg.Output.Color },
+		"packages.sort_by": func() string { return cfg.Packages.SortBy },
 	}
+
+	if getter, ok := getters[key]; ok {
+		return getter(), nil
+	}
+	return "", fmt.Errorf("unknown config key: %s", key)
 }
 
 // newConfigSetCommand creates the set subcommand.
