@@ -77,6 +77,7 @@ func TestCLI_ManageCommand(t *testing.T) {
 	cmd := exec.Command("go", "run", "../../cmd/dot", "manage", "vim",
 		"--package-dir", env.PackageDir,
 		"--target-dir", env.TargetDir)
+	isolateStateDir(t, cmd)
 
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
@@ -109,6 +110,7 @@ func TestCLI_DryRunFlag(t *testing.T) {
 		"--package-dir", env.PackageDir,
 		"--target-dir", env.TargetDir,
 		"--dry-run")
+	isolateStateDir(t, cmd)
 
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
@@ -138,6 +140,7 @@ func TestCLI_VerboseFlag(t *testing.T) {
 		"--package-dir", env.PackageDir,
 		"--target-dir", env.TargetDir,
 		"--verbose")
+	isolateStateDir(t, cmd)
 
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
@@ -214,6 +217,7 @@ func TestCLI_MultiplePackages(t *testing.T) {
 	cmd := exec.Command("go", "run", "../../cmd/dot", "manage", "vim", "zsh",
 		"--package-dir", env.PackageDir,
 		"--target-dir", env.TargetDir)
+	isolateStateDir(t, cmd)
 
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
@@ -460,6 +464,7 @@ func TestCLI_LongRunningOperation(t *testing.T) {
 		"--target-dir", env.TargetDir)
 
 	cmd := exec.Command("go", args...)
+	isolateStateDir(t, cmd)
 	output, err := cmd.CombinedOutput()
 	skipIfCLIUnavailable(t, output, err)
 

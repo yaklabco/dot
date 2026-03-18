@@ -20,13 +20,14 @@ func runStateGuard(cmd *cobra.Command) error {
 	skip := GetCLIFlags().batch || !terminal.IsInteractive()
 
 	result, err := stateguard.Check(context.Background(), stateguard.GuardOptions{
-		In:          cmd.InOrStdin(),
-		Out:         cmd.ErrOrStderr(),
-		Skip:        skip,
-		ManifestDir: manifestDir,
-		TargetDir:   targetDir,
-		ConfigPath:  configPath,
-		HomeDir:     homeDir,
+		In:           cmd.InOrStdin(),
+		Out:          cmd.ErrOrStderr(),
+		Skip:         skip,
+		ColorEnabled: shouldUseColor(),
+		ManifestDir:  manifestDir,
+		TargetDir:    targetDir,
+		ConfigPath:   configPath,
+		HomeDir:      homeDir,
 	})
 	if err != nil {
 		return err

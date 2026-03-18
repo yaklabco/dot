@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/yaklabco/dot/internal/cli/output"
 	"github.com/yaklabco/dot/internal/cli/prompt"
+	"github.com/yaklabco/dot/internal/cli/render"
 )
 
 // CheckResult indicates the outcome of the state guard check.
@@ -26,13 +28,14 @@ const (
 
 // GuardOptions configures the state guard check.
 type GuardOptions struct {
-	In          io.Reader
-	Out         io.Writer
-	Skip        bool   // Auto-continue without prompting (batch mode / non-TTY)
-	ManifestDir string // Directory containing the manifest file
-	TargetDir   string // Target directory for symlinks
-	ConfigPath  string // Path to the config file (for backup)
-	HomeDir     string // Home directory (for backup location)
+	In           io.Reader
+	Out          io.Writer
+	Skip         bool   // Auto-continue without prompting (batch mode / non-TTY)
+	ColorEnabled bool   // Whether to use colored output
+	ManifestDir  string // Directory containing the manifest file
+	TargetDir    string // Target directory for symlinks
+	ConfigPath   string // Path to the config file (for backup)
+	HomeDir      string // Home directory (for backup location)
 }
 
 // Check is the main entry point for the first-run state guard.
@@ -55,13 +58,26 @@ func Check(ctx context.Context, opts GuardOptions) (CheckResult, error) {
 		return ResultContinue, ActionContinue()
 	}
 
-	// Show summary and prompt
-	PrintSummary(opts.Out, state)
+	f := output.NewFormatter(opts.Out, opts.ColorEnabled)
+	c := render.NewColorizer(opts.ColorEnabled)
 
+	// Show summary
+	f.BlankLine()
+	f.Warning("Existing dot installation detected")
+	f.BlankLine()
+	f.Bullet(fmt.Sprintf("%s  %s  %s",
+		c.Bold(fmt.Sprintf("%d %s", state.PackageCount, pluralize(state.PackageCount, "package", "packages"))),
+		c.Dim("·"),
+		c.Bold(fmt.Sprintf("%d %s", state.LinkCount, pluralize(state.LinkCount, "symlink", "symlinks"))),
+	))
+	f.Bullet(fmt.Sprintf("%s %s", c.Dim("manifest:"), c.Dim(state.ManifestPath)))
+	f.BlankLine()
+
+	// Prompt
 	options := []string{
-		"Continue — use the existing installation as-is",
-		"Start fresh — remove all managed symlinks and manifest",
-		"Back up and start fresh — archive state then reset",
+		fmt.Sprintf("%s — use the existing installation as-is", c.Bold("Continue")),
+		fmt.Sprintf("%s — remove all managed symlinks and manifest", c.Bold("Start fresh")),
+		fmt.Sprintf("%s — archive state then reset", c.Bold("Back up and start fresh")),
 	}
 
 	p := prompt.New(opts.In, opts.Out)
@@ -70,23 +86,39 @@ func Check(ctx context.Context, opts GuardOptions) (CheckResult, error) {
 		return ResultNoop, fmt.Errorf("prompt: %w", err)
 	}
 
+	f.BlankLine()
+
 	switch choice {
 	case 0:
+		f.SuccessSimple("Continuing with existing installation")
+		f.BlankLine()
 		return ResultContinue, ActionContinue()
 	case 1:
 		if err := ActionFresh(opts.ManifestDir, opts.TargetDir); err != nil {
 			return ResultFresh, fmt.Errorf("start fresh: %w", err)
 		}
+		f.SuccessSimple("Removed managed symlinks and manifest")
+		f.BlankLine()
 		return ResultFresh, nil
 	case 2:
 		backupDir, err := ActionBackupAndFresh(opts.ManifestDir, opts.TargetDir, opts.ConfigPath, opts.HomeDir)
 		if err != nil {
 			return ResultBackupAndFresh, fmt.Errorf("backup and start fresh: %w", err)
 		}
-		fmt.Fprintf(opts.Out, "Backed up to: %s\n", backupDir)
+		f.SuccessSimple(fmt.Sprintf("Backed up to %s", c.Accent(backupDir)))
+		f.BlankLine()
 		return ResultBackupAndFresh, nil
 	default:
 		// Invalid selection or cancelled: default to continue
+		f.SuccessSimple("Continuing with existing installation")
+		f.BlankLine()
 		return ResultContinue, ActionContinue()
 	}
+}
+
+func pluralize(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
 }

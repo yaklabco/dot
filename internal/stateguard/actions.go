@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -140,13 +139,6 @@ func ActionBackupAndFresh(manifestDir, targetDir, configPath, homeDir string) (s
 	}
 
 	return backupDir, nil
-}
-
-// PrintSummary writes the detected state summary to the writer.
-func PrintSummary(w io.Writer, state *ExistingState) {
-	fmt.Fprintln(w, "Existing dot installation detected.")
-	fmt.Fprintf(w, "  %d packages · %d symlinks · manifest: %s\n\n",
-		state.PackageCount, state.LinkCount, state.ManifestPath)
 }
 
 func resolveBackupDir(homeDir string) (string, error) {
