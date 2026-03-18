@@ -749,6 +749,62 @@ func TestManageService_PackageNameMappingModes(t *testing.T) {
 	})
 }
 
+func TestManageService_Remanage_DryRunPreservesSymlinks(t *testing.T) {
+	t.Run("dry-run remanage does not delete existing symlinks", func(t *testing.T) {
+		fs := adapters.NewMemFS()
+		ctx := context.Background()
+		packageDir := "/test/packages"
+		targetDir := "/test/target"
+
+		// Setup package
+		require.NoError(t, fs.MkdirAll(ctx, packageDir+"/test-pkg", 0755))
+		require.NoError(t, fs.MkdirAll(ctx, targetDir, 0755))
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config v1"), 0644))
+
+		managePipe := pipeline.NewManagePipeline(pipeline.ManagePipelineOpts{
+			FS:                 fs,
+			IgnoreSet:          ignore.NewDefaultIgnoreSet(),
+			Policies:           planner.ResolutionPolicies{OnFileExists: planner.PolicySkip},
+			PackageNameMapping: false,
+		})
+		exec := executor.New(executor.Opts{
+			FS:     fs,
+			Logger: adapters.NewNoopLogger(),
+			Tracer: adapters.NewNoopTracer(),
+		})
+		manifestStore := manifest.NewFSManifestStore(fs)
+		manifestSvc := newManifestService(fs, adapters.NewNoopLogger(), manifestStore)
+
+		// First: manage normally (not dry-run) to create symlinks and manifest
+		unmanageSvc := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, false)
+		svc := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvc, packageDir, targetDir, false)
+
+		err := svc.Manage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify symlink exists before dry-run remanage
+		isLink, err := fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		require.True(t, isLink, "symlink should exist before dry-run remanage")
+
+		// Modify the package to trigger a full remanage (hash mismatch)
+		require.NoError(t, fs.WriteFile(ctx, packageDir+"/test-pkg/dot-vimrc", []byte("vim config v2"), 0644))
+
+		// Create dry-run service
+		unmanageSvcDry := newUnmanageService(fs, adapters.NewNoopLogger(), exec, manifestSvc, packageDir, targetDir, true)
+		svcDry := newManageService(fs, adapters.NewNoopLogger(), managePipe, exec, manifestSvc, unmanageSvcDry, packageDir, targetDir, true)
+
+		// Dry-run remanage should NOT delete existing symlinks
+		err = svcDry.Remanage(ctx, "test-pkg")
+		require.NoError(t, err)
+
+		// Verify symlink is STILL present (dry-run must not delete it)
+		isLink, err = fs.IsSymlink(ctx, targetDir+"/.vimrc")
+		require.NoError(t, err)
+		assert.True(t, isLink, "symlink should still exist after dry-run remanage")
+	})
+}
+
 func TestManageService_Remanage_RefusesToDeleteRealFiles(t *testing.T) {
 	t.Run("returns ErrConflict when symlink replaced by real file during remanage", func(t *testing.T) {
 		fs := adapters.NewMemFS()

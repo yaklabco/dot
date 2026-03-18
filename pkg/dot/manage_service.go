@@ -360,7 +360,7 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 
 	// Remove existing symlinks before planning manage operations.
 	// This prevents the scanner from skipping recreation of links that will be deleted.
-	if err := s.removeSymlinksOnly(ctx, unmanagePlan.Operations); err != nil {
+	if err := s.removeSymlinksOnly(ctx, unmanagePlan.Operations, s.dryRun); err != nil {
 		return nil, nil, err
 	}
 
@@ -412,7 +412,7 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 	}
 
 	// Remove existing symlinks so the manage pipeline sees a clean target.
-	if err := s.removeSymlinksOnly(ctx, ops); err != nil {
+	if err := s.removeSymlinksOnly(ctx, ops, s.dryRun); err != nil {
 		return nil, nil, err
 	}
 
@@ -613,7 +613,8 @@ func (s *ManageService) findSymlinksRecursive(ctx context.Context, path, pkgDir,
 // removeSymlinksOnly removes symlink targets from LinkDelete operations.
 // If any target is a regular file (not a symlink), it returns ErrConflict
 // to prevent data loss. Missing targets are silently skipped.
-func (s *ManageService) removeSymlinksOnly(ctx context.Context, ops []Operation) error {
+// When dryRun is true, conflict checks are performed but symlinks are not removed.
+func (s *ManageService) removeSymlinksOnly(ctx context.Context, ops []Operation, dryRun bool) error {
 	for _, op := range ops {
 		linkDel, ok := op.(LinkDelete)
 		if !ok {
@@ -633,7 +634,9 @@ func (s *ManageService) removeSymlinksOnly(ctx context.Context, ops []Operation)
 				Reason: fmt.Sprintf("expected symlink at %s but found a regular file; remove or back up the file before remanaging", target),
 			}
 		}
-		_ = s.fs.Remove(ctx, target)
+		if !dryRun {
+			_ = s.fs.Remove(ctx, target)
+		}
 	}
 	return nil
 }
