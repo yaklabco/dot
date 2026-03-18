@@ -80,6 +80,10 @@ For shell glob expansion, specify package name:
 
 // runAdoptCommand routes to interactive or traditional mode based on arguments.
 func runAdoptCommand(cmd *cobra.Command, args []string, scanDirs, excludeDirs []string, maxSizeStr string) error {
+	if err := runStateGuard(cmd); err != nil {
+		return err
+	}
+
 	// No arguments → Interactive mode
 	if len(args) == 0 {
 		return runAdoptInteractive(cmd, scanDirs, excludeDirs, maxSizeStr)

@@ -45,6 +45,10 @@ Examples:
 
 // runManage handles the manage command execution.
 func runManage(cmd *cobra.Command, args []string) error {
+	if err := runStateGuard(cmd); err != nil {
+		return err
+	}
+
 	cfg, err := buildConfigWithCmd(cmd)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
