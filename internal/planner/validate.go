@@ -46,6 +46,16 @@ func checkPathAgainstProtected(absPath, absProtected string) (insideProtected, o
 	return false, false
 }
 
+// resourceKind identifies the kind of desired-state resource being validated.
+// It gates the parent-override rejection below, so it is a closed enum rather
+// than a free-form string.
+type resourceKind int
+
+const (
+	resourceSymlink resourceKind = iota
+	resourceDirectory
+)
+
 // ValidateNoSelfManagement validates that a package does not attempt to manage
 // dot's own operational directories.
 //
@@ -63,14 +73,14 @@ func ValidateNoSelfManagement(packageName string, desired DesiredState) error {
 
 	// Check all desired links
 	for linkPath := range desired.Links {
-		if err := checkPathConflicts(packageName, linkPath, protectedPaths, "symlinks"); err != nil {
+		if err := checkPathConflicts(packageName, linkPath, protectedPaths, resourceSymlink); err != nil {
 			return err
 		}
 	}
 
 	// Also check directories
 	for dirPath := range desired.Dirs {
-		if err := checkPathConflicts(packageName, dirPath, protectedPaths, "directories"); err != nil {
+		if err := checkPathConflicts(packageName, dirPath, protectedPaths, resourceDirectory); err != nil {
 			return err
 		}
 	}
@@ -79,7 +89,7 @@ func ValidateNoSelfManagement(packageName string, desired DesiredState) error {
 }
 
 // checkPathConflicts checks if a path conflicts with any protected paths.
-func checkPathConflicts(packageName, path string, protectedPaths []string, resourceType string) error {
+func checkPathConflicts(packageName, path string, protectedPaths []string, kind resourceKind) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil // Skip if we can't resolve path
@@ -94,7 +104,7 @@ func checkPathConflicts(packageName, path string, protectedPaths []string, resou
 		insideProtected, overridesProtected := checkPathAgainstProtected(absPath, absProtected)
 
 		if insideProtected {
-			if resourceType == "symlinks" {
+			if kind == resourceSymlink {
 				return fmt.Errorf(
 					"package %q attempts to create symlinks in dot's operational directory: %s\n"+
 						"Packages cannot manage dot's configuration or data directories.\n"+
@@ -108,7 +118,12 @@ func checkPathConflicts(packageName, path string, protectedPaths []string, resou
 			)
 		}
 
-		if overridesProtected {
+		// A symlink at a parent of a protected path would make the protected
+		// path resolve into package-controlled space, so it stays rejected.
+		// Creating a plain directory at a parent (e.g. ~/.config when
+		// ~/.config/dot is protected) is safe: the protected path continues
+		// to exist inside it untouched.
+		if overridesProtected && kind == resourceSymlink {
 			return fmt.Errorf(
 				"package %q would override dot's operational directory: %s",
 				packageName, protected,

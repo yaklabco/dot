@@ -144,6 +144,58 @@ func TestValidateNoSelfManagement_AllowsNeighboringDirectories(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestValidateNoSelfManagement_AllowsParentDirectoryOfProtected(t *testing.T) {
+	homeDir, _ := os.UserHomeDir()
+	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+	if xdgConfig == "" {
+		xdgConfig = filepath.Join(homeDir, ".config")
+	}
+
+	// XDG-style packages need to create ~/.config itself (a parent of the
+	// protected ~/.config/dot). Creating the directory is safe: the protected
+	// path continues to exist inside it untouched.
+	fishConfig := filepath.Join(xdgConfig, "fish", "config.fish")
+	srcPath := domain.NewFilePath("/packages/fish/.config/fish/config.fish").Unwrap()
+	tgtPath := domain.NewTargetPath(fishConfig).Unwrap()
+
+	desired := DesiredState{
+		Links: map[string]LinkSpec{
+			fishConfig: {Source: srcPath, Target: tgtPath},
+		},
+		Dirs: map[string]DirSpec{
+			xdgConfig:                        {},
+			filepath.Join(xdgConfig, "fish"): {},
+		},
+	}
+
+	err := ValidateNoSelfManagement("fish", desired)
+	assert.NoError(t, err)
+}
+
+func TestValidateNoSelfManagement_RejectsSymlinkReplacingParentOfProtected(t *testing.T) {
+	homeDir, _ := os.UserHomeDir()
+	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+	if xdgConfig == "" {
+		xdgConfig = filepath.Join(homeDir, ".config")
+	}
+
+	// A symlink AT ~/.config would make the protected ~/.config/dot resolve
+	// into package-controlled space. That must stay rejected.
+	srcPath := domain.NewFilePath("/packages/evil/.config").Unwrap()
+	tgtPath := domain.NewTargetPath(xdgConfig).Unwrap()
+
+	desired := DesiredState{
+		Links: map[string]LinkSpec{
+			xdgConfig: {Source: srcPath, Target: tgtPath},
+		},
+		Dirs: map[string]DirSpec{},
+	}
+
+	err := ValidateNoSelfManagement("evil", desired)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "would override")
+}
+
 func TestValidateNoSelfManagement_EmptyDesiredState(t *testing.T) {
 	desired := DesiredState{
 		Links: map[string]LinkSpec{},
