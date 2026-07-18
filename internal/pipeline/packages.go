@@ -142,10 +142,37 @@ func (p *ManagePipeline) Execute(ctx context.Context, input ManageInput) domain.
 			Conflicts:      nil, // No conflicts in success path
 			Warnings:       convertWarnings(resolved.Warnings),
 		},
-		PackageOperations: packageOps,
+		PackageOperations:   packageOps,
+		PackageSkippedLinks: buildPackageSkippedLinks(packages, resolved.Skipped),
 	}
 
 	return domain.Ok(plan)
+}
+
+// buildPackageSkippedLinks maps package names to the target paths of link
+// creations that were skipped because the correct symlink already exists.
+// Returns nil when nothing was skipped so the plan field stays omitted.
+func buildPackageSkippedLinks(packages []domain.Package, skipped []domain.Operation) map[string][]string {
+	if len(skipped) == 0 {
+		return nil
+	}
+	result := make(map[string][]string)
+	for _, op := range skipped {
+		linkOp, ok := op.(domain.LinkCreate)
+		if !ok {
+			continue
+		}
+		for _, pkg := range packages {
+			if isUnderPath(linkOp.Source.String(), pkg.Path.String()) {
+				result[pkg.Name] = append(result[pkg.Name], linkOp.Target.String())
+				break
+			}
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 // countOperationsByKind counts operations of a specific kind

@@ -68,6 +68,21 @@ type Plan struct {
 	// allowing accurate manifest updates and selective operations.
 	// Optional field for backward compatibility.
 	PackageOperations map[string][]OperationID `json:"package_operations,omitempty"`
+
+	// PackageSkippedLinks maps package names to absolute target paths of links
+	// that already exist on disk pointing at the correct source. They generate
+	// no operations but are part of the managed state and must be recorded in
+	// the manifest alongside newly created links.
+	PackageSkippedLinks map[string][]string `json:"package_skipped_links,omitempty"`
+}
+
+// SkippedLinksForPackage returns the already-correct link target paths for the
+// specified package. Returns nil when none were recorded.
+func (p Plan) SkippedLinksForPackage(pkg string) []string {
+	if p.PackageSkippedLinks == nil {
+		return nil
+	}
+	return p.PackageSkippedLinks[pkg]
 }
 
 // Validate checks if the plan is valid.

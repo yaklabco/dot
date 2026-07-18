@@ -74,22 +74,7 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 	// A corrupt manifest could cause the pipeline to produce zero operations
 	// (symlinks exist on disk but manifest is unreadable), masking data integrity issues.
 	if len(plan.Operations) == 0 {
-		if err := s.validateManifestReadable(ctx); err != nil {
-			return err
-		}
-
-		// Reconciliation: if symlinks exist on disk but the package is not in the manifest
-		// (e.g., after manifest loss), re-register the package.
-		reconciled, err := s.reconcileManifest(ctx, packages, plan)
-		if err != nil {
-			return err
-		}
-		if reconciled {
-			return nil
-		}
-
-		s.logger.Info(ctx, "no_operations_required", "packages", packages)
-		return ErrNoChanges{Packages: packages}
+		return s.manageZeroOperations(ctx, packages, plan)
 	}
 
 	if s.dryRun {
@@ -112,6 +97,42 @@ func (s *ManageService) Manage(ctx context.Context, packages ...string) error {
 		return fmt.Errorf("manifest update failed: %w", err)
 	}
 	return nil
+}
+
+// manageZeroOperations handles a manage whose plan produced no operations.
+// It validates the manifest, then reconciles it against reality: packages
+// missing entirely are re-registered from a disk scan, and already-correct
+// links the manifest does not record are adopted from the plan's skipped set.
+func (s *ManageService) manageZeroOperations(ctx context.Context, packages []string, plan Plan) error {
+	if err := s.validateManifestReadable(ctx); err != nil {
+		return err
+	}
+
+	// Reconciliation must not persist anything during a dry run.
+	reconciled := false
+	if !s.dryRun {
+		// If symlinks exist on disk but the package is not in the manifest
+		// (e.g., after manifest loss), re-register the package.
+		var err error
+		reconciled, err = s.reconcileManifest(ctx, packages, plan)
+		if err != nil {
+			return err
+		}
+
+		// Links that already exist correctly generate no operations; if the
+		// manifest does not record them yet, adopt them now.
+		adopted, err := s.reconcileSkippedLinks(ctx, packages, plan)
+		if err != nil {
+			return err
+		}
+		reconciled = reconciled || adopted
+	}
+	if reconciled {
+		return nil
+	}
+
+	s.logger.Info(ctx, "no_operations_required", "packages", packages)
+	return ErrNoChanges{Packages: packages}
 }
 
 // checkPlanConflicts returns an error if the plan contains conflicts.
@@ -194,13 +215,55 @@ func (s *ManageService) Remanage(ctx context.Context, packages ...string) error 
 		return err
 	}
 	if len(plan.Operations) == 0 {
-		s.logger.Info(ctx, "no_changes_detected", "packages", packages)
-		return ErrNoChanges{Packages: packages}
+		return s.remanageZeroOperations(ctx, packages)
 	}
 	if s.dryRun {
 		s.logger.Info(ctx, "dry_run_plan", "operations", len(plan.Operations))
 		return nil
 	}
+	return s.executeAndRecordRemanage(ctx, packages, plan)
+}
+
+// remanageZeroOperations handles a remanage whose incremental plan produced no
+// operations. The incremental fast path only verifies links recorded in the
+// manifest, so it cannot see desired links that were never registered. Re-plan
+// via the manage pipeline: any missing links are created, and links that
+// already exist correctly are adopted into the manifest.
+func (s *ManageService) remanageZeroOperations(ctx context.Context, packages []string) error {
+	managePlan, err := s.PlanManage(ctx, packages...)
+	if err != nil {
+		return err
+	}
+	if err := checkPlanConflicts(managePlan); err != nil {
+		return err
+	}
+
+	if len(managePlan.Operations) > 0 {
+		if s.dryRun {
+			s.logger.Info(ctx, "dry_run_plan", "operations", len(managePlan.Operations))
+			return nil
+		}
+		s.logger.Info(ctx, "unregistered_links_detected", "packages", packages)
+		return s.executeAndRecordRemanage(ctx, packages, managePlan)
+	}
+
+	if !s.dryRun {
+		adopted, err := s.reconcileSkippedLinks(ctx, packages, managePlan)
+		if err != nil {
+			return err
+		}
+		if adopted {
+			return nil
+		}
+	}
+
+	s.logger.Info(ctx, "no_changes_detected", "packages", packages)
+	return ErrNoChanges{Packages: packages}
+}
+
+// executeAndRecordRemanage executes a plan and updates the manifest for each
+// package, preserving the package's existing source type.
+func (s *ManageService) executeAndRecordRemanage(ctx context.Context, packages []string, plan Plan) error {
 	result := s.executor.Execute(ctx, plan)
 	if !result.IsOk() {
 		return result.UnwrapErr()
@@ -232,6 +295,61 @@ func (s *ManageService) Remanage(ctx context.Context, packages ...string) error 
 	return nil
 }
 
+// reconcileSkippedLinks updates the manifest for packages whose plan skipped
+// already-correct links that the manifest does not record yet. Returns true
+// if any package's manifest entry was updated.
+func (s *ManageService) reconcileSkippedLinks(ctx context.Context, packages []string, plan Plan) (bool, error) {
+	targetPathResult := NewTargetPath(s.targetDir)
+	if !targetPathResult.IsOk() {
+		return false, targetPathResult.UnwrapErr()
+	}
+	targetPath := targetPathResult.Unwrap()
+
+	manifestResult := s.manifestSvc.Load(ctx, targetPath)
+	if !manifestResult.IsOk() {
+		return false, manifestResult.UnwrapErr()
+	}
+	m := manifestResult.Unwrap()
+
+	updated := false
+	for _, pkg := range packages {
+		skipped := plan.SkippedLinksForPackage(pkg)
+		if len(skipped) == 0 {
+			continue
+		}
+		pkgInfo, exists := m.GetPackage(pkg)
+		if !exists {
+			// Whole-package registration is handled by reconcileManifest.
+			continue
+		}
+		recorded := make(map[string]struct{}, len(pkgInfo.Links))
+		for _, link := range pkgInfo.Links {
+			recorded[link] = struct{}{}
+		}
+		missing := false
+		for _, abs := range skipped {
+			rel, err := filepath.Rel(s.targetDir, abs)
+			if err != nil {
+				rel = abs
+			}
+			if _, ok := recorded[rel]; !ok {
+				missing = true
+				break
+			}
+		}
+		if !missing {
+			continue
+		}
+		source := pkgInfo.Source
+		if err := s.manifestSvc.UpdateWithSource(ctx, targetPath, s.packageDir, []string{pkg}, plan, source); err != nil {
+			return false, fmt.Errorf("manifest reconciliation failed for %s: %w", pkg, err)
+		}
+		s.logger.Info(ctx, "adopted_existing_links_into_manifest", "package", pkg)
+		updated = true
+	}
+	return updated, nil
+}
+
 // PlanRemanage computes incremental execution plan using hash-based change detection.
 func (s *ManageService) PlanRemanage(ctx context.Context, packages ...string) (Plan, error) {
 	targetPathResult := NewTargetPath(s.targetDir)
@@ -251,9 +369,10 @@ func (s *ManageService) PlanRemanage(ctx context.Context, packages ...string) (P
 	hasher := manifest.NewContentHasher(s.fs)
 	allOperations := make([]Operation, 0)
 	packageOps := make(map[string][]OperationID)
+	skippedLinks := make(map[string][]string)
 
 	for _, pkg := range packages {
-		ops, pkgOpsMap, err := s.planSinglePackageRemanage(ctx, pkg, &m, hasher)
+		ops, pkgOpsMap, pkgSkipped, err := s.planSinglePackageRemanage(ctx, pkg, &m, hasher)
 		if err != nil {
 			return Plan{}, err
 		}
@@ -261,6 +380,13 @@ func (s *ManageService) PlanRemanage(ctx context.Context, packages ...string) (P
 		for k, v := range pkgOpsMap {
 			packageOps[k] = v
 		}
+		for k, v := range pkgSkipped {
+			skippedLinks[k] = append(skippedLinks[k], v...)
+		}
+	}
+
+	if len(skippedLinks) == 0 {
+		skippedLinks = nil
 	}
 
 	return Plan{
@@ -269,7 +395,8 @@ func (s *ManageService) PlanRemanage(ctx context.Context, packages ...string) (P
 			PackageCount:   len(packages),
 			OperationCount: len(allOperations),
 		},
-		PackageOperations: packageOps,
+		PackageOperations:   packageOps,
+		PackageSkippedLinks: skippedLinks,
 	}, nil
 }
 
@@ -279,7 +406,7 @@ func (s *ManageService) planSinglePackageRemanage(
 	pkg string,
 	m *manifest.Manifest,
 	hasher *manifest.ContentHasher,
-) ([]Operation, map[string][]OperationID, error) {
+) ([]Operation, map[string][]OperationID, map[string][]string, error) {
 	_, exists := m.GetPackage(pkg)
 	if !exists {
 		return s.planNewPackageInstall(ctx, pkg)
@@ -287,7 +414,7 @@ func (s *ManageService) planSinglePackageRemanage(
 
 	pkgPath, err := s.getPackagePath(pkg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	currentHash, err := hasher.HashPackage(ctx, pkgPath)
 	if err != nil {
@@ -311,14 +438,14 @@ func (s *ManageService) planSinglePackageRemanage(
 	}
 
 	s.logger.Info(ctx, "package_unchanged", "package", pkg)
-	return []Operation{}, map[string][]OperationID{}, nil
+	return []Operation{}, map[string][]OperationID{}, nil, nil
 }
 
 // planNewPackageInstall plans installation of a package not yet in manifest.
-func (s *ManageService) planNewPackageInstall(ctx context.Context, pkg string) ([]Operation, map[string][]OperationID, error) {
+func (s *ManageService) planNewPackageInstall(ctx context.Context, pkg string) ([]Operation, map[string][]OperationID, map[string][]string, error) {
 	pkgPlan, err := s.PlanManage(ctx, pkg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	packageOps := make(map[string][]OperationID)
 	if pkgPlan.PackageOperations != nil {
@@ -326,15 +453,15 @@ func (s *ManageService) planNewPackageInstall(ctx context.Context, pkg string) (
 			packageOps[pkg] = pkgOps
 		}
 	}
-	return pkgPlan.Operations, packageOps, nil
+	return pkgPlan.Operations, packageOps, pkgPlan.PackageSkippedLinks, nil
 }
 
 // planFullRemanage plans full unmanage + manage for a package.
-func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Operation, map[string][]OperationID, error) {
+func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Operation, map[string][]OperationID, map[string][]string, error) {
 	// Check if this is an adopted package
 	targetPathResult := NewTargetPath(s.targetDir)
 	if !targetPathResult.IsOk() {
-		return nil, nil, targetPathResult.UnwrapErr()
+		return nil, nil, nil, targetPathResult.UnwrapErr()
 	}
 
 	manifestResult := s.manifestSvc.Load(ctx, targetPathResult.Unwrap())
@@ -355,19 +482,19 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 	// Get unmanage operations first
 	unmanagePlan, err := s.unmanageSvc.PlanUnmanage(ctx, pkg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Remove existing symlinks before planning manage operations.
 	// This prevents the scanner from skipping recreation of links that will be deleted.
 	if err := s.removeSymlinksOnly(ctx, unmanagePlan.Operations, s.dryRun); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Get manage operations (scanner will now not see the old symlinks)
 	managePlan, err := s.PlanManage(ctx, pkg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Concatenate operations (unmanage first, then manage)
@@ -384,17 +511,17 @@ func (s *ManageService) planFullRemanage(ctx context.Context, pkg string) ([]Ope
 	mergedOps = append(mergedOps, manageOps...)
 	packageOps[pkg] = mergedOps
 
-	return ops, packageOps, nil
+	return ops, packageOps, managePlan.PackageSkippedLinks, nil
 }
 
 // planAdoptedPackageRemanage plans remanage for an adopted package.
 // Instead of pointing to the package root directory (which breaks single-file
 // packages), it deletes existing links and re-runs the normal manage pipeline
 // to create correct file-level symlinks.
-func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg string, m manifest.Manifest) ([]Operation, map[string][]OperationID, error) {
+func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg string, m manifest.Manifest) ([]Operation, map[string][]OperationID, map[string][]string, error) {
 	pkgInfo, exists := m.GetPackage(pkg)
 	if !exists {
-		return nil, nil, fmt.Errorf("package %s not found in manifest", pkg)
+		return nil, nil, nil, fmt.Errorf("package %s not found in manifest", pkg)
 	}
 
 	// Delete existing symlinks
@@ -413,13 +540,13 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 
 	// Remove existing symlinks so the manage pipeline sees a clean target.
 	if err := s.removeSymlinksOnly(ctx, ops, s.dryRun); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Re-run the normal manage pipeline to create file-level symlinks
 	managePlan, err := s.PlanManage(ctx, pkg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	ops = append(ops, managePlan.Operations...)
@@ -428,7 +555,7 @@ func (s *ManageService) planAdoptedPackageRemanage(ctx context.Context, pkg stri
 	}
 
 	packageOps := map[string][]OperationID{pkg: opIDs}
-	return ops, packageOps, nil
+	return ops, packageOps, managePlan.PackageSkippedLinks, nil
 }
 
 // getPackagePath constructs and validates package path.
