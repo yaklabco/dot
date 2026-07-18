@@ -66,6 +66,10 @@ func (s *ManifestService) UpdateWithSource(ctx context.Context, targetPath Targe
 		deletedLinks := s.extractDeletedLinksFromOperations(ops, targetPath.String())
 		backups := s.extractBackupsFromOperations(ops)
 
+		// Links that already existed correctly produce no operations but are
+		// part of the managed state; record them alongside created links.
+		newLinks = append(newLinks, s.relativeLinkPaths(plan.SkippedLinksForPackage(pkg), targetPath.String())...)
+
 		// Merge with existing links: start from existing, remove deleted, add new
 		links := s.mergeLinks(m, pkg, newLinks, deletedLinks)
 
@@ -130,6 +134,23 @@ func (s *ManifestService) extractLinksFromOperations(ops []Operation, targetDir 
 			}
 			links = append(links, relPath)
 		}
+	}
+	return links
+}
+
+// relativeLinkPaths converts absolute target link paths to paths relative to
+// the target directory, matching the manifest's link representation.
+func (s *ManifestService) relativeLinkPaths(paths []string, targetDir string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	links := make([]string, 0, len(paths))
+	for _, p := range paths {
+		relPath, err := filepath.Rel(targetDir, p)
+		if err != nil {
+			relPath = p
+		}
+		links = append(links, relPath)
 	}
 	return links
 }

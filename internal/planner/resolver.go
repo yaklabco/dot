@@ -160,6 +160,7 @@ type ResolutionOutcome struct {
 	Operations []domain.Operation // Modified operations after resolution
 	Conflict   *Conflict          // If status is ResolveConflict
 	Warning    *Warning           // If status is ResolveWarning
+	Skipped    []domain.Operation // Operations whose desired effect already exists on disk
 }
 
 // ResolveResult contains all resolved operations, conflicts, and warnings
@@ -167,6 +168,10 @@ type ResolveResult struct {
 	Operations []domain.Operation
 	Conflicts  []Conflict
 	Warnings   []Warning
+	// Skipped holds operations that were not emitted because their desired
+	// effect already exists on disk (e.g. a symlink that already points at
+	// the correct source). They carry no work but still describe managed state.
+	Skipped []domain.Operation
 }
 
 // NewResolveResult creates a new ResolveResult with the given operations
@@ -178,6 +183,7 @@ func NewResolveResult(ops []domain.Operation) ResolveResult {
 		Operations: ops,
 		Conflicts:  []Conflict{},
 		Warnings:   []Warning{},
+		Skipped:    []domain.Operation{},
 	}
 }
 
@@ -239,9 +245,11 @@ func detectLinkCreateConflicts(op domain.LinkCreate, current CurrentState) Resol
 	// Check if symlink already exists and points to the correct location
 	if link, exists := current.Links[targetKey]; exists {
 		if link.Target == op.Source.String() {
-			// Link already correct, skip
+			// Link already correct: no operation needed, but the link is part of
+			// the desired state and must still be recorded in the manifest.
 			return ResolutionOutcome{
-				Status: ResolveSkip,
+				Status:  ResolveSkip,
+				Skipped: []domain.Operation{op},
 			}
 		}
 		// Symlink exists but points elsewhere
@@ -492,6 +500,7 @@ func Resolve(
 			}
 
 		case ResolveSkip:
+			result.Skipped = append(result.Skipped, outcome.Skipped...)
 			if outcome.Warning != nil {
 				result = result.WithWarning(*outcome.Warning)
 			}
