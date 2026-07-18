@@ -49,10 +49,10 @@ dot doctor fix --dry-run       # Preview changes
 dot doctor clean orphans       # Remove orphaned symlinks
 dot doctor sync manifest       # Sync manifest with filesystem
 
-# Management Commands
-dot doctor ignore add <path>   # Add to ignore list
-dot doctor ignore list         # Show ignored items
-dot doctor ignore remove <path> # Remove from ignore list
+# Management Commands (implemented)
+dot doctor ignore <path>       # Add to ignore list (or --pattern <glob>, --reason <text>)
+dot doctor ignores             # Show ignored items
+dot doctor unignore <path>     # Remove from ignore list (or --pattern <glob>)
 dot doctor history             # Show doctor operation history
 dot doctor undo                # Undo last doctor operation
 ```
@@ -2649,9 +2649,10 @@ dot doctor check profile                # Validate machine profile
 dot doctor migrate from-stow            # Migrate from GNU Stow
 dot doctor check conflicts <package>    # Pre-manage conflict check
 
-# Management
-dot doctor ignore add <path>            # Add to ignore list
-dot doctor ignore list                  # Show ignored items
+# Management (ignore commands implemented)
+dot doctor ignore <path>                # Add to ignore list
+dot doctor ignores                      # Show ignored items
+dot doctor unignore <path>              # Remove from ignore list
 dot doctor history                      # Show operation history
 ```
 

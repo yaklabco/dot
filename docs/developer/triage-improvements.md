@@ -11,7 +11,7 @@
 2. No color in triage output
 3. No confirmation summary before saving changes
 4. Already-ignored items shown again in triage
-5. No way to review/manage existing ignored items
+5. No way to review/manage existing ignored items (resolved: `dot doctor ignore`, `dot doctor unignore`, `dot doctor ignores`)
 6. Adoption marked but never executed (orphaned feature)
 
 ### Missing Features
@@ -163,7 +163,7 @@ dot doctor --triage --show-diff
 5. **MEDIUM**: Add dry-run mode
 6. **MEDIUM**: Deduplicate patterns
 7. **LOW**: Color output
-8. **LOW**: Manage existing ignores command
+8. **DONE**: Manage existing ignores command (shipped as `dot doctor ignore` / `unignore` / `ignores`)
 9. **FUTURE**: TUI interface
 10. **FUTURE**: Export/Import
 
