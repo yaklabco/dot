@@ -44,6 +44,12 @@ func DefaultPatternCategories() []PatternCategory {
 			Confidence:  "high",
 		},
 		{
+			Name:        "nix",
+			Description: "Nix/home-manager managed",
+			Patterns:    []string{"*/nix/store/*", "*/nix/profiles/*", "*/nix/var/*"},
+			Confidence:  "high",
+		},
+		{
 			Name:        "jetbrains",
 			Description: "JetBrains IDE managed",
 			Patterns:    []string{"*/.local/share/JetBrains/*"},

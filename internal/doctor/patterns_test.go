@@ -126,3 +126,42 @@ func TestCategorizeSymlink_MultipleMatches(t *testing.T) {
 		assert.Equal(t, "first", result.Name)
 	}
 }
+
+func TestDefaultPatternCategories_IncludesNix(t *testing.T) {
+	categories := DefaultPatternCategories()
+
+	var nix *PatternCategory
+	for i := range categories {
+		if categories[i].Name == "nix" {
+			nix = &categories[i]
+			break
+		}
+	}
+
+	if nix == nil {
+		t.Fatal("expected a nix category in default pattern categories")
+	}
+	if nix.Confidence != "high" {
+		t.Errorf("nix category confidence = %q, want %q", nix.Confidence, "high")
+	}
+}
+
+func TestCategorizeSymlink_NixTargets(t *testing.T) {
+	categories := DefaultPatternCategories()
+
+	targets := []string{
+		"/nix/store/qyr0cpkdcb5blkd1ybbg9xh8aiglaplc-home-manager-files/.config/environment.d/10-home-manager.conf",
+		"/home/user/.local/state/nix/profiles/profile",
+		"/nix/var/nix/profiles/per-user/root/channels",
+	}
+	for _, target := range targets {
+		cat := CategorizeSymlink(target, categories)
+		if cat == nil {
+			t.Errorf("CategorizeSymlink(%q) = nil, want nix category", target)
+			continue
+		}
+		if cat.Name != "nix" {
+			t.Errorf("CategorizeSymlink(%q) = %q, want nix", target, cat.Name)
+		}
+	}
+}
