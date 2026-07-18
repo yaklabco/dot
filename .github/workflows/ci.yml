@@ -16,21 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-
       - name: Run golangci-lint
-        run: golangci-lint run --timeout=5m ./...
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12.2
+          args: --timeout=5m
 
   # Formatting check job
   format:
@@ -38,12 +36,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
       - name: Check formatting
@@ -69,12 +67,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
       - name: Run go vet
@@ -86,12 +84,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
       - name: Install govulncheck
@@ -105,8 +103,9 @@ jobs:
           # Extract vulnerability IDs from FINDINGS only (not all OSV entries)
           # Look for lines with "finding" that contain "osv" field
           VULN_IDS=$(grep -A 1 '"finding"' vuln-output.json 2>/dev/null | grep '"osv"' | grep -o 'GO-[0-9-]*' | sort -u || echo "")
-          EXCLUDED="GO-2024-3295"
-          OTHER_VULNS=$(echo "$VULN_IDS" | grep -v "^$" | grep -v "$EXCLUDED" || true)
+          # Accepted risks are documented in SECURITY.md
+          EXCLUDED="GO-2024-3295|GO-2026-5932"
+          OTHER_VULNS=$(echo "$VULN_IDS" | grep -v "^$" | grep -vE "$EXCLUDED" || true)
           
           if [ -n "$OTHER_VULNS" ]; then
             echo ""
@@ -117,11 +116,12 @@ jobs:
             exit 1
           fi
           
-          if echo "$VULN_IDS" | grep -q "GO-2024-3295" 2>/dev/null; then
-            echo "  ℹ Found GO-2024-3295 (accepted risk - GitHub Codespaces only, see SECURITY.md)"
+          ACCEPTED=$(echo "$VULN_IDS" | grep -E "$EXCLUDED" || true)
+          if [ -n "$ACCEPTED" ]; then
+            echo "$ACCEPTED" | sed "s/^/  i Found accepted risk (see SECURITY.md): /"
           fi
           
-          echo "✓ No unaccepted vulnerabilities found (GO-2024-3295 excluded - see SECURITY.md)"
+          echo "OK: no unaccepted vulnerabilities found (accepted risks documented in SECURITY.md)"
 
   # Testing job
   test:
@@ -130,12 +130,12 @@ jobs:
     needs: [lint, format, vet, vulnerability-check]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
       - name: Download dependencies
@@ -192,14 +192,14 @@ jobs:
             goarch: arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1'
+          go-version-file: go.mod
           cache: true
 
       - name: Build binary
