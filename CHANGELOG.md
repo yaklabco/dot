@@ -1,4 +1,22 @@
 <a name="unreleased"></a>
+## [0.6.6](https://github.com/yaklabco/dot/compare/v0.6.5...v0.6.6) (2026-07-18)
+
+
+### Features
+
+* **doctor:** non-interactive ignore management and nix pattern category ([#70](https://github.com/yaklabco/dot/issues/70)) ([d14061b](https://github.com/yaklabco/dot/commit/d14061b22a8fa5562df1714b2d79f35e4522d965)), closes [#67](https://github.com/yaklabco/dot/issues/67)
+
+
+### Bug Fixes
+
+* **manage:** register pre-existing correct links in the manifest ([#69](https://github.com/yaklabco/dot/issues/69)) ([3bcf16e](https://github.com/yaklabco/dot/commit/3bcf16e8e3538448e199c31cdd187fa381a116c5)), closes [#66](https://github.com/yaklabco/dot/issues/66)
+* **planner:** allow directory creation at parents of protected paths ([#62](https://github.com/yaklabco/dot/issues/62)) ([b9028a3](https://github.com/yaklabco/dot/commit/b9028a35c2187fb1802610ee1929c5b7ecc75af5))
+
+
+### Continuous Integration
+
+* repair lint install, clear vulnerability findings, pin Go via go.mod ([#68](https://github.com/yaklabco/dot/issues/68)) ([9d23d0c](https://github.com/yaklabco/dot/commit/9d23d0c4e50ff04ceb29693e8bdd8a6bc794b771)), closes [#63](https://github.com/yaklabco/dot/issues/63)
+
 ## [0.6.5](https://github.com/yaklabco/dot/compare/v0.6.4...v0.6.5) (2026-03-18)
 
 
