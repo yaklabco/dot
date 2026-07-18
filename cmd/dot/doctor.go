@@ -129,6 +129,7 @@ func storeDoctorStatus(cmd *cobra.Command, report dot.DiagnosticReport) {
 // newDoctorCommand creates the doctor command with configuration from global flags.
 func newDoctorCommand() *cobra.Command {
 	cmd := NewDoctorCommand(&dot.Config{})
+	cmd.AddCommand(newDoctorIgnoreCommand(), newDoctorUnignoreCommand(), newDoctorIgnoresCommand())
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		cfg, err := buildConfigWithCmd(cmd)

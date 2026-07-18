@@ -3,6 +3,7 @@ package manifest
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"time"
 )
 
@@ -143,12 +144,17 @@ func (m *Manifest) ClearRepository() {
 }
 
 // EnsureDoctorState initializes the doctor state if it doesn't exist.
+// It also initializes nil sub-fields on a partially populated state, which
+// occurs when a manifest is loaded from JSON that omitted one of them.
 func (m *Manifest) EnsureDoctorState() {
 	if m.Doctor == nil {
-		m.Doctor = &DoctorState{
-			IgnoredLinks:    make(map[string]IgnoredLink),
-			IgnoredPatterns: []string{},
-		}
+		m.Doctor = &DoctorState{}
+	}
+	if m.Doctor.IgnoredLinks == nil {
+		m.Doctor.IgnoredLinks = make(map[string]IgnoredLink)
+	}
+	if m.Doctor.IgnoredPatterns == nil {
+		m.Doctor.IgnoredPatterns = []string{}
 	}
 }
 
@@ -179,10 +185,30 @@ func (m *Manifest) RemoveIgnoredLink(path string) bool {
 }
 
 // AddIgnoredPattern adds a glob pattern to the ignore list.
+// Adding a pattern that is already present is a no-op.
 func (m *Manifest) AddIgnoredPattern(pattern string) {
 	m.EnsureDoctorState()
+	if slices.Contains(m.Doctor.IgnoredPatterns, pattern) {
+		return
+	}
 	m.Doctor.IgnoredPatterns = append(m.Doctor.IgnoredPatterns, pattern)
 	m.UpdatedAt = time.Now()
+}
+
+// RemoveIgnoredPattern removes a glob pattern from the ignore list.
+// Returns true if the pattern was found and removed, false otherwise.
+func (m *Manifest) RemoveIgnoredPattern(pattern string) bool {
+	if m.Doctor == nil {
+		return false
+	}
+	for i, existing := range m.Doctor.IgnoredPatterns {
+		if existing == pattern {
+			m.Doctor.IgnoredPatterns = append(m.Doctor.IgnoredPatterns[:i], m.Doctor.IgnoredPatterns[i+1:]...)
+			m.UpdatedAt = time.Now()
+			return true
+		}
+	}
+	return false
 }
 
 // hashString computes SHA256 hash of a string.

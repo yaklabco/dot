@@ -8,6 +8,9 @@ import (
 	"github.com/yaklabco/dot/internal/manifest"
 )
 
+// IgnoredLink describes a symlink the user acknowledged and wants doctor to ignore.
+type IgnoredLink = manifest.IgnoredLink
+
 // IgnoreLink adds a symlink to the ignore list.
 func (s *DoctorService) IgnoreLink(ctx context.Context, linkPath, reason string) error {
 	targetPath, err := s.getTargetPath()
@@ -51,6 +54,28 @@ func (s *DoctorService) IgnorePattern(ctx context.Context, pattern string) error
 	m.AddIgnoredPattern(pattern)
 
 	s.logger.Info(ctx, "ignored_pattern", "pattern", pattern)
+
+	return s.manifestSvc.Save(ctx, targetPath, m)
+}
+
+// UnignorePattern removes a glob pattern from the ignore list.
+func (s *DoctorService) UnignorePattern(ctx context.Context, pattern string) error {
+	targetPath, err := s.getTargetPath()
+	if err != nil {
+		return err
+	}
+
+	manifestResult := s.manifestSvc.Load(ctx, targetPath)
+	if !manifestResult.IsOk() {
+		return manifestResult.UnwrapErr()
+	}
+	m := manifestResult.Unwrap()
+
+	if !m.RemoveIgnoredPattern(pattern) {
+		return fmt.Errorf("pattern not in ignore list: %s", pattern)
+	}
+
+	s.logger.Info(ctx, "unignored_pattern", "pattern", pattern)
 
 	return s.manifestSvc.Save(ctx, targetPath, m)
 }

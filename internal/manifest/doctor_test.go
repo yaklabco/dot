@@ -91,3 +91,35 @@ func TestManifest_DoctorState_MultipleOperations(t *testing.T) {
 	assert.Len(t, m.Doctor.IgnoredLinks, 3)
 	assert.True(t, m.UpdatedAt.After(oldTime))
 }
+
+func TestManifest_AddIgnoredPattern_Idempotent(t *testing.T) {
+	m := New()
+
+	m.AddIgnoredPattern("Code/*")
+	m.AddIgnoredPattern("Code/*")
+
+	assert.Equal(t, []string{"Code/*"}, m.Doctor.IgnoredPatterns)
+}
+
+func TestManifest_RemoveIgnoredPattern(t *testing.T) {
+	m := New()
+	m.AddIgnoredPattern("Code/*")
+	m.AddIgnoredPattern("Bootstrap/*")
+
+	assert.True(t, m.RemoveIgnoredPattern("Code/*"))
+	assert.Equal(t, []string{"Bootstrap/*"}, m.Doctor.IgnoredPatterns)
+
+	assert.False(t, m.RemoveIgnoredPattern("Code/*"))
+	assert.False(t, m.RemoveIgnoredPattern("never-added/*"))
+}
+
+func TestManifest_AddIgnoredLink_AfterPartialDoctorState(t *testing.T) {
+	// Simulates a manifest loaded from JSON where doctor state exists with
+	// patterns but ignored_links was absent (nil map after unmarshal).
+	m := New()
+	m.Doctor = &DoctorState{IgnoredPatterns: []string{"Code/*"}}
+
+	m.AddIgnoredLink(".nix-profile", "/nix/store/abc", "nix managed")
+
+	assert.Len(t, m.Doctor.IgnoredLinks, 1)
+}

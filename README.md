@@ -372,6 +372,12 @@ dot doctor -v
 
 # JSON output for scripting
 dot doctor --format json
+
+# Manage the orphan ignore list without interactive triage
+dot doctor ignore .nix-profile --reason "nix managed"
+dot doctor ignore --pattern "Code/*"
+dot doctor unignore --pattern "Code/*"
+dot doctor ignores
 ```
 
 Exit codes:

@@ -244,6 +244,32 @@ func (c *Client) Triage(ctx context.Context, scanCfg ScanConfig, opts TriageOpti
 	return c.doctorSvc.Triage(ctx, scanCfg, opts)
 }
 
+// DoctorIgnoreLink adds a target-relative symlink path to the doctor ignore list.
+func (c *Client) DoctorIgnoreLink(ctx context.Context, linkPath, reason string) error {
+	return c.doctorSvc.IgnoreLink(ctx, linkPath, reason)
+}
+
+// DoctorIgnorePattern adds a glob pattern to the doctor ignore list.
+func (c *Client) DoctorIgnorePattern(ctx context.Context, pattern string) error {
+	return c.doctorSvc.IgnorePattern(ctx, pattern)
+}
+
+// DoctorUnignoreLink removes a symlink path from the doctor ignore list.
+func (c *Client) DoctorUnignoreLink(ctx context.Context, linkPath string) error {
+	return c.doctorSvc.UnignoreLink(ctx, linkPath)
+}
+
+// DoctorUnignorePattern removes a glob pattern from the doctor ignore list.
+func (c *Client) DoctorUnignorePattern(ctx context.Context, pattern string) error {
+	return c.doctorSvc.UnignorePattern(ctx, pattern)
+}
+
+// DoctorListIgnored returns the doctor ignore list: ignored links keyed by
+// target-relative path, and ignored glob patterns.
+func (c *Client) DoctorListIgnored(ctx context.Context) (map[string]IgnoredLink, []string, error) {
+	return c.doctorSvc.ListIgnored(ctx)
+}
+
 // Clone clones a dotfiles repository and installs packages.
 //
 // Workflow:
