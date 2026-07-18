@@ -40,6 +40,24 @@ Users concerned about this vulnerability in codespace environments can:
 - https://pkg.go.dev/vuln/GO-2024-3295
 - Issue tracking: [To be created if needed]
 
+### GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained
+
+**Status**: Accepted, not applicable  
+**Severity**: None (for this project)  
+**Affected Package**: `golang.org/x/crypto/openpgp` (any version)  
+**Description**: The advisory marks the `openpgp` package inside the `golang.org/x/crypto` module as unmaintained and unsafe by design. It applies to every version of the module, so no upgrade can clear it.
+
+**Impact Assessment**:
+- **Not imported**: `dot` does not import `golang.org/x/crypto/openpgp` anywhere; `go mod why golang.org/x/crypto/openpgp` reports "main module does not need package"
+- **Module-level only**: `golang.org/x/crypto` is required transitively (SSH support in go-git); only non-openpgp packages are used
+- **govulncheck agrees**: symbol-level analysis reports no calls into the affected package; only the module-level finding triggers
+
+**Resolution Plan**:
+- Re-evaluate if a dependency starts importing `openpgp`; the maintained replacement is `github.com/ProtonMail/go-crypto/openpgp`
+
+**References**:
+- https://pkg.go.dev/vuln/GO-2026-5932
+
 ## Security Best Practices
 
 When using `dot`:
