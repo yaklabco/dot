@@ -230,13 +230,13 @@ func DefaultExtended() *ExtendedConfig {
 		Directories: DirectoriesConfig{
 			Package:  ".",
 			Target:   homeDir,
-			Manifest: getXDGDataPath("dot/manifest"),
+			Manifest: GetXDGDataPath("dot/manifest"),
 		},
 		Logging: LoggingConfig{
 			Level:       "INFO",
 			Format:      "text",
 			Destination: "stderr",
-			File:        getXDGStatePath("dot/dot.log"),
+			File:        GetXDGStatePath("dot/dot.log"),
 		},
 		Symlinks: SymlinksConfig{
 			Mode:         "relative",
@@ -532,8 +532,8 @@ func (c *ExtendedConfig) validateNetwork() error {
 	return nil
 }
 
-// getXDGDataPath returns XDG data directory path.
-func getXDGDataPath(suffix string) string {
+// GetXDGDataPath returns XDG data directory path.
+func GetXDGDataPath(suffix string) string {
 	if dataHome := os.Getenv("XDG_DATA_HOME"); dataHome != "" {
 		return filepath.Join(dataHome, suffix)
 	}
@@ -544,8 +544,8 @@ func getXDGDataPath(suffix string) string {
 	return filepath.Join(homeDir, ".local", "share", suffix)
 }
 
-// getXDGStatePath returns XDG state directory path.
-func getXDGStatePath(suffix string) string {
+// GetXDGStatePath returns XDG state directory path.
+func GetXDGStatePath(suffix string) string {
 	if stateHome := os.Getenv("XDG_STATE_HOME"); stateHome != "" {
 		return filepath.Join(stateHome, suffix)
 	}

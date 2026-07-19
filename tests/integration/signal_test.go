@@ -122,6 +122,7 @@ func TestSignalHandling(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "go", "run", "../../cmd/dot", "manage", "test-pkg",
 			"--dir", packageDir,
 			"--target", targetDir)
+		isolateStateDir(t, cmd)
 
 		output, err := cmd.CombinedOutput()
 

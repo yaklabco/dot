@@ -120,3 +120,43 @@ func (p *Prompter) Select(message string, options []string) (int, error) {
 
 	return selection, nil
 }
+
+// SelectWithDefault prompts the user to choose from a list of options with a default.
+// Returns the index of the selected option (0-based).
+// On empty input or EOF, returns defaultIdx.
+func (p *Prompter) SelectWithDefault(message string, options []string, defaultIdx int) (int, error) {
+	fmt.Fprintln(p.out, message)
+	for i, opt := range options {
+		fmt.Fprintf(p.out, "  %d) %s\n", i+1, opt)
+	}
+	fmt.Fprintf(p.out, "Select [1-%d] (default: %d): ", len(options), defaultIdx+1)
+
+	scanner := bufio.NewScanner(p.in)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return -1, fmt.Errorf("read input: %w", err)
+		}
+		// EOF - return default
+		return defaultIdx, nil
+	}
+
+	answer := strings.TrimSpace(scanner.Text())
+
+	// Empty input returns default
+	if answer == "" {
+		return defaultIdx, nil
+	}
+
+	var selection int
+	if _, err := fmt.Sscanf(answer, "%d", &selection); err != nil {
+		return -1, nil
+	}
+
+	// Convert to 0-based index and validate range
+	selection--
+	if selection < 0 || selection >= len(options) {
+		return -1, nil
+	}
+
+	return selection, nil
+}
