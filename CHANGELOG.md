@@ -39,6 +39,28 @@
 * fix lint, format, and vulnerability check failures ([9d5ab37](https://github.com/yaklabco/dot/commit/9d5ab37c70a2ba826bc37b256103e37716b566c6))
 * set 1-day retention on build artifacts ([af7dc8e](https://github.com/yaklabco/dot/commit/af7dc8ef7b10ecb3b15f0fecf015c1218ac5250a))
 
+## [0.7.0](https://github.com/yaklabco/dot/compare/v0.6.6...v0.7.0) (2026-07-28)
+
+
+### Features
+
+* **bootstrap:** profile inheritance and hostname-to-profile machine mapping ([#87](https://github.com/yaklabco/dot/issues/87)) ([e6a36e5](https://github.com/yaklabco/dot/commit/e6a36e5c20cc5f83fcfad7211abfadae828cccf0))
+* **nix:** package the CLI as a flake; expand config paths; layout docs parity ([#89](https://github.com/yaklabco/dot/issues/89)) ([2b37b02](https://github.com/yaklabco/dot/commit/2b37b0251864102d6c43a4fb0cdfe191f219257b)), closes [#80](https://github.com/yaklabco/dot/issues/80)
+* **planner:** reject duplicate target paths across packages ([#91](https://github.com/yaklabco/dot/issues/91)) ([bb6c0fe](https://github.com/yaklabco/dot/commit/bb6c0fe153240d8eb65ef43f6cb402476c8576ff))
+* **sync:** add dot sync for multi-machine reconciliation ([#88](https://github.com/yaklabco/dot/issues/88)) ([f8537f2](https://github.com/yaklabco/dot/commit/f8537f2ef1937db3261f54af7e61b7b7ef6d6755))
+
+
+### Bug Fixes
+
+* **clone:** apply the cloned repository dot config to the same-invocation install ([#93](https://github.com/yaklabco/dot/issues/93)) ([cbbe8df](https://github.com/yaklabco/dot/commit/cbbe8df5052f3e96fff656c9b1d966fd6782b9de))
+* **version:** report ldflags or module version instead of unknown ([#90](https://github.com/yaklabco/dot/issues/90)) ([aea9693](https://github.com/yaklabco/dot/commit/aea9693eacbe40bd6d8101e23ea6ce43568abdf3)), closes [#85](https://github.com/yaklabco/dot/issues/85)
+
+
+### Continuous Integration
+
+* make the release workflow triggerable and its lint gate deterministic ([#82](https://github.com/yaklabco/dot/issues/82)) ([0808d5c](https://github.com/yaklabco/dot/commit/0808d5ca9fa609764592ee6da0a01349f60e0e3e))
+* **release:** let feature commits bump the minor version before 1.0 ([#92](https://github.com/yaklabco/dot/issues/92)) ([d2fc6e9](https://github.com/yaklabco/dot/commit/d2fc6e977888f9aeba664e97bb7952b14d9f7f44))
+
 ## [0.6.6](https://github.com/yaklabco/dot/compare/v0.6.5...v0.6.6) (2026-07-27)
 
 
