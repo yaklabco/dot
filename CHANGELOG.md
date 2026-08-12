@@ -39,6 +39,13 @@
 * fix lint, format, and vulnerability check failures ([9d5ab37](https://github.com/yaklabco/dot/commit/9d5ab37c70a2ba826bc37b256103e37716b566c6))
 * set 1-day retention on build artifacts ([af7dc8e](https://github.com/yaklabco/dot/commit/af7dc8ef7b10ecb3b15f0fecf015c1218ac5250a))
 
+## [0.7.1](https://github.com/yaklabco/dot/compare/v0.7.0...v0.7.1) (2026-08-12)
+
+
+### Build System
+
+* **release:** publish the Homebrew formula to the org tap ([#99](https://github.com/yaklabco/dot/issues/99)) ([91ed8a2](https://github.com/yaklabco/dot/commit/91ed8a2b9ff7d572c9ec08787d090039a5400d2d))
+
 ## [0.7.0](https://github.com/yaklabco/dot/compare/v0.6.6...v0.7.0) (2026-08-12)
 
 
